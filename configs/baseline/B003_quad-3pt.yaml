@@ -1,0 +1,10 @@
+exp_id: B003_quad-3pt
+plan_id: "001"
+type: baseline
+baseline_id: B002_linear-3pt
+window: 3
+degree: 2
+t_target: 80
+per_axis: null
+k: 5
+seed: 42

@@ -1,0 +1,9 @@
+[2026-05-10T01:04:38+09:00] start exp_id=B003_quad-3pt, config=/workspace/daycon-muflight/configs/baseline/B003_quad-3pt.yaml
+[2026-05-10T01:04:38+09:00] load train + labels
+[2026-05-10T01:04:39+09:00] n_train=10000
+[2026-05-10T01:04:39+09:00] fold 0: mean_eucl=0.02116 per_axis_mae=[0.011, 0.0116, 0.009]
+[2026-05-10T01:04:39+09:00] fold 1: mean_eucl=0.01894 per_axis_mae=[0.0098, 0.0105, 0.0078]
+[2026-05-10T01:04:39+09:00] fold 2: mean_eucl=0.01890 per_axis_mae=[0.0098, 0.0103, 0.0081]
+[2026-05-10T01:04:39+09:00] fold 3: mean_eucl=0.02096 per_axis_mae=[0.0109, 0.0114, 0.0089]
+[2026-05-10T01:04:39+09:00] fold 4: mean_eucl=0.02092 per_axis_mae=[0.011, 0.0113, 0.0089]
+[2026-05-10T01:04:39+09:00] CV mean_eucl=0.02017 ± 0.00103 | OOF mean_eucl=0.02017
