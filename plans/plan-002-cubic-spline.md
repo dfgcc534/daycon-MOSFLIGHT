@@ -44,10 +44,10 @@ exp_ids:
 
 | # | type | spec section | status |
 |---|---|---|---|
-| c1 | code | `src/baselines/cubic_spline.py` — `predict_cspline(X, window, bc_type, t_target)`, `predict_cspline_per_axis(X, configs)`, `tune_per_axis_cspline(X, y, grid, k=5)`, `predict_smoothing_spline(X, s_per_axis, t_target)`, `tune_per_axis_smoothing(X, y, s_grid, k=5)`. spec @ §4 | [TODO] |
-| c2 | code | `src/run.py` 확장 — cfg `method` 키 도입 (default `polyfit` ← 후방호환), `cspline` / `smoothing_spline` 분기. spec @ §4.4 | [TODO] |
-| c3 | test | `tests/test_cubic_spline.py` — synthetic linear/quadratic 정확 외삽, NaN/Inf 부재, B001-동등 input 에서 finite output. spec @ §4.5 | [TODO] |
-| G0 | gate | `pytest -q tests/` exit 0; `python -c "from src.baselines.cubic_spline import predict_cspline; print('ok')"` 성공; 기존 B001~B004 backward-compat smoke (configs 그대로 재실행 1회 → registry 동일 cv_mean_eucl) | [TODO] |
+| c1 | code | `src/baselines/cubic_spline.py` — `predict_cspline(X, window, bc_type, t_target)`, `predict_cspline_per_axis(X, configs)`, `tune_per_axis_cspline(X, y, grid, k=5)`, `predict_smoothing_spline(X, s_per_axis, t_target)`, `tune_per_axis_smoothing(X, y, s_grid, k=5)`. spec @ §4 | [DONE] 7ce80ab |
+| c2 | code | `src/run.py` 확장 — cfg `method` 키 도입 (default `polyfit` ← 후방호환), `cspline` / `smoothing_spline` 분기. spec @ §4.4 | [DONE] b92df74 |
+| c3 | test | `tests/test_cubic_spline.py` — synthetic linear/quadratic 정확 외삽, NaN/Inf 부재, B001-동등 input 에서 finite output. spec @ §4.5 | [DONE] d3a7579 |
+| G0 | gate | `pytest -q tests/` exit 0; `python -c "from src.baselines.cubic_spline import predict_cspline; print('ok')"` 성공; 기존 B001~B004 backward-compat smoke (configs 그대로 재실행 1회 → registry 동일 cv_mean_eucl) | [DONE] d3a7579 (smoke: B001~B004 cv_mean diff < 1e-4) |
 | c4 | exp S001 | `configs/baseline/S001_cspline-natural-full.yaml` + run + `runs/baseline/S001_cspline-natural-full/{summary,history,run.log,config.snapshot}` + registry append. spec @ §5 | [TODO] |
 | c5 | exp S002 | `configs/baseline/S002_cspline-notaknot-full.yaml` + run + registry. spec @ §5 | [TODO] |
 | G1 | gate | S001, S002 summary.json + registry 행 존재; cv_mean_eucl 유한 (NaN/Inf 0); 두 exp 모두 mean_eucl 기록 | [TODO] |
