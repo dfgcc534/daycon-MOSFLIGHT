@@ -1,0 +1,15 @@
+[2026-05-10T04:48:18+09:00] start exp_id=S004_smoothing-spline-tuned, config=/workspace/daycon-muflight/configs/baseline/S004_smoothing-spline-tuned.yaml
+[2026-05-10T04:48:18+09:00] load train + labels
+[2026-05-10T04:48:19+09:00] n_train=10000
+[2026-05-10T04:48:22+09:00] fold 0: chosen per-axis=[0.0001, 0.0001, 0.0001]
+[2026-05-10T04:48:22+09:00] fold 0: mean_eucl=0.03452 per_axis_mae=[0.0198, 0.0185, 0.0122]
+[2026-05-10T04:48:25+09:00] fold 1: chosen per-axis=[0.0001, 0.0001, 0.0001]
+[2026-05-10T04:48:25+09:00] fold 1: mean_eucl=0.02974 per_axis_mae=[0.0166, 0.0166, 0.0104]
+[2026-05-10T04:48:28+09:00] fold 2: chosen per-axis=[0.001, 0.0001, 0.0001]
+[2026-05-10T04:48:28+09:00] fold 2: mean_eucl=0.03139 per_axis_mae=[0.0183, 0.0167, 0.011]
+[2026-05-10T04:48:32+09:00] fold 3: chosen per-axis=[0.0001, 0.0001, 0.0001]
+[2026-05-10T04:48:32+09:00] fold 3: mean_eucl=0.03758 per_axis_mae=[0.0226, 0.0178, 0.0122]
+[2026-05-10T04:48:35+09:00] fold 4: chosen per-axis=[0.0001, 0.0001, 0.0001]
+[2026-05-10T04:48:35+09:00] fold 4: mean_eucl=0.03284 per_axis_mae=[0.018, 0.0181, 0.0119]
+[2026-05-10T04:48:35+09:00] CV mean_eucl=0.03322 ± 0.00270 | OOF mean_eucl=0.03322
+[2026-05-10T04:48:39+09:00] final tune: chosen s per-axis=[0.0001, 0.0001, 0.0001]
