@@ -31,7 +31,7 @@ exp_ids:
 
 ### G-gates
 
-- G0: STAGE 0 인프라 commit chain 완료                    [TODO]
+- G0: STAGE 0 인프라 commit chain 완료                    [DONE @ 5c85edc]
 - G1: STAGE 1 B001 (linear-2pt) 결과 확보 + EDA 재현        [TODO]
 - G2: STAGE 2 B002, B003 결과 확보                          [TODO]
 - G3: STAGE 3 B004 per-axis grid 결과 확보                  [TODO]
@@ -41,11 +41,11 @@ exp_ids:
 
 | # | type | spec section | status |
 |---|---|---|---|
-| c1 | code | `src/io.py` — `load_sample(id, split)`, `load_labels()`, `kfold_split(seed=42, k=5)`. spec @ §4 | [TODO] |
-| c2 | code | `src/eval.py` — `eucl_per_sample`, `mean_eucl`, `per_axis_mae`, `hit_rate(radii)`. spec @ §3.3 | [TODO] |
-| c3 | code | `src/baselines/window_polyfit.py` — `predict(X, window, degree, t_target=80)` vectorized. spec @ §5 | [TODO] |
-| c4 | test | `tests/test_io.py` + `tests/test_eval.py` + `tests/test_window_polyfit.py` (synthetic). spec @ §4, §3.3, §5 | [TODO] |
-| G0 | gate | `pytest tests/` green, `src.eval.mean_eucl` 와 `src.baselines.window_polyfit.predict` import OK | [TODO] |
+| c1 | code | `src/io.py` — `load_sample(id, split)`, `load_labels()`, `kfold_split(seed=42, k=5)`. spec @ §4 | [DONE @ 144d34a] |
+| c2 | code | `src/eval.py` — `eucl_per_sample`, `mean_eucl`, `per_axis_mae`, `hit_rate(radii)`. spec @ §3.3 | [DONE @ 63ade64] |
+| c3 | code | `src/baselines/window_polyfit.py` — `predict(X, window, degree, t_target=80)` vectorized. spec @ §5 | [DONE @ 54b96d1] |
+| c4 | test | `tests/test_io.py` + `tests/test_eval.py` + `tests/test_window_polyfit.py` (synthetic). spec @ §4, §3.3, §5 | [DONE @ 5c85edc] |
+| G0 | gate | `pytest tests/` green, `src.eval.mean_eucl` 와 `src.baselines.window_polyfit.predict` import OK | [DONE @ 5c85edc] |
 | c5 | exp B001 | `configs/baseline/B001_linear-2pt.yaml` + run (5-fold) + `runs/baseline/B001_linear-2pt/{summary,history,run.log,config.snapshot}` + registry. spec @ §6 | [TODO] |
 | G1 | gate | B001 mean_eucl ∈ [0.010, 0.020]; 벗어나면 severe `eda_mismatch` | [TODO] |
 | c6 | exp B002 | `configs/baseline/B002_linear-3pt.yaml` + run + registry. spec @ §6 | [TODO] |
