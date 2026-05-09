@@ -1,0 +1,9 @@
+[2026-05-10T04:42:13+09:00] start exp_id=S001_cspline-natural-full, config=/workspace/daycon-muflight/configs/baseline/S001_cspline-natural-full.yaml
+[2026-05-10T04:42:13+09:00] load train + labels
+[2026-05-10T04:42:14+09:00] n_train=10000
+[2026-05-10T04:42:15+09:00] fold 0: mean_eucl=0.01836 per_axis_mae=[0.0099, 0.0101, 0.0072]
+[2026-05-10T04:42:16+09:00] fold 1: mean_eucl=0.01631 per_axis_mae=[0.0094, 0.0089, 0.0058]
+[2026-05-10T04:42:17+09:00] fold 2: mean_eucl=0.01699 per_axis_mae=[0.0092, 0.0093, 0.0068]
+[2026-05-10T04:42:18+09:00] fold 3: mean_eucl=0.01788 per_axis_mae=[0.01, 0.0098, 0.0068]
+[2026-05-10T04:42:18+09:00] fold 4: mean_eucl=0.01756 per_axis_mae=[0.0096, 0.0099, 0.0065]
+[2026-05-10T04:42:18+09:00] CV mean_eucl=0.01742 ± 0.00071 | OOF mean_eucl=0.01742
