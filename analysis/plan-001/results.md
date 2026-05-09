@@ -95,9 +95,24 @@ closed-form (§7.1, §7.2) → neural (§7.3) → ensemble (§7.7) 순으로 진
 
 ## 8. Open questions for local
 
-- **laser 반경 추정**: 단일 leaderboard probe (B001 submission) 로 실측 점수 ↔ 추정 반경 매핑 가능. 5 회/일 한도라 1 회로 정보가 큼.
+- **laser 반경 추정**: ✅ 1 회 probe 완료 (B001, LB 0.60). 노트북 `R_HIT=0.01` 과 정합. 추가 probe (예: 의도적 perturbation 으로 반경 분해능 측정) 는 효용 대비 cost 검토 필요.
 - **외부 데이터 활용 의향**: notes §6.2 에 ✅ 허용 — small-target trajectory 공개 데이터 (드론, 곤충) 의 noise floor 가 비슷하면 transfer learning seed 가능.
 - **domain (scene) 추정**: 시퀀스 통계로 mixture 분류 시도할지.
+
+## 10. LB calibration (B001 제출 결과)
+
+| 지표 | 값 |
+|---|---|
+| OOF cv_mean_eucl | 0.01294 m |
+| OOF median_eucl | ~0.0086 m |
+| OOF hit@5cm | 0.957 |
+| **public LB** | **0.60** |
+| 추정 metric | hit rate @ 1cm |
+| 추정 vs 실측 | lognormal 추정 0.55-0.60 → 실측 0.60 |
+
+→ OOF 통계 → LB 환산식 (informal): `LB ≈ Φ((ln(0.01) − ln(median_eucl)) / σ_log)`. 이후 plan 들은 OOF mean_eucl 만 알아도 LB 추정 가능.
+
+→ B001 의 hit@5cm = 0.957 vs LB hit@1cm = 0.60. 즉 5cm 반경은 거의 saturate, 1cm 가 진짜 분해능 영역. 다음 plan 의 ROI 는 **분포 좌측 (median 이하 영역) 을 1cm 안으로 더 밀어넣기** 에 집중해야 함 — outlier (p95 > 4cm) 잡는 것은 LB 영향이 작음.
 
 ## 9. references
 

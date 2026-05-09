@@ -10,6 +10,9 @@ exp_ids_completed:
 exp_ids_skipped: []
 best_exp_id: B001_linear-2pt
 submission_path: runs/baseline/B001_linear-2pt/submission.csv
+lb_score_public: 0.60
+lb_metric: hit_rate_at_1cm
+lb_submitted_at: 2026-05-10 (Asia/Seoul)
 ---
 
 # plan-001 results — polyfit baseline
@@ -89,6 +92,19 @@ submission_path: runs/baseline/B001_linear-2pt/submission.csv
 | C. floor 무회귀 | best ≤ 0.013 | ✅ 0.01294 |
 | D. 제출 가능 | submission.csv 스키마 100 % 일치 | ✅ rows=10000, cols=[id,x,y,z], NaN=0 |
 
+## 리더보드 (LB) 결과
+
+| 항목 | 값 |
+|---|---|
+| submission | `runs/baseline/B001_linear-2pt/submission.csv` |
+| 제출일 | 2026-05-10 (KST) |
+| **public LB score** | **0.60** |
+| LB metric | hit rate @ 1cm 반경 (PB_0.6822 코드공유 노트북의 `R_HIT=0.01` 와 일관) |
+| 사전 추정 (lognormal 외삽) | 0.55 ~ 0.60 → 실측 상단 일치 |
+| 참고: PB_0.6822 노트북 | 0.6822 (Frenet+Attn-GRU+잔차MLP). gap = +0.082 |
+
+→ closed-form floor 만으로 공유 노트북 대비 88% 수준. 신경망/물리 기반 정교화의 marginal gain 영역이 좁다는 강한 신호 — 이후 plan 들은 hit@1cm 기준선 0.60 을 명시적으로 넘는 design 이 필요.
+
 ## 다음 plan 후보 (enumeration only — 우선순위 미정)
 
 1. **가중 polyfit / EWMA**: window 를 늘리되 최근 점에 지수 감쇠 가중. 노이즈 평균과 staleness 의 trade-off 를 hyperparameter 로 해소.
@@ -101,8 +117,8 @@ submission_path: runs/baseline/B001_linear-2pt/submission.csv
 
 ## 한계 / caveats
 
-- 5-fold CV 만 사용 — leaderboard probing 결과 없이 closed-form floor 만 확립.
-- Hit-rate 반경 비공개 — 4 후보 반경 분포만 보고. 실제 점수는 별도 plan.
+- 5-fold CV + 1 회 LB probe (B001 제출) — 추가 probing 없이 closed-form floor 확립.
+- Hit-rate 반경: 노트북 공유작 기준 1cm 으로 추정 (`R_HIT=0.01`). 공식 비공개라 실제 반경과 일치 여부는 추가 probe 필요.
 - B004 per-axis tuning 의 결과가 B001 과 동일한 것은 *현 grid 한정* — 가중 polyfit 같은 다른 hyperparameter 축은 미탐색.
 
 ## 참조
