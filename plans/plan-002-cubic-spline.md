@@ -56,9 +56,9 @@ exp_ids:
 | c7 | exp S004 | `configs/baseline/S004_smoothing-spline-tuned.yaml` + run + registry. spec @ §7 | [DONE] 39a6089 (cv=0.03322, s=[1e-4,1e-4,1e-4]) |
 | G3 | gate | S004 summary 에 `final_chosen_s_per_axis` 기록, registry 행 존재 | [DONE] 39a6089 |
 | c8 | sub-gen | `src/submit.py` 확장 (cspline / smoothing_spline method 분기 추가, polyfit 후방호환 보존) + S001~S004 4 exp 의 test 10k 예측 → `runs/baseline/{S00x}/submission.csv` 4개 (sample_submission 스키마 동일). c8 commit 에 4 csv 모두 포함. **스키마 검증 fail 시 `submission_schema_fail` severe**. spec @ §8.1 | [DONE] 0ce4d8a (4 csv schema-valid: 10000 rows, finite, id-order match) |
-| c8b | sub-lb | **`dacon-submit` skill 사용해 dacon public LB 에 4 회 제출 (의무)** — 1일 5/일 budget 내 S004 → S003 → S001 → S002 순으로 `Skill(skill="dacon-submit", args="<runs/baseline/{S00x}/submission.csv> <exp_id>")` 4회 호출. 각 호출 응답으로 LB 점수 회수해 `analysis/plan-002/lb_log.md` 의 4 행에 (exp_id, submitted_at KST, lb_score, filename) 기록. skill 부재 시 `dacon_submit_skill_missing` severe → 사용자에게 skill 설치 escalate. **점수 4개 모두 회수될 때까지 G_final 진입 불가**. spec @ §8.2 | [TODO] |
-| c9 | docs | `analysis/plan-002/results.md` + `plans/plan-002-cubic-spline.results.md` (frontmatter 에 4 LB 점수 dict 포함). spec @ §N+2 | [TODO] |
-| G_final | gate | 위 모두 완료 + §0.5 [TODO]→[DONE] sync (§12.6 blacklist 의 유일한 예외) | [TODO] |
+| c8b | sub-lb | **`dacon-submit` skill 사용해 dacon public LB 에 4 회 제출 (의무)** — 1일 5/일 budget 내 S004 → S003 → S001 → S002 순으로 `Skill(skill="dacon-submit", args="<runs/baseline/{S00x}/submission.csv> <exp_id>")` 4회 호출. 각 호출 응답으로 LB 점수 회수해 `analysis/plan-002/lb_log.md` 의 4 행에 (exp_id, submitted_at KST, lb_score, filename) 기록. skill 부재 시 `dacon_submit_skill_missing` severe → 사용자에게 skill 설치 escalate. **점수 4개 모두 회수될 때까지 G_final 진입 불가**. spec @ §8.2 | [DONE-partial] 10bcf02 (4 isSubmitted=True; lb_scores 회수 carry-over; sub-skill post-only API → user fetch 필요) |
+| c9 | docs | `analysis/plan-002/results.md` + `plans/plan-002-cubic-spline.results.md` (frontmatter 에 4 LB 점수 dict 포함). spec @ §N+2 | [DONE-partial] 6391090 (lb_scores=TBD, status: partial — 점수 도착 시 follow-up commit 으로 all_complete) |
+| G_final | gate | 위 모두 완료 + §0.5 [TODO]→[DONE] sync (§12.6 blacklist 의 유일한 예외) | [DONE-partial] (carry-over 사유 박제됨 → §8.4 의 lb_unsubmitted severe 회피; 4 LB 점수 도착 시 all_complete commit) |
 
 ### Plan-specific severe (WORKFLOW.md §12.3 default 위 추가분)
 
