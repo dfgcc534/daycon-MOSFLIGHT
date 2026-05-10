@@ -11,6 +11,9 @@ Per plan-002 §8.1, dispatches on cfg["method"] (default "polyfit"):
   - smoothing_spline: predict_smoothing_spline; tune path uses
     summary["final_chosen_s_per_axis"].
 
+Per plan-003 §8.2, additional dispatch:
+  - gru-residual: load 5 fold ckpts → per-ckpt predict (baseline + delta) → ensemble mean.
+
 CLI: python -m src.submit            # auto-pick best
      python -m src.submit B001       # use specific exp_id
 """
@@ -29,6 +32,7 @@ from src.baselines.cubic_spline import (
     predict_cspline_per_axis,
     predict_smoothing_spline,
 )
+from src.baselines.linear_extrapolate import ema_extrapolate, linear_extrap
 from src.baselines.window_polyfit import predict, predict_per_axis
 from src.io import TIMESTEPS_MS, load_all_samples
 
@@ -59,6 +63,8 @@ def _summary_metric(run_dir: Path) -> tuple[float, int, str]:
             w_key = max(int(c[0]) for c in cfg["per_axis"])
         else:
             w_key = int(cfg.get("window", 11))
+    elif method == "gru-residual":
+        w_key = 11  # gru-residual: full-window 가정 (key 정렬 무관)
     else:  # smoothing_spline
         w_key = 11  # full-window
     return float(s["cv_mean_eucl"]), w_key, s["exp_id"]
@@ -123,10 +129,76 @@ def predict_with_exp(exp_id: str) -> tuple[Path, np.ndarray, list[str]]:
                 t_target=t_target, timesteps=TIMESTEPS_MS,
                 s_grid=cfg.get("s_grid"),
             )
+
+    elif method == "gru-residual":
+        pred = _predict_gru_residual(X_test, cfg, run_dir, t_target)
+
     else:
         raise SystemExit(f"unknown method {method!r}")
 
     return run_dir, pred, test_ids
+
+
+def _predict_gru_residual(
+    X_test: np.ndarray, cfg: dict, run_dir: Path, t_target: int
+) -> np.ndarray:
+    """5 fold ckpt ensemble: baseline + mean(model_f(feature(X))).
+
+    Per plan-003 §8.2.
+    """
+    # local imports to avoid torch dependency on closed-form-only paths
+    import torch
+
+    from src.models.residual_gru import ResidualGRU
+    from src.training.train_residual import make_feature_fn
+
+    feature_components = list(cfg.get("feature_components", ["relative"]))
+    wingbeat_n_bins = int(cfg.get("wingbeat_n_bins", 3))
+    feature_fn = make_feature_fn(feature_components, wingbeat_n_bins=wingbeat_n_bins)
+
+    bt = cfg.get("baseline_type", "linear")
+    if bt == "linear":
+        baseline_test = linear_extrap(
+            X_test, t_target_ms=t_target, timesteps_ms=TIMESTEPS_MS
+        )
+    elif bt == "ema":
+        alpha = float(cfg.get("ema_alpha", 0.5))
+        baseline_test = ema_extrapolate(
+            X_test, alpha=alpha, t_target_ms=t_target, timesteps_ms=TIMESTEPS_MS
+        )
+    else:
+        raise SystemExit(f"unknown baseline_type {bt!r}")
+
+    feat_test = feature_fn(X_test).astype(np.float32, copy=False)
+    feat_dim = feat_test.shape[-1]
+    expected_dim = int(cfg["model"]["input_dim"])
+    if feat_dim != expected_dim:
+        raise SystemExit(
+            f"feature_fn dim {feat_dim} != cfg model.input_dim {expected_dim} for "
+            f"{cfg.get('exp_id')}"
+        )
+
+    device = "cuda:0" if torch.cuda.is_available() else "cpu"
+    ckpt_paths = sorted((run_dir / "ckpt").glob("fold*.pt"))
+    if not ckpt_paths:
+        raise SystemExit(f"no fold ckpts in {run_dir / 'ckpt'}")
+
+    fold_deltas: list[np.ndarray] = []
+    for ckpt_path in ckpt_paths:
+        state_dict = torch.load(ckpt_path, map_location=device, weights_only=True)
+        model = ResidualGRU(
+            input_dim=feat_dim,
+            hidden=int(cfg["model"]["hidden"]),
+            layers=int(cfg["model"]["layers"]),
+            dropout=float(cfg["model"]["dropout"]),
+        )
+        model.load_state_dict(state_dict)
+        model.to(device).eval()
+        with torch.no_grad():
+            delta = model(torch.from_numpy(feat_test).to(device)).cpu().numpy()
+        fold_deltas.append(delta)
+    delta_ensemble = np.mean(np.stack(fold_deltas, axis=0), axis=0)
+    return baseline_test + delta_ensemble
 
 
 def write_submission(run_dir: Path, pred: np.ndarray, test_ids: list[str]) -> Path:
