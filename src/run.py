@@ -12,6 +12,9 @@ CLI: python -m src.run configs/baseline/B001_linear-2pt.yaml
 Per plan-002 §4.4: cfg["method"] ∈ {"polyfit"(default), "cspline", "smoothing_spline"}
 dispatches to the corresponding baseline implementation. polyfit branch is
 backward-compatible (B001~B004 configs lack the `method` key and default to polyfit).
+
+Per plan-003 §4.5: cfg["method"] == "gru-residual" → 신규 helper
+`_train_and_predict_residual_fold` 가 fold 내부에서 train → ckpt 저장 → predict.
 """
 from __future__ import annotations
 
@@ -32,6 +35,7 @@ from src.baselines.cubic_spline import (
     tune_per_axis_cspline,
     tune_per_axis_smoothing,
 )
+from src.baselines.linear_extrapolate import ema_extrapolate, linear_extrap
 from src.baselines.window_polyfit import predict, predict_per_axis, tune_per_axis
 from src.eval import summarize
 from src.io import TIMESTEPS_MS, kfold_split, load_all_samples, load_labels
@@ -164,6 +168,109 @@ def _accumulate_fb(total: dict, partial: dict | None) -> None:
         total[key] = total.get(key, 0) + int(val)
 
 
+def _baseline_fn_from_cfg(cfg: dict):
+    """Return numpy callable: X (n,T,3) → pred (n,3) for residual baseline."""
+    bt = cfg.get("baseline_type", "linear")
+    t_target = int(cfg.get("t_target", 80))
+    if bt == "linear":
+        def fn(X: np.ndarray) -> np.ndarray:
+            return linear_extrap(X, t_target_ms=t_target, timesteps_ms=TIMESTEPS_MS)
+        return fn
+    if bt == "ema":
+        alpha = float(cfg.get("ema_alpha", 0.5))
+        def fn(X: np.ndarray) -> np.ndarray:
+            return ema_extrapolate(X, alpha=alpha, t_target_ms=t_target, timesteps_ms=TIMESTEPS_MS)
+        return fn
+    raise ValueError(f"unknown baseline_type {bt!r}")
+
+
+def _train_and_predict_residual_fold(
+    X_tr: np.ndarray,
+    y_tr: np.ndarray,
+    X_va: np.ndarray,
+    y_va: np.ndarray,
+    cfg: dict,
+    fold_idx: int,
+    run_dir: Path,
+) -> tuple[Path, np.ndarray, dict]:
+    """Train one fold of residual-GRU and emit (ckpt_path, val_pred, fold_info).
+
+    Per plan-003 §4.5.
+    """
+    # local import to avoid torch dependency on closed-form-only paths
+    import torch
+
+    from src.models.residual_gru import ResidualGRU
+    from src.training.train_residual import make_feature_fn, train_fold
+
+    feature_components = list(cfg.get("feature_components", ["relative"]))
+    wingbeat_n_bins = int(cfg.get("wingbeat_n_bins", 3))
+    feature_fn = make_feature_fn(feature_components, wingbeat_n_bins=wingbeat_n_bins)
+
+    baseline_fn = _baseline_fn_from_cfg(cfg)
+    baseline_train = baseline_fn(X_tr)
+    baseline_val = baseline_fn(X_va)
+
+    feat_dim = feature_fn(X_tr[:1]).shape[-1]
+    expected_dim = int(cfg["model"]["input_dim"])
+    if feat_dim != expected_dim:
+        raise ValueError(
+            f"feature_fn output dim {feat_dim} != cfg model.input_dim {expected_dim} "
+            f"for components {feature_components}"
+        )
+
+    model = ResidualGRU(
+        input_dim=feat_dim,
+        hidden=int(cfg["model"]["hidden"]),
+        layers=int(cfg["model"]["layers"]),
+        dropout=float(cfg["model"]["dropout"]),
+    )
+    base_seed = int(cfg.get("training", {}).get("seed", cfg.get("seed", 42)))
+    fold_seed = base_seed + fold_idx
+    device = "cuda:0" if torch.cuda.is_available() else "cpu"
+    epochs_cfg = int(cfg["training"].get("epochs", 100))
+    if device == "cpu" and epochs_cfg > 50:
+        epochs_cfg = 50  # decision-note: CPU fallback → epochs 50
+
+    info = train_fold(
+        model,
+        X_tr, y_tr, X_va, y_va,
+        baseline_train, baseline_val,
+        feature_fn,
+        loss_type=str(cfg.get("loss_type", "huber")),
+        lr=float(cfg["training"].get("lr", 1e-3)),
+        weight_decay=float(cfg["training"].get("weight_decay", 1e-4)),
+        batch=int(cfg["training"].get("batch", 64)),
+        epochs=epochs_cfg,
+        early_stop_patience=int(cfg["training"].get("early_stop_patience", 10)),
+        device=device,
+        seed=fold_seed,
+    )
+
+    ckpt_dir = run_dir / "ckpt"
+    ckpt_dir.mkdir(parents=True, exist_ok=True)
+    ckpt_path = ckpt_dir / f"fold{fold_idx}.pt"
+    torch.save(info["best_state_dict"], ckpt_path)
+
+    # predict on val (best weights already loaded inside train_fold)
+    model.eval()
+    with torch.no_grad():
+        feat_va = feature_fn(X_va).astype(np.float32, copy=False)
+        delta = model(torch.from_numpy(feat_va).to(device)).cpu().numpy()
+    pred = baseline_val + delta
+
+    fold_info = {
+        "best_val_mean_eucl": float(info["best_val_mean_eucl"]),
+        "best_epoch": int(info["best_epoch"]),
+        "n_epochs_run": int(info["n_epochs_run"]),
+        "train_duration_sec": float(info["train_duration_sec"]),
+        "ckpt_path": str(ckpt_path.relative_to(run_dir.parent.parent.parent))
+            if ckpt_path.is_absolute() else str(ckpt_path),
+        "device": device,
+    }
+    return ckpt_path, pred, fold_info
+
+
 def run_baseline(config_path: Path, X=None, y=None, ids=None) -> dict:
     config_path = Path(config_path).resolve()
     cfg = yaml.safe_load(config_path.read_text())
@@ -200,11 +307,21 @@ def run_baseline(config_path: Path, X=None, y=None, ids=None) -> dict:
 
     fold_metrics: list[dict] = []
     fold_chosen: list = []
+    fold_train_infos: list[dict] = []  # gru-residual 전용
     oof_preds = np.empty_like(y)
     fb_total: dict = {"step1_s_retry": 0, "step2_cubicspline": 0, "step3_last_input": 0}
 
     for fi, (tr, va) in enumerate(folds):
-        if is_tune:
+        if method == "gru-residual":
+            ckpt_path, pred, fold_info = _train_and_predict_residual_fold(
+                X[tr], y[tr], X[va], y[va], cfg, fi, run_dir,
+            )
+            fold_train_infos.append(fold_info)
+            log(
+                f"fold {fi}: gru-residual best_val_mean_eucl={fold_info['best_val_mean_eucl']:.5f} "
+                f"@epoch {fold_info['best_epoch']}, ckpt={ckpt_path.name}"
+            )
+        elif is_tune:
             info_partial: dict = {}
             chosen, pred = _do_tune_and_predict(
                 X[tr], y[tr], X[va], grid, tune_kind,
@@ -220,7 +337,7 @@ def run_baseline(config_path: Path, X=None, y=None, ids=None) -> dict:
         oof_preds[va] = pred
         s = summarize(pred, y[va])
         s["fold"] = fi
-        if is_tune:
+        if method != "gru-residual" and is_tune:
             s["chosen_per_axis"] = (
                 [list(c) if not isinstance(c, (int, float)) else c for c in chosen]
             )
@@ -263,6 +380,38 @@ def run_baseline(config_path: Path, X=None, y=None, ids=None) -> dict:
         "fold_metrics": fold_metrics,
         "config": cfg,
     }
+
+    if method == "gru-residual":
+        # gru-residual 전용 summary 보강
+        feature_components = list(cfg.get("feature_components", ["relative"]))
+        baseline_type = str(cfg.get("baseline_type", "linear"))
+        train_devices = sorted({fi["device"] for fi in fold_train_infos})
+        train_device = train_devices[0] if len(train_devices) == 1 else "mixed"
+        summary["model_config"] = {
+            "hidden": int(cfg["model"]["hidden"]),
+            "layers": int(cfg["model"]["layers"]),
+            "dropout": float(cfg["model"]["dropout"]),
+            "input_dim": int(cfg["model"]["input_dim"]),
+            "lr": float(cfg["training"].get("lr", 1e-3)),
+            "weight_decay": float(cfg["training"].get("weight_decay", 1e-4)),
+            "batch": int(cfg["training"].get("batch", 64)),
+            "epochs": int(cfg["training"].get("epochs", 100)),
+            "early_stop_patience": int(cfg["training"].get("early_stop_patience", 10)),
+            "loss_type": str(cfg.get("loss_type", "huber")),
+        }
+        summary["feature_components"] = feature_components
+        summary["baseline_type"] = baseline_type
+        summary["ema_alpha"] = float(cfg.get("ema_alpha", 0.5)) if baseline_type == "ema" else None
+        summary["wingbeat_n_bins"] = (
+            int(cfg.get("wingbeat_n_bins", 3)) if "wingbeat" in feature_components else None
+        )
+        summary["fold_best_val_mean_eucl"] = [fi["best_val_mean_eucl"] for fi in fold_train_infos]
+        summary["fold_best_epoch"] = [fi["best_epoch"] for fi in fold_train_infos]
+        summary["fold_train_duration_sec"] = [fi["train_duration_sec"] for fi in fold_train_infos]
+        summary["train_device"] = train_device
+        summary["total_train_duration_sec"] = float(
+            sum(fi["train_duration_sec"] for fi in fold_train_infos)
+        )
 
     if is_tune:
         if tune_kind == "polyfit":
