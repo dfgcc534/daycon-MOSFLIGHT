@@ -39,38 +39,38 @@ exp_ids:
 
 ### G-gates
 
-- G0: STAGE 0 인프라 commit chain 완료 (residual-GRU model + training loop + 4개 component module + run.py method dispatch + tests green) [TODO]
-- G1: STAGE 1 R001 lean baseline 결과 기록 + B001 paired comparison [TODO]
-- G2: STAGE 2 R002 (physics features), R003 (EMA baseline) 결과 기록 [TODO]
-- G3: STAGE 3 R004 (wing-beat), R005 (loss MSE) 결과 기록 [TODO]
-- G3.5: STAGE 3.5 — R001~R005 결과로 winning components 식별 + R006_combined-winners config 자동 생성 + 학습 + cv 평가 [TODO]
-- G_final: R006 (또는 fallback R001) submission.csv 생성 + dacon-submit skill 자율 호출 + 1 LB 점수 회수 + results.md 작성 [TODO]
+- G0: STAGE 0 인프라 commit chain 완료 (residual-GRU model + training loop + 4개 component module + run.py method dispatch + tests green) [DONE post-c6 a142b3d]
+- G1: STAGE 1 R001 lean baseline 결과 기록 + B001 paired comparison [DONE 1caa8ac]
+- G2: STAGE 2 R002 (physics features), R003 (EMA baseline) 결과 기록 [DONE post-c9 0f5b86b]
+- G3: STAGE 3 R004 (wing-beat), R005 (loss MSE) 결과 기록 [DONE post-c11 91f124c]
+- G3.5: STAGE 3.5 — R001~R005 결과로 winning components 식별 + R006_combined-winners config 자동 생성 + 학습 + cv 평가 [DONE 7b9cc47 — winning=0 → R006 = R001 cp, fallback=False]
+- G_final: R006 (또는 fallback R001) submission.csv 생성 + dacon-submit skill 자율 호출 + 1 LB 점수 회수 + results.md 작성 [DONE-partial 96bb5d2 — submission 자율 제출 완료 (isSubmitted=True), lb_score carry-over pending]
 
 ### Commit chain (next-up)
 
 | # | type | spec section | status |
 |---|---|---|---|
-| c1 | code | `src/models/residual_gru.py` — `ResidualGRU(input_dim, hidden=64, layers=2, dropout=0.1)`. spec @ §4.1 | [TODO] |
-| c2 | code | `src/baselines/linear_extrapolate.py` — `linear_extrap(X, t_target=80)` (= B001 식), `ema_extrapolate(X, alpha)`. spec @ §4.2 | [TODO] |
-| c3 | code | `src/features/physics.py` (velocity/acceleration/jerk/curvature) + `src/features/oscillation.py` (wingbeat_fft). spec @ §4.3 | [TODO] |
-| c4 | code | `src/training/train_residual.py` — fold 학습 (Huber/MSE loss selectable) + `make_feature_fn(components: list[str])` factory. spec @ §4.4 | [TODO] |
-| c5 | code | `src/run.py` 확장 — `method="gru-residual"` 분기 추가. spec @ §4.5 | [TODO] |
-| c6 | test | `tests/test_residual_gru.py`, `tests/test_features.py`, `tests/test_ema_extrapolate.py` (3 신규). spec @ §4.6 | [TODO] |
-| G0 | gate | `pytest -q tests/` exit 0; B001~B004, S001~S004 backward-compat smoke (cv_mean diff < 1e-4); torch import + device probe 성공 | [TODO] |
-| c7 | exp R001 | `configs/baseline/R001_baseline-residual-gru.yaml` + run + ckpt/fold{0..4}.pt + registry. spec @ §5 | [TODO] |
-| G1 | gate | R001 summary.json + 5 fold ckpt + cv_mean_eucl finite + B001 paired Δ ≤ +0.005 | [TODO] |
-| c8 | exp R002 | `configs/baseline/R002_physics-features.yaml` + run + registry. spec @ §6.1 | [TODO] |
-| c9 | exp R003 | `configs/baseline/R003_ema-extrapolate.yaml` + run + registry. spec @ §6.2 | [TODO] |
-| G2 | gate | R002, R003 summary 모두 기록; R001 paired Δ 표 산출 가능 | [TODO] |
-| c10 | exp R004 | `configs/baseline/R004_wingbeat-oscillation.yaml` + run + registry. spec @ §7.1 | [TODO] |
-| c11 | exp R005 | `configs/baseline/R005_loss-mse.yaml` + run + registry. spec @ §7.2 | [TODO] |
-| G3 | gate | R004, R005 summary 기록 | [TODO] |
-| c12 | sub-combined-train | `src/combine.py` 신규 (winning components 식별 + R006 config 자동 생성). R001~R005 summary.json 읽음 → winning 식별 → `configs/baseline/R006_combined-winners.yaml` 자동 작성 → `src.run.main` 으로 R006 학습 (winning 0개 시 R001 직접 복제, 학습 skip) → registry append. spec @ §8.1 | [TODO] |
-| G3.5 | gate | R006 summary.json + (winning>0 시) ckpt + registry 행 존재; cv_mean_eucl finite. R006 cv > R001 cv + 0.001 시 → `combined_no_improvement` warn 박제 + fallback 플래그 set | [TODO] |
-| c13 | sub-gen | `src/submit.py` 확장 (gru-residual method 분기 + ckpt fold ensemble; 후방호환 보존). lb_exp_id 결정 = (fallback 플래그 false 면 R006, true 면 R001) → 해당 exp 의 `runs/baseline/{lb_exp_id}/submission.csv` 생성. 스키마 검증 fail 시 `submission_schema_fail` severe. spec @ §8.2 | [TODO] |
-| c14 | sub-lb | **`dacon-submit` skill 자율 호출 (사용자 승인 X)** — lb_exp_id 의 submission.csv 1회 제출 → LB 점수 회수 → `analysis/plan-003/lb_log.md` 1행 기록 + registry notes 갱신. skill 부재 시 `dacon_submit_skill_missing` severe. spec @ §8.3 | [TODO] |
-| c15 | docs | `analysis/plan-003/results.md` + `plans/plan-003-residual-gru-grid.results.md` (frontmatter `lb_exp_id`, `lb_score`, `combined_winning_components`, `combined_fallback`). spec @ §N+2 | [TODO] |
-| G_final | gate | 위 모두 완료 + §0.5 [TODO]→[DONE] sync (§12.6 blacklist 의 유일한 예외) + lb_score 박제 | [TODO] |
+| c1 | code | `src/models/residual_gru.py` — `ResidualGRU(input_dim, hidden=64, layers=2, dropout=0.1)`. spec @ §4.1 | [DONE 06f0b09] |
+| c2 | code | `src/baselines/linear_extrapolate.py` — `linear_extrap(X, t_target=80)` (= B001 식), `ema_extrapolate(X, alpha)`. spec @ §4.2 | [DONE db596aa] |
+| c3 | code | `src/features/physics.py` (velocity/acceleration/jerk/curvature) + `src/features/oscillation.py` (wingbeat_fft). spec @ §4.3 | [DONE fa27728] |
+| c4 | code | `src/training/train_residual.py` — fold 학습 (Huber/MSE loss selectable) + `make_feature_fn(components: list[str])` factory. spec @ §4.4 | [DONE c5d4110] |
+| c5 | code | `src/run.py` 확장 — `method="gru-residual"` 분기 추가. spec @ §4.5 | [DONE 963ca16] |
+| c6 | test | `tests/test_residual_gru.py`, `tests/test_features.py`, `tests/test_ema_extrapolate.py` (3 신규). spec @ §4.6 | [DONE a142b3d — .gitignore 1줄 동봉] |
+| G0 | gate | `pytest -q tests/` exit 0; B001~B004, S001~S004 backward-compat smoke (cv_mean diff < 1e-4); torch import + device probe 성공 | [DONE post-c6 — 51 pytest pass + 8 closed-form Δ=0 + cuda=True 확인] |
+| c7 | exp R001 | `configs/baseline/R001_baseline-residual-gru.yaml` + run + ckpt/fold{0..4}.pt + registry. spec @ §5 | [DONE 1caa8ac — cv=0.013383] |
+| G1 | gate | R001 summary.json + 5 fold ckpt + cv_mean_eucl finite + B001 paired Δ ≤ +0.005 | [DONE 1caa8ac — paired Δ=+0.000442] |
+| c8 | exp R002 | `configs/baseline/R002_physics-features.yaml` + run + registry. spec @ §6.1 | [DONE 60b3639 — cv=0.015157] |
+| c9 | exp R003 | `configs/baseline/R003_ema-extrapolate.yaml` + run + registry. spec @ §6.2 | [DONE 0f5b86b — cv=0.014038] |
+| G2 | gate | R002, R003 summary 모두 기록; R001 paired Δ 표 산출 가능 | [DONE post-c9 0f5b86b] |
+| c10 | exp R004 | `configs/baseline/R004_wingbeat-oscillation.yaml` + run + registry. spec @ §7.1 | [DONE 04fee5f — cv=0.013476] |
+| c11 | exp R005 | `configs/baseline/R005_loss-mse.yaml` + run + registry. spec @ §7.2 | [DONE 91f124c — cv=0.013388] |
+| G3 | gate | R004, R005 summary 기록 | [DONE post-c11 91f124c] |
+| c12 | sub-combined-train | `src/combine.py` 신규 (winning components 식별 + R006 config 자동 생성). R001~R005 summary.json 읽음 → winning 식별 → `configs/baseline/R006_combined-winners.yaml` 자동 작성 → `src.run.main` 으로 R006 학습 (winning 0개 시 R001 직접 복제, 학습 skip) → registry append. spec @ §8.1 | [DONE 7b9cc47 — winning=0 → R006 = R001 cp] |
+| G3.5 | gate | R006 summary.json + (winning>0 시) ckpt + registry 행 존재; cv_mean_eucl finite. R006 cv > R001 cv + 0.001 시 → `combined_no_improvement` warn 박제 + fallback 플래그 set | [DONE 7b9cc47 — R006.cv=R001.cv, fallback=False] |
+| c13 | sub-gen | `src/submit.py` 확장 (gru-residual method 분기 + ckpt fold ensemble; 후방호환 보존). lb_exp_id 결정 = (fallback 플래그 false 면 R006, true 면 R001) → 해당 exp 의 `runs/baseline/{lb_exp_id}/submission.csv` 생성. 스키마 검증 fail 시 `submission_schema_fail` severe. spec @ §8.2 | [DONE ae31834 — lb_exp_id=R006, R001+R006 csv 모두 생성] |
+| c14 | sub-lb | **`dacon-submit` skill 자율 호출 (사용자 승인 X)** — lb_exp_id 의 submission.csv 1회 제출 → LB 점수 회수 → `analysis/plan-003/lb_log.md` 1행 기록 + registry notes 갱신. skill 부재 시 `dacon_submit_skill_missing` severe. spec @ §8.3 | [DONE 1c4831e — `{isSubmitted: True, detail: Success}`, lb_score carry-over pending] |
+| c15 | docs | `analysis/plan-003/results.md` + `plans/plan-003-residual-gru-grid.results.md` (frontmatter `lb_exp_id`, `lb_score`, `combined_winning_components`, `combined_fallback`). spec @ §N+2 | [DONE 96bb5d2] |
+| G_final | gate | 위 모두 완료 + §0.5 [TODO]→[DONE] sync (§12.6 blacklist 의 유일한 예외) + lb_score 박제 | [DONE-partial 96bb5d2 — lb_score 회수만 carry-over 대기] |
 
 ### Plan-specific severe (WORKFLOW.md §12.3 default 위 추가분)
 
