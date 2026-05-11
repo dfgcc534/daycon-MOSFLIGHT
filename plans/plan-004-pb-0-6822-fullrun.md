@@ -47,9 +47,9 @@ lb_score: null
 
 | # | type | spec section | status |
 |---|---|---|---|
-| c1 | docs | `plans/plan-004-pb-0-6822-fullrun.md` 작성 (본 파일) | [TODO] |
-| c2 | code | `src/pb_0_6822/__init__.py` + `selector.py` extract (notebook cell 4 → standalone module). argparse signature 보존. spec @ §4.1 | [TODO] |
-| c3 | code | `src/pb_0_6822/boundary.py` extract (cell 6, **유일 수정**: `import train_tcn_gru_candidate_selector as base` → `from src.pb_0_6822 import selector as base`). spec @ §4.2 | [TODO] |
+| c1 | docs | `plans/plan-004-pb-0-6822-fullrun.md` 작성 (본 파일) | [DONE e74486b] |
+| c2 | code | `src/pb_0_6822/__init__.py` + `selector.py` extract (notebook cell 4 → standalone module). argparse signature 보존. spec @ §4.1 | [DONE 7bc9cd7] |
+| c3 | code | `src/pb_0_6822/boundary.py` extract (cell 6, **유일 수정**: `import train_tcn_gru_candidate_selector as base` → `from src.pb_0_6822 import selector as base`). spec @ §4.2 | [DONE c01b7d1] |
 | c4 | test | `tests/test_pb_0_6822_smoke.py` — 모듈 import + `CANDIDATES len==27` + `TinyCorrectionNet` 인스턴스화. spec @ §4.3 | [TODO] |
 | G0 | gate | `pytest tests/test_pb_0_6822_smoke.py` + 기존 51 tests green (backward-compat) | [TODO] |
 | c5 | code | `src/pb_0_6822/run_full.py` orchestrator + `configs/baseline/P001_pb-0-6822-fullrun.yaml` + `.gitignore` 1줄. spec @ §4.4 | [TODO] |
