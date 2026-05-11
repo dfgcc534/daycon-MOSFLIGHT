@@ -54,12 +54,12 @@ lb_score: null   # diagnostic plan — LB 제출 X
 | c2 | code | `analysis/plan-005/diagnostic.py` 인프라 + plan-004 산출 로드 helper | [DONE f88e784] |
 | c3 | code | corrector full-fit 재실행 + intermediate artifact 박제 (`corrected_oof.npz`, `corrected_test.npz`) spec @ §4 | [DONE TBD] |
 | G0 | gate | plan-004 산출 4종 로드 OK + corrected_*.npz finite + shape OK | [DONE — corrected (10000,27,3) finite, seed_drift RMSE 0.000814 < 0.001 ok] |
-| c4 | analysis | STAGE 1 oracle 4종 (`analysis/plan-005/oracle_summary.{json,md}`) spec @ §5 | [TODO] |
-| G1 | gate | 4 oracle 모두 박제 + finite | [TODO] |
-| c5 | analysis | STAGE 2 selector decomposition (`selector_decomp.{json,md}`) spec @ §6 | [TODO] |
-| G2 | gate | per-regime hit / top-K / confidence / family selection rate 모두 박제 | [TODO] |
-| c6 | analysis | STAGE 3 corrector decomposition (`corrector_decomp.{json,md}`) spec @ §7 | [TODO] |
-| G3 | gate | cap saturation + direction + error histogram 모두 박제 | [TODO] |
+| c4 | analysis | STAGE 1 oracle 4종 (`analysis/plan-005/oracle_summary.{json,md}`) spec @ §5 | [DONE TBD] |
+| G1 | gate | 4 oracle 모두 박제 + finite | [DONE — raw=0.7188 post-corr=0.7111 ⚠️ corrector_hurts_oracle (gain=-0.0077, plan-006 anchor)] |
+| c5 | analysis | STAGE 2 selector decomposition (`selector_decomp.{json,md}`) spec @ §6 | [DONE TBD] |
+| G2 | gate | per-regime hit / top-K / confidence / family selection rate 모두 박제 | [DONE — argmax=0.6595 soft=0.6599 top1/3/5=0.126/0.218/0.282 (selector best-cand identification 약함)] |
+| c6 | analysis | STAGE 3 corrector decomposition (`corrector_decomp.{json,md}`) spec @ §7 | [DONE TBD] |
+| G3 | gate | cap saturation + direction + error histogram 모두 박제 | [DONE — cap_sat=3.6% par/perp/binormal=0.045/0.021/0.006 (binormal 6.4× 작음 → 2-D effective 우세)] |
 | c7a | exp retrain | **Variant A retrain** — selector 재학습 (`--regime-prior-strength 0.0`). 산출: `analysis/plan-005/variant_A_no_regime/oof_selector_scores.npz`. spec @ §8.2 | [TODO] |
 | c7b | analysis | **Variant B free 계산 + 3-way 비교 + per-sample intervention** (`component_contribution.{json,md}`). spec @ §8.3~§8.5 | [TODO] |
 | G4 | gate | 3 variant hit (full/A/B) + marginal contribution + 2 intervention 분해 (B↔full, A↔full) + family-change 모두 박제 | [TODO] |
