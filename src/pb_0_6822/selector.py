@@ -1213,6 +1213,7 @@ def train_one(
     best_state = clone_state_dict(model)
     wait = 0
     for epoch in range(1, epochs + 1):
+        model.train()
         total = 0.0
         n = 0
         for seq, cand, label, weight, teacher_prob in loader:
