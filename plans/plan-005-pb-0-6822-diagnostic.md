@@ -63,8 +63,8 @@ lb_score: null   # diagnostic plan — LB 제출 X
 | c7a | exp retrain | **Variant A retrain** — selector 재학습 (`--regime-prior-strength 0.0`). 산출: `analysis/plan-005/variant_A_no_regime/oof_selector_scores.npz`. spec @ §8.2 | [TODO] |
 | c7b | analysis | **Variant B free 계산 + 3-way 비교 + per-sample intervention** (`component_contribution.{json,md}`). spec @ §8.3~§8.5 | [TODO] |
 | G4 | gate | 3 variant hit (full/A/B) + marginal contribution + 2 intervention 분해 (B↔full, A↔full) + family-change 모두 박제 | [TODO] |
-| c8 | analysis | STAGE 5 failure analysis + B001 비교 (`failure_b001.{json,md}`) spec @ §9 | [TODO] |
-| G5 | gate | top-K worst sample + B001 win/loss decomposition 박제 | [TODO] |
+| c8 | analysis | STAGE 5 failure analysis + B001 비교 (`failure_b001.{json,md}`) spec @ §9 | [DONE TBD] |
+| G5 | gate | top-K worst sample + B001 win/loss decomposition 박제 | [DONE — worst-100 (regime 13: 19 / regime 14: 11 집중) + PB win 965 / loss 153 / PB hit 0.660 vs B001 0.579] |
 | c9 | synthesis | `analysis/plan-005/results.md` + `next_plan_candidates.md` (≥3 후보) spec @ §10 | [TODO] |
 | G_final | gate | results.md + next_plan_candidates.md ≥ 3 후보 박제 | [TODO] |
 
