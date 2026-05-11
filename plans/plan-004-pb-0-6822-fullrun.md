@@ -52,7 +52,7 @@ lb_score: null
 | c3 | code | `src/pb_0_6822/boundary.py` extract (cell 6, **유일 수정**: `import train_tcn_gru_candidate_selector as base` → `from src.pb_0_6822 import selector as base`). spec @ §4.2 | [DONE c01b7d1] |
 | c4 | test | `tests/test_pb_0_6822_smoke.py` — 모듈 import + `CANDIDATES len==27` + `TinyCorrectionNet` 인스턴스화. spec @ §4.3 | [TODO] |
 | G0 | gate | `pytest tests/test_pb_0_6822_smoke.py` + 기존 51 tests green (backward-compat) | [TODO] |
-| c5 | code | `src/pb_0_6822/run_full.py` orchestrator + `configs/baseline/P001_pb-0-6822-fullrun.yaml` + `.gitignore` 1줄. spec @ §4.4 | [TODO] |
+| c5 | code | `src/pb_0_6822/run_full.py` orchestrator + `configs/baseline/P001_pb-0-6822-fullrun.yaml` + `.gitignore` 1줄. spec @ §4.4 | [DONE 4023272] |
 | c6 | exp smoke | 1-fold smoke (`run_full.py --smoke`) → `runs/baseline/P001_pb-0-6822-fullrun/smoke/`. spec @ §5 | [TODO] |
 | G1 | gate | smoke summary finite, no extraction drift | [TODO] |
 | c7 | exp selector | Full 5-fold selector (`--fold-limit 5`, no `--skip-full`, pre=10 fine=8 freeze=3 patience=4 epoch_plus=5). spec @ §6 | [TODO] |
