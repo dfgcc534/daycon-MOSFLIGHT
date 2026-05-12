@@ -463,46 +463,61 @@ def stage1_diagnostic() -> dict:
                 if both == n_i and hit_matrix[:, j].sum() >= n_i:
                     containment_strict[i, j] = True
 
-    prune_candidates = []
-    for i in range(K_orig):
-        for j in range(K_orig):
-            if i == j: continue
-            # 판정 1: strict containment (hit_i ⊆ hit_j) + j 가 더 많이 hit
-            strict_ok = bool(containment_strict[i, j] and hit_rate[j] > hit_rate[i])
-            # 판정 2: soft containment ≥ 95% + 좌표 거의 동일 + j 가 더 많이 hit
-            soft_ok = bool(
-                containment_soft[i, j] >= 0.95
-                and coord_dist_matrix[i, j] < 0.005   # 5mm 이내 좌표
-                and hit_rate[j] > hit_rate[i]
-            )
-            if strict_ok or soft_ok:
-                # Safety check: i 제거 후 oracle 손실 측정
-                # v2.6 정합: §1.1 oracle (best of 27, *raw*) = 0.7188 정의와 동일하게 err_raw 위에서 측정.
-                # containment / hit_matrix 는 corrected err 위에서 도출 (selector 가 본 hit 인지가 redundancy
-                # 의도와 더 부합) 이지만, oracle safety 는 *raw* baseline 위에서 정량 보장.
-                kept_mask = np.ones(K_orig, dtype=bool)
-                kept_mask[i] = False
-                oracle_after_raw = float((err_raw[:, kept_mask].min(axis=1) <= R_HIT).mean())
-                oracle_before_raw = float((err_raw.min(axis=1) <= R_HIT).mean())
-                delta = oracle_before_raw - oracle_after_raw
-                if delta < 0.001:
-                    prune_candidates.append({
-                        "idx": i,
-                        "name": selector.CANDIDATES[i].name,
-                        "dominator_idx": j,
-                        "dominator_name": selector.CANDIDATES[j].name,
-                        "rule": "strict" if strict_ok else "soft",
-                        "containment_soft": float(containment_soft[i, j]),
-                        "coord_dist": float(coord_dist_matrix[i, j]),
-                        "hit_rate_i": float(hit_rate[i]),
-                        "hit_rate_j": float(hit_rate[j]),
-                        "oracle_delta_if_removed": delta,
-                    })
-                # v2.6 break 의미 명시: dominator j1 가 safety 실패해도 j2 로 retry 안 함 — *intentional single-dominator*.
-                # 이유: pair-wise containment 는 transitive 하지 않고, 한 dominator 가 cover 못 하면
-                #       structural redundancy 가 다르다는 의미이므로 다른 j 로 fallback 의도 X. (§5.1 의
-                #       aggregate safety check 가 jointly removal 의 최종 보증 — caveat #16 참고.)
-                break
+    # v2.7 fix (caveat #17): LiDAR jittering + 모기 5~10mm scale 고려 시 5mm 좌표 정합은 가혹.
+    #   → 보수적 default (0.95, 5mm) 로 1차 식별, 결과 < 3 개면 *자동* 완화 (0.90, 10mm) 재탐색.
+    #   tier 박제 (summary.prune_threshold_tier ∈ {"strict_v2.4", "relaxed_v2.7"}).
+    def _identify_prune(soft_thr: float, dist_thr: float) -> list:
+        out = []
+        for i in range(K_orig):
+            for j in range(K_orig):
+                if i == j: continue
+                # 판정 1: strict containment (hit_i ⊆ hit_j) + j 가 더 많이 hit
+                strict_ok = bool(containment_strict[i, j] and hit_rate[j] > hit_rate[i])
+                # 판정 2: soft containment ≥ soft_thr + 좌표 거의 동일 (dist_thr 이내) + j 가 더 많이 hit
+                soft_ok = bool(
+                    containment_soft[i, j] >= soft_thr
+                    and coord_dist_matrix[i, j] < dist_thr
+                    and hit_rate[j] > hit_rate[i]
+                )
+                if strict_ok or soft_ok:
+                    # Safety check: i 제거 후 oracle 손실 측정
+                    # v2.6 정합: §1.1 oracle (best of 27, *raw*) = 0.7188 정의와 동일하게 err_raw 위에서 측정.
+                    # containment / hit_matrix 는 corrected err 위에서 도출 (selector 가 본 hit 인지가 redundancy
+                    # 의도와 더 부합) 이지만, oracle safety 는 *raw* baseline 위에서 정량 보장.
+                    kept_mask = np.ones(K_orig, dtype=bool)
+                    kept_mask[i] = False
+                    oracle_after_raw = float((err_raw[:, kept_mask].min(axis=1) <= R_HIT).mean())
+                    oracle_before_raw = float((err_raw.min(axis=1) <= R_HIT).mean())
+                    delta = oracle_before_raw - oracle_after_raw
+                    if delta < 0.001:
+                        out.append({
+                            "idx": i,
+                            "name": selector.CANDIDATES[i].name,
+                            "dominator_idx": j,
+                            "dominator_name": selector.CANDIDATES[j].name,
+                            "rule": "strict" if strict_ok else "soft",
+                            "containment_soft": float(containment_soft[i, j]),
+                            "coord_dist": float(coord_dist_matrix[i, j]),
+                            "hit_rate_i": float(hit_rate[i]),
+                            "hit_rate_j": float(hit_rate[j]),
+                            "oracle_delta_if_removed": delta,
+                        })
+                    # v2.6 break 의미 명시: dominator j1 가 safety 실패해도 j2 로 retry 안 함 — *intentional single-dominator*.
+                    # 이유: pair-wise containment 는 transitive 하지 않고, 한 dominator 가 cover 못 하면
+                    #       structural redundancy 가 다르다는 의미이므로 다른 j 로 fallback 의도 X. (§5.1 의
+                    #       aggregate safety check 가 jointly removal 의 최종 보증 — caveat #16 참고.)
+                    break
+        return out
+
+    # 1차: strict default (0.95, 5mm)
+    prune_candidates = _identify_prune(soft_thr=0.95, dist_thr=0.005)
+    prune_threshold_tier = "strict_v2.4"
+    prune_threshold_used = {"soft": 0.95, "dist": 0.005}
+    # 2차: 결과 < 3 → 자동 완화 (0.90, 10mm) 재탐색 — LiDAR jittering 보정 (caveat #17)
+    if len(prune_candidates) < 3:
+        prune_candidates = _identify_prune(soft_thr=0.90, dist_thr=0.010)
+        prune_threshold_tier = "relaxed_v2.7"
+        prune_threshold_used = {"soft": 0.90, "dist": 0.010}
 
     # ── 4. Selector hit gap decomposition (review Point 3 — 진짜 병목 식별) ──
     # 정정: "top-1 ranking 12.6%" = "27 중 *진짜 best* 정확 픽 비율" (oracle best 와 일치).
@@ -580,6 +595,8 @@ def stage1_diagnostic() -> dict:
         "dominant_causes": dominant_causes,
         "prune_candidates": prune_candidates,
         "prune_count": len(prune_candidates),
+        "prune_threshold_tier": prune_threshold_tier,    # v2.7: "strict_v2.4" or "relaxed_v2.7"
+        "prune_threshold_used": prune_threshold_used,    # v2.7: {soft, dist} 실제 사용값
         "selector_gap_decomposition": selector_gap_decomposition,  # main_bottleneck 판정
         "margin_top1_top2": margin_hist,
         "softmax_diffusion_signal": softmax_diffusion_signal,
@@ -609,7 +626,7 @@ def stage1_diagnostic() -> dict:
 - `mask_strategy == "oracle_miss_v2.5"` 박제 (regime mask 사용 X — Variant A 정합)
 - `n_oracle_miss` 박제 (예상 ~2800, oracle 0.7188 → miss rate 0.2812)
 - `dominant_causes` ≥ 1 entry — **oracle miss residual 위에서 도출** (없으면 `diagnostic_inconclusive` warn)
-- **`prune_candidates` 리스트 박제 (v2.4 structural containment)**: 각 entry 가 (i, j, rule, containment_soft, coord_dist, hit_rate_i, hit_rate_j, oracle_delta) 모두 포함. 비어 있어도 통과 (단 threshold 완화 검토 — caveat #17).
+- **`prune_candidates` 리스트 박제 (v2.4 structural containment + v2.7 auto-relaxation)**: 각 entry 가 (i, j, rule, containment_soft, coord_dist, hit_rate_i, hit_rate_j, oracle_delta) 모두 포함. **v2.7**: 1차 (0.95, 5mm) 결과 < 3 시 자동 (0.90, 10mm) 재탐색 — `prune_threshold_tier` 박제 (caveat #17). 비어 있어도 통과 (relaxed 도 0 시 후보 풀 inherent diversity 신호).
 - **Containment matrices 박제** (informational, sanity): `containment_soft` (K×K), `coord_dist_matrix` (K×K), `hit_rate` (K,) — pairwise 구조 audit 가능
 - **`selector_gap_decomposition` 박제** — `main_bottleneck` ∈ {"ranking", "drift"} 결정. 결과에 따라 plan-008 의 main lever 우선순위 *데이터 기반* 재조정:
   - `main_bottleneck == "ranking"` (gap_ranking ≫ gap_drift): selector 강화 (Point 4 의 pairwise/distill fallback) 가 main, pruning 은 secondary
@@ -1974,7 +1991,7 @@ lb_submitted_at: null
 14. **Strategy D (greedy set cover) 의 local-optimum 위험** (v2.3): Greedy algorithm 은 *전역 optimal pool* 보장 X. 매 iteration *국소 best* 만 선택 → 후보 A + B 가 *함께* add 시 oracle 더 높은데 A 또는 B 단독 add 의 marginal 이 낮으면 둘 다 skip 가능. 단 본 plan 의 template_pool (15 개) 은 작아 *조합* 의 brute-force 도 가능 (`2^15 = 32768`, 각 oracle 측정 ~0.1초 → ~1 시간). G1 fallback 으로 "조합 brute-force" 활성 가능 (plan-009 후보).
 15. **`binormal_scale` field 의미 의존** (v2.3): `CandidateSpec.z_scale` field 의 이름은 v2.2 그대로 유지하되 *Frenet-Serret family 안에서만* binormal frame 의미. 다른 family (trig 등) 는 여전히 world z 방향 (간접) 사용 가능 — make_rot_candidates 가 `d1[:, 2] * spec.z_scale` 식으로 world z 직접 곱하면 위배. v2.3 결정 = trig family 의 `z_scale=1.0` default 유지 (= world z 그대로 사용), Frenet-Serret family 만 *binormal frame 의미*. 향후 plan-009 에서 field 이름 *명시적 분리* (binormal_scale_fs / world_z_keep_trig) 검토.
 16. **Structural containment 의 *retrained selector* 한계** (v2.4): containment 식별은 selector 거동 *무관* (강점). 단 *retrained selector* 가 redundant 라고 식별된 후보 i 를 *어떻게 활용할지* 모름 — 만약 retrained 가 i 의 unique pattern 을 발견했다면 제거 손해. Safety check (oracle delta < 0.001) 으로 *aggregate* 손해는 막지만 *retrained selector 의 distribution shift* 는 못 잡음. Step 3 (selector 재학습) 의 OOF 측정이 진짜 verification — G2 미달 시 pruning rollback 검토.
-17. **Containment 의 *threshold 민감도*** (v2.4): `containment_soft ≥ 0.95` + `coord_dist < 0.005m` 는 magic number. 너무 엄격하면 pruning 거의 없음 (containment ratio 90~95% 인 pair 가 dominant), 너무 느슨하면 over-prune. v2.4 default 는 보수적 (95% + 5mm) — 만약 식별 결과 < 3 개면 threshold 완화 검토 (`0.90 + 0.008m` 등). Step 1 diagnostic 의 `prune_count` 박제로 사용자가 결정.
+17. **Containment 의 *threshold 민감도*** (v2.4 → v2.7 자동 완화): `containment_soft ≥ 0.95` + `coord_dist < 0.005m` 는 magic number. LiDAR 40ms 측정 jittering + 모기 5~10mm scale 고려 시 5mm 좌표 정합은 가혹 → 너무 엄격하면 pruning 거의 없음. **v2.7 자동 완화**: §4.1 의 `_identify_prune` 가 default (0.95, 5mm) 로 1차 식별 후 `len(prune_candidates) < 3` 이면 *자동* 으로 (0.90, 10mm) 재탐색. `summary.prune_threshold_tier ∈ {"strict_v2.4", "relaxed_v2.7"}` 박제로 어느 tier 가 채택됐는지 audit. 사용자 수동 결정 분기 제거. (이전 v2.4: 사용자 수동 검토 — `prune_count` 박제 → 결정 → 재실행.)
 18. **Oracle miss mask 의 sample 분포 균질성 위험** (v2.5): `err.min(axis=1) > R_HIT` 가 ~2800 sample (28%). 이 안에 *여러 다른 dynamics* (sharp turn + decel arc + z-drift) 가 섞여 있으면 single `corr_rotation` 같은 aggregate corr 이 *희석* 가능. 즉 dominant cause 가 *진짜 mixed* 일 때 진단이 부정확. mitigation: oracle_miss_regime_dist_sanity 박제로 regime grouping 확인 + caveat #1 (per-regime worst oracle 손해 검증) 으로 보완. 추가 분석 (clustering) 은 plan-009 후보.
 19. **Mask 변경의 plan-005 worst-100 재활용 호환성** (v2.5): plan-005 의 worst-100 worker (heuristic 분석) 는 regime 기반. v2.5 의 `oracle_miss` mask 는 regime 무관 — 두 분석의 sample 집합이 *부분 disjoint* 가능. plan-005 인계 데이터 사용은 *informational sanity* 만 (per_regime_oracle_sanity 표), main residual decomposition 은 v2.5 oracle_miss 위에서 *독립* 측정.
 20. **Oracle 0.85 minimum 의 낙관 위험** (v2.6, Plan agent 검토 [CRITICAL] 2): template_pool 15 (실효 13~14, snap drop + Family 4 drop 후) 의 평균 marginal 회수 가정 +0.019 × 7 templates = +0.13 → oracle 0.85 도달 *낙관*. 실제는 set-cover *diminishing returns* 따를 가능성 큼 — first 1~2 add +0.03~0.04, 3 번째 +0.015, 이후 < 0.01 → 7 templates × 평균 0.014 → +0.10 → **oracle 0.81 도달 추정**. 정확히 `redefinition_partial` warn-only band (0.78~0.85). mitigation: (a) §0.5 의 warn-only band 가 graceful degradation 제공, (b) plan-009 후보 list 에 *진짜 new class* (KNN nearest-neighbor / GP residual / per-sample MLP 회귀) 박제 권장. 본 plan 의 v2.6 framing 변경 X — minimum 0.85 유지하되 *예상치 0.78~0.82* 로 inner expectation 조정 + plan-009 carry-over path 강화.
@@ -1983,6 +2000,13 @@ lb_submitted_at: null
 
 ## §N+4. 변경 이력
 
+- v2.7 (2026-05-12): **§4.1 pruning auto-relaxation (사용자 추가 요청 반영)**.
+  - **이유**: 사용자 지적 — "LiDAR 40ms jittering + 모기 5~10mm scale 고려 시 5mm 좌표 정합은 가혹. Pruning 쌍이 3개 미만 시 auto-relaxation 추가하라". v2.4 의 manual review 분기 → v2.7 자동.
+  - **§4.1 `_identify_prune` 헬퍼 신설**: (soft_thr, dist_thr) 파라미터화. 1차 (0.95, 5mm) → `len < 3` 이면 자동 (0.90, 10mm) 재탐색.
+  - **summary 박제**: `prune_threshold_tier ∈ {"strict_v2.4", "relaxed_v2.7"}` + `prune_threshold_used`.
+  - **§4.3 G0 합격 기준**: "비어 있어도 통과" 조건에 v2.7 relaxed 도 0 시 inherent diversity 신호 명시.
+  - **§N+3 caveat #17 갱신**: 자동 완화 mechanism 박제, 사용자 수동 결정 분기 제거.
+  - **모든 spec 외 v2.6 의 의도 유지**.
 - v2.6 (2026-05-12): **Plan agent 비판적 검토 반영 — 4 항목 박제 (격리 권고는 기각, cheap fix 만 채택)**.
   - **이유**: 사용자 요청 — "전체 계획 flow 검토. 사용자의 의도에 맞춰서. 각 step 이 타당한가 기준으로 검토. 서브에이전트 호출해서 피드백받고 메인 에이전트가 검증한다". Plan agent 가 6 항목 비판 (3 CRITICAL + 2 SUGGEST + 1 정합 OK). 메인 검증 결과: Step 4 격리 권고 기각 (사용자 의도 §0 의 secondary 에 명시), template_pool 부족 정당 (단 warn-only band 가 graceful mechanism 제공), Step 3 sanity baseline + assert 강화는 cheap fix 채택.
   - **§7.1 LB 잔재 fix**: "LB 제출 2 회 보장" → "submission.csv 2 종 박제, LB 제출 0 회 (carry-over)". v2.1 의 LB 0 회 결정과 정합. Step 3 *OOF* 기반 conditional path (이전 *LB* 기반).
