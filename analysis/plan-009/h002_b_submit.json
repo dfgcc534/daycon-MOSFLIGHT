@@ -1,0 +1,13 @@
+{
+  "exp_id": "H002_corrector-strengthen/sub_b/test",
+  "sub_exp": "b",
+  "checkpoint": "runs/baseline/H002_corrector-strengthen/fold_0/sub_b/boundary_sub_b.pt",
+  "test_score_source": "H001_ranking-loss/test_selector_scores.npz (ens_scores)",
+  "submissions": {
+    "soft": "runs/baseline/H002_corrector-strengthen/submission_boundary_tiny_soft.csv",
+    "argmax": "runs/baseline/H002_corrector-strengthen/submission_boundary_tiny_argmax.csv",
+    "step2_canonical": "runs/baseline/H002_corrector-strengthen/submission_step2.csv"
+  },
+  "n_test": 10000,
+  "decision_note": "plan-009 best Phase submission anchor. soft = boundary_tiny_soft.csv 기준 (plan-008 c7 의 submission_step3.csv pattern 답습). H002 b OOF 0.6653 → estimated LB ≈ 0.6873 (OOF + 0.022 gap, plan-009 §10.2 시나리오 C 영역 0.69~0.72 의 상단)."
+}

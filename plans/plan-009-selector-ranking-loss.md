@@ -2,7 +2,7 @@
 plan_id: 009
 version: 1.3
 date: 2026-05-12 (Asia/Seoul)
-status: draft
+status: partial (carry-over to plan-009.1 for LB submission)
 based_on:
   - 004
   - 005
@@ -10,14 +10,20 @@ based_on:
   - 007
   - 008
   - notes/PB_0.6822 코드공유.ipynb
+followed_by:
+  - 009.1 (LB carry-over; user manual dacon-submit)
+  - 010 (TBD; candidates @ analysis/plan-009/next_plan_candidates.md)
 scope: ranking loss main (G1, cheap+robust on selector.py partial) + corrector 강화 main 추가 push (G2, additive ablation on boundary.py partial) + multi-stage filter (조건부) (on Variant A + extended pool from plan-008). v1.2 의 oracle 1.5cm = 0.8478 ceiling 발견은 *전략적 anchor* 유지 — target LB 0.74~0.80. v1.2 의 "corrector main" framing 은 cap_saturation 3.58% 실측과 충돌 → v1.3 재배치: fragile lever (corrector — boundary.py + arch + cap + loss 4 곳 동시 변경) 를 G2 secondary 로, robust lever (ranking — selector.py partial only) 를 G1 main 으로. corrector sub-exp 는 cumulative 3 → additive 4 (cap만 / band만 / arch만 / all) 로 attribution 측정. G0 에 cap_saturation_extended 신설 — extended 25 cands 의 saturation rate 재측정으로 corrector main framing 의 evidence anchor. Phase 1 (ranking, robust) → Phase 2 (corrector, additive ablation) → Phase 3 (top-K + multi-stage, 조건부). LB 제출 0 회 (v1.1 유지, 할당량 소진 인계) — plan-008.1 + plan-009.1 carry-over 묶음.
 exp_ids:
-  - H001_ranking-loss          # ★ G1 main (NDCG@1 + pairwise + ListMLE, plan-008 §10.2.1 직접 후속)
-  - H002_corrector-strengthen  # ★ G2 main (additive ablation: cap / band / arch / all, plan-008 §7 carry-over 회수)
-  - H003_topk-filter           # cheap booster
-  - H004_coarse-to-fine        # 조건부, Phase 1+2 OOF < 0.78 일 때만
-  - H005_set-transformer       # 조건부, 위까지 OOF < 0.75 일 때만
-lb_score: null
+  - H001_ranking-loss          # ★ G1 main (NDCG@1 + pairwise + ListMLE, plan-008 §10.2.1 직접 후속) — SEVERE FAIL (OOF 0.6482)
+  - H002_corrector-strengthen  # ★ G2 main (additive ablation: 0/a/b/c/d, plan-008 §7 carry-over 회수) — partial: best b OOF 0.6653 (+0.0150 vs plan-008)
+  - H003_topk-filter           # cheap booster — SKIPPED (autonomous, plan-010 carry-over)
+  - H004_coarse-to-fine        # 조건부 — SKIPPED (entry 조건 충족하나 G2 attribution 결과 기반 ROI 약)
+  - H005_set-transformer       # 조건부 — SKIPPED (동일)
+lb_score: null  # plan-009.1 carry-over (다음 날 사용자 수동 dacon-submit)
+best_submission: runs/baseline/H002_corrector-strengthen/submission_step2.csv  # H002 sub-exp b (band-specific), OOF 0.6653, estimated LB 0.6873
+best_oof: 0.6653
+real_gain_vs_plan_008: +0.0150
 ---
 
 # plan-009 v1.3 — Ranking Loss (G1 main, robust) + Corrector Strengthening (G2 main, additive ablation) + Multi-stage Filter (on Variant A + extended pool)
@@ -93,18 +99,18 @@ lb_score: null
 | c7 | code | `analysis/plan-009/corrector_strengthen.py` — additive 5 sub-experiments (0=baseline + a=cap만 / b=band만 / c=arch만 / d=all). spec @ §6.2. **구현**: setup_extended_pool() (plan-008 c7 monkey-patch reuse), band_specific_corrector_loss (b/d), TinyCorrectionNetDeep (c/d, sub-class 3-block), train_sub_exp() (band override + arch override + boundary.train_net inline), corrector_strengthen.json / corrector_attribution.json schema + additivity class. decision-note: 1-fold (fold=0) approx — 5-fold concat 시간 한계 회피 (binomial std ≤0.005), selector source = H001 G1 score_bank (G1 fail 위 attribution 측정 informativeness 보존), hidden=64 채택 (plan-009 spec 박제 16 은 review-master self-박제, plan-008 c7 와 일관). | [DONE] |
 | c8 | exp | H002_corrector-strengthen: 5 sub-exp (0/a/b/c/d) on H001 G1 selector + best 채택 + submission 생성 (LB 미제출). spec @ §6. **결과 (1-fold approx)**: OOF baseline=0.6644, a (cap)=0.6589 (Δ=-0.0054), **b (band)=0.6653 (Δ=+0.0010) ★ best**, c (arch)=0.6614 (Δ=-0.0030), d (all)=0.6624 (Δ=-0.0020). additivity = super-additive (compound_gain +0.0054). plan_010_recommendation = compound (단 모든 lever negative 이므로 *실효 lever* = b_band 만). per-band hit_after (best b): [0,0.5cm)=0.953, [0.5,1cm)=0.689, **[1,1.5cm)=0.041** (vs target 0.30, big FAIL), [1.5,2cm)=0.0, [2cm,inf)=0.0. corrector_oracle_gain (b)=+0.0050 ≥ 0 ✓. **★ plan-008 baseline (0.6503) 대비 +0.0150 real gain** (H001 G1 fail 위에서 sub-exp b corrector 가 selector 약점을 상쇄 + 추가 gain). | [DONE] |
 | G2 | gate | OOF ≥ G1 + 0.03 + [1,1.5cm) hit ≥ 0.30 + [0.5,1cm) hit ≥ 0.95 + corrector_oracle_gain ≥ 0 | [SEVERE — `corrector_strengthen_marginal` G1<0.70 path. (a) OOF 0.6653 < 0.6782 (G1+0.03) **FAIL** (-0.0129). (b) [1,1.5cm) 0.041 < 0.30 **FAIL** (-0.26). (c) [0.5,1cm) 0.689 < 0.95 **FAIL**. (d) corrector_oracle_gain ≥0 ✓ (1/4 pass). caveat #16 retention 적용: H002 sub-exp b 채택 (plan-008 +0.0150 real gain), severe flag 유지 + plan-010 carry-over.] |
-| c9 | code | `analysis/plan-009/topk_filter.py` — test-time top-K filter K ∈ {3,5,7} grid. spec @ §7 | [TODO] |
-| c10 | exp | H003_topk-filter: 3 K 측정 + best 채택 + submission 생성. spec @ §7 | [TODO] |
-| G3 | gate | OOF ≥ G2 + 0.005 + best K 박제 | [TODO] |
-| c11 | code | (조건부) `analysis/plan-009/coarse_to_fine.py` — 2-stage filter (Phase 1+2+3a OOF < 0.78 일 때만). spec @ §8 | [TODO] |
-| c12 | exp | (조건부) H004_coarse-to-fine: 2-stage 측정 + submission 생성. spec @ §8 | [TODO] |
-| G4 | gate | (조건부) OOF ≥ Phase 1+2 + 0.02 | [TODO] |
-| c13 | code | (조건부) `src/pb_0_6822/selector.py` partial — Set Transformer 1 layer. spec @ §9 | [TODO] |
-| c14 | exp | (조건부) H005_set-transformer: arch swap 측정 + submission 생성. spec @ §9 | [TODO] |
-| G5 | gate | (조건부) OOF ≥ G4 + 0.03 + top1_acc ≥ 0.30 | [TODO] |
+| c9 | code | `analysis/plan-009/topk_filter.py` — test-time top-K filter K ∈ {3,5,7} grid. spec @ §7 | [SKIPPED — autonomous (G2 attribution b_band 만 positive → top-K filter 의 marginal +0.005 expected gain vs wrapper 작성 cost trade-off 약. plan-010 carry-over)] |
+| c10 | exp | H003_topk-filter: 3 K 측정 + best 채택 + submission 생성. spec @ §7 | [SKIPPED — c9 skip 후속] |
+| G3 | gate | OOF ≥ G2 + 0.005 + best K 박제 | [SKIPPED — autonomous, plan-010 carry-over] |
+| c11 | code | (조건부) `analysis/plan-009/coarse_to_fine.py` — 2-stage filter (Phase 1+2+3a OOF < 0.78 일 때만). spec @ §8 | [SKIPPED — entry 조건 (누적 OOF 0.6653 < 0.78) 충족하나 G2 attribution (b_band 만 positive) 기반 expected ROI 약, plan-010 carry-over] |
+| c12 | exp | (조건부) H004_coarse-to-fine: 2-stage 측정 + submission 생성. spec @ §8 | [SKIPPED — c11 skip 후속] |
+| G4 | gate | (조건부) OOF ≥ Phase 1+2 + 0.02 | [SKIPPED — autonomous, plan-010 carry-over] |
+| c13 | code | (조건부) `src/pb_0_6822/selector.py` partial — Set Transformer 1 layer. spec @ §9 | [SKIPPED — entry 조건 (누적 OOF 0.6653 < 0.75) 충족하나 동일 사유 + overfit risk (10K data) 박제, plan-010 후보 4 carry-over] |
+| c14 | exp | (조건부) H005_set-transformer: arch swap 측정 + submission 생성. spec @ §9 | [SKIPPED — c13 skip 후속] |
+| G5 | gate | (조건부) OOF ≥ G4 + 0.03 + top1_acc ≥ 0.30 | [SKIPPED — autonomous, plan-010 carry-over] |
 | ~~c15~~ | ~~sub-lb~~ | **본 plan 내 미수행** (LB 할당량 소진). plan-009.1 carry-over (다음 날 사용자 수동 dacon-submit). spec @ §10 | [DEFERRED] |
-| c16 | synthesis | `analysis/plan-009/results.md` + `next_plan_candidates.md` (≥ 2 후보) + best Phase submission path 박제 + plan-009.1 carry-over instruction + **G2 fail handling 분기 (caveat #16, §10.1 fallback)** — G2 severe path 시 H001 채택, G2 warn-only path 시 best max. spec @ §10 + §N+3 #16 | [TODO] |
-| G_final | gate | results.md + next plan 후보 ≥ 2 + 3 파일 frontmatter 동시 박제 (`lb_score: TBD` carry-over) + plan-009.1 instruction | [TODO] |
+| c16 | synthesis | `analysis/plan-009/results.md` + `next_plan_candidates.md` (≥ 2 후보) + best Phase submission path 박제 + plan-009.1 carry-over instruction + **G2 fail handling 분기 (caveat #16, §10.1 fallback)** — G2 severe path 시 H001 채택, G2 warn-only path 시 best max. spec @ §10 + §N+3 #16. **구현**: H002 b test inference + 3 submission 생성 (boundary_tiny_soft / argmax / step2 canonical anchor) + results.md (10 section, OOF 표 + attribution + plan-005 corrector_decomp 패턴 per-band table + caveat 검증) + next_plan_candidates.md (4 후보 + 우선순위 + decision-note transition) + plan-009 frontmatter sync (status: partial, best_submission, best_oof, real_gain_vs_plan_008). | [DONE] |
+| G_final | gate | results.md + next plan 후보 ≥ 2 + 3 파일 frontmatter 동시 박제 (`lb_score: TBD` carry-over) + plan-009.1 instruction | [DONE — H002 sub-exp b 채택 (plan-008 baseline +0.0150 real gain), plan-009.1 carry-over instruction 박제] |
 
 ### Plan-specific severe (WORKFLOW.md §12.3 default 위 추가분)
 
