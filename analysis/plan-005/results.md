@@ -59,6 +59,37 @@ plan-004 가 적용한 PB_0.6822 framework 의 ceiling 은 raw oracle **0.7188**
 - intervention (regime: A↔full): rate=0.5530, helped/hurt=0.509/0.491, Δhit when changed=+0.0076
 - family-change: gru_intervention cross_family_pct=0.634, regime_intervention cross_family_pct=0.547
 
+## STAGE 6 — Variant A/B LB carry-over (post-hoc, user-request)
+
+plan-006 의 Variant E LB=0.6692 회수 후 (full LB=0.6806 대비 -1.14pp), Variant A/B 의 LB 단위 검증 (apples-to-apples).
+
+방법 (plan-006 §6 패턴):
+- Variant A: ens_scores from `variant_A_no_regime/test_selector_scores.npz` (retrain, regime_prior_strength=0) → `soft_select(corrected_test, temp=0.03)`
+- Variant B: `0.65 × physics_bias + 0.45 × regime_bias_table[test_regimes]` (full-train bias, no GRU) → `soft_select(corrected_test, temp=0.03)`
+
+제출 (2026-05-12 KST, plan-006 LB=0.6692 회수 직후):
+- E002_variant-a-gru-physics: dacon-submit 성공, `lb_score: TBD` (carry-over open)
+- E003_variant-b-physics-regime: dacon-submit 성공, `lb_score: TBD` (carry-over open)
+
+OOF↔LB 비교 표 (LB 회수 후 채울 행 = `[TBD]`):
+
+| Variant | OOF (soft) | LB | OOF→LB gap | 비고 |
+|---|---|---|---|---|
+| full (GRU + physics + regime) | 0.6599 | 0.6806 | +0.0207 | plan-004 측정 |
+| A_no_regime (GRU + physics) | 0.6570 | **[TBD]** | **[TBD]** | E002 (carry-over) |
+| B_no_gru (physics + regime) | 0.6547 | **[TBD]** | **[TBD]** | E003 (carry-over) |
+| E_minimal (physics only) | 0.6524 | 0.6692 | +0.0168 | plan-006 측정 |
+
+산출:
+- 코드: `analysis/plan-005/variants_ab_lb.py`
+- 제출 CSV: `runs/baseline/E002_variant-a-gru-physics/submission.csv`, `runs/baseline/E003_variant-b-physics-regime/submission.csv`
+- LB log: `analysis/plan-005/lb_log.md`
+
+LB 회수 후 carry-over 작업:
+- `lb_log.md` 의 TBD → `<float>` row update (또는 신규 row append, plan-006 §7.4 패턴)
+- 본 절 OOF↔LB 표의 [TBD] 채움
+- gap variant 간 일관성 (plan-006 §4 의 -0.0039 noise) 확장 분석
+
 ## STAGE 5 — Failure analysis + B001 비교
 
 - worst-100 의 regime 빈도 (top-3): regime 10=8, regime 11=6, regime 12=5
