@@ -1,0 +1,19 @@
+inline selector loaded: 27 candidates
+aug_usable = True, stage2 single_fit_best_hit = 0.6342, gms = 0.025574
+Building 50K stack with 10 terms (6 base + 4 new)...
+pool M = 50,000
+Running ablation (4 vars × cumulative)...
+  ablation: + speed_slope_d1  (current size = 7)
+    hit = 0.6356  marginal_gain = +0.0014  kept = True
+  ablation: + rotation_term  (current size = 8)
+    hit = 0.6387  marginal_gain = +0.0031  kept = True
+  ablation: + speed_norm_acc_par  (current size = 9)
+    hit = 0.6391  marginal_gain = +0.0004  kept = False
+  ablation: + v_mean3_minus_d1  (current size = 9)
+    hit = 0.6387  marginal_gain = +0.0000  kept = False
+  → final best basis fit (sanity recompute):
+final best_basis_hit = 0.6387, vars = ['d1', 'acc_par', 'acc_perp', 'd2', 'jerk', 'ts_term', 'speed_slope_d1', 'rotation_term']
+submission written: runs/baseline/F001_formula-ga/submission.csv
+
+=== G2 check ===
+best_basis_hit (0.6387) ≥ stage2_best_hit (0.6342)? True
