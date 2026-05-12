@@ -1,0 +1,68 @@
+{
+  "n_orig": 10000,
+  "n_slide": 40000,
+  "ks_statistic": 0.04514999999999991,
+  "ks_pvalue": 1.3086221643874682e-14,
+  "quantile_rmse": 0.0012520662348785908,
+  "threshold_ks_p": 0.075,
+  "threshold_quantile_rmse": 0.0015,
+  "aug_usable": true,
+  "best_idx": 17,
+  "best_candidate_name": "frenet_par120_perp_neg020",
+  "sliding_end_idx_range": [
+    5,
+    8
+  ],
+  "sliding_horizon": 2,
+  "histogram_bins": [
+    0.0,
+    0.005,
+    0.01,
+    0.015,
+    0.02,
+    0.03,
+    0.05,
+    0.1,
+    "inf"
+  ],
+  "histogram_orig_counts": [
+    3368,
+    2952,
+    1713,
+    506,
+    485,
+    450,
+    427,
+    99
+  ],
+  "histogram_slide_counts": [
+    13699,
+    11393,
+    5239,
+    2691,
+    2656,
+    2189,
+    1761,
+    372
+  ],
+  "histogram_orig_pct": [
+    0.3368,
+    0.2952,
+    0.1713,
+    0.0506,
+    0.0485,
+    0.045,
+    0.0427,
+    0.0099
+  ],
+  "histogram_slide_pct": [
+    0.342475,
+    0.284825,
+    0.130975,
+    0.067275,
+    0.0664,
+    0.054725,
+    0.044025,
+    0.0093
+  ]
+}
