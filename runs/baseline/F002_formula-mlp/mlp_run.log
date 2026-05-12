@@ -1,0 +1,20 @@
+
+  === fold 0 ===
+  fold 0 done: best_val_hit=0.6619, epochs=12
+
+  === fold 1 ===
+  fold 1 done: best_val_hit=0.6453, epochs=18
+
+  === fold 2 ===
+  fold 2 done: best_val_hit=0.6481, epochs=22
+
+  === fold 3 ===
+  fold 3 done: best_val_hit=0.6500, epochs=9
+
+  === fold 4 ===
+  fold 4 done: best_val_hit=0.6355, epochs=9
+
+oof_hit (5-fold concat, original 10K) = 0.6482
+stage3 baseline = 0.6387, gain = +0.0095
+G3 target: oof_hit ≥ 0.6437 → PASS
+total elapsed: 36.2s

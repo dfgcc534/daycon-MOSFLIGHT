@@ -1,0 +1,58 @@
+{
+  "oof_hit": 0.6482,
+  "stage3_best_hit": 0.63868,
+  "oof_gain_vs_stage3": 0.009519999999999973,
+  "g3_threshold": 0.64368,
+  "g3_pass": true,
+  "best_basis_vars": [
+    "d1",
+    "acc_par",
+    "acc_perp",
+    "d2",
+    "jerk",
+    "ts_term",
+    "speed_slope_d1",
+    "rotation_term"
+  ],
+  "n_coeffs": 8,
+  "feat_dim": 13,
+  "elapsed_sec": 36.19562244415283,
+  "folds": [
+    {
+      "fold": 0,
+      "train_n": 39900,
+      "val_n": 2020,
+      "best_val_hit": 0.6618812084197998,
+      "n_epochs_run": 12
+    },
+    {
+      "fold": 1,
+      "train_n": 39765,
+      "val_n": 2047,
+      "best_val_hit": 0.6453346610069275,
+      "n_epochs_run": 18
+    },
+    {
+      "fold": 2,
+      "train_n": 40395,
+      "val_n": 1921,
+      "best_val_hit": 0.648099958896637,
+      "n_epochs_run": 22
+    },
+    {
+      "fold": 3,
+      "train_n": 39900,
+      "val_n": 2020,
+      "best_val_hit": 0.6500000357627869,
+      "n_epochs_run": 9
+    },
+    {
+      "fold": 4,
+      "train_n": 40040,
+      "val_n": 1992,
+      "best_val_hit": 0.6355421543121338,
+      "n_epochs_run": 9
+    }
+  ],
+  "device": "cuda"
+}
