@@ -1,0 +1,44 @@
+{
+  "sub_exp": "P1.L5",
+  "n_val": 2020,
+  "fold": 0,
+  "oof_soft_hit": 0.6420792079207921,
+  "oof_raw_hit": 0.6400990099009901,
+  "corrector_gain": 0.001980198019801982,
+  "per_band_hit_after": {
+    "[0,0.5cm)": {
+      "n": 692,
+      "hit_before": 1.0,
+      "hit_after": 1.0,
+      "delta": 0.0
+    },
+    "[0.5,1cm)": {
+      "n": 601,
+      "hit_before": 1.0,
+      "hit_after": 0.9767054908485857,
+      "delta": -0.02329450915141429
+    },
+    "[1,1.5cm)": {
+      "n": 349,
+      "hit_before": 0.0,
+      "hit_after": 0.05157593123209169,
+      "delta": 0.05157593123209169
+    },
+    "[1.5,2cm)": {
+      "n": 97,
+      "hit_before": 0.0,
+      "hit_after": 0.0,
+      "delta": 0.0
+    },
+    "[2cm,inf)": {
+      "n": 281,
+      "hit_before": 0.0,
+      "hit_after": 0.0,
+      "delta": 0.0
+    }
+  },
+  "elapsed_sec": 1.8095152378082275,
+  "best_val_hit": 0.64207923412323,
+  "device": "cuda",
+  "predictions_npz": true
+}
