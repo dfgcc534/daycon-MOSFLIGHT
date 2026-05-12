@@ -1,0 +1,37 @@
+{
+  "plan_id": "009",
+  "version": "v1.1 spec (LB 제출 0 회 정책 — 할당량 소진 인계)",
+  "based_on": [
+    "008"
+  ],
+  "baseline_submission_path": "runs/baseline/G001_candidate-redefine/submission_step3.csv",
+  "baseline_metrics": {
+    "oof_soft_hit": 0.6503,
+    "oracle_extended_pool": 0.7562,
+    "top1_ranking_accuracy": 0.1721,
+    "gap_ranking": 0.1119,
+    "n_train": 10000,
+    "n_candidates_extended": 25,
+    "n_oracle_miss_extended": 2812
+  },
+  "carry_over": {
+    "plan_008_1": {
+      "submission_path": "runs/baseline/G001_candidate-redefine/submission_step3.csv",
+      "expected_lb": null,
+      "anchor": "OOF + 0.022 gap (plan-005/008 trajectory)",
+      "estimated_lb": 0.6723,
+      "status": "pending dacon-submit (할당량 소진, 다음 날 사용자 수동 호출)"
+    },
+    "plan_009_1": {
+      "submission_path": null,
+      "anchor": "best Phase submission of plan-009 (TBD at G_final)",
+      "estimated_lb": null,
+      "status": "pending plan-009 completion"
+    }
+  },
+  "lb_history_anchor": {
+    "plan_005_stage6_variant_a_lb": 0.6796,
+    "note": "plan-009 §N+5 박제. OOF→LB gap 추정 anchor."
+  },
+  "decision_note": "spec-default — lb_baseline.json schema 가 plan-009 본문에 명시 부재로 자율 결정 채택 (CLAUDE.md Autonomous Execution Policy)."
+}
