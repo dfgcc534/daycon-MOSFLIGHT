@@ -1,0 +1,112 @@
+{
+  "E_raw": {
+    "argmax": 0.632,
+    "soft": 0.625
+  },
+  "E_corrected": {
+    "argmax": 0.6491,
+    "soft": 0.6524
+  },
+  "per_regime": {
+    "0": {
+      "n": 661,
+      "E_corrected_soft": 0.8835098335854765,
+      "E_raw_soft": 0.8804841149773072
+    },
+    "1": {
+      "n": 629,
+      "E_corrected_soft": 0.9300476947535771,
+      "E_raw_soft": 0.9205087440381559
+    },
+    "2": {
+      "n": 663,
+      "E_corrected_soft": 0.8597285067873304,
+      "E_raw_soft": 0.8642533936651584
+    },
+    "3": {
+      "n": 458,
+      "E_corrected_soft": 0.8864628820960698,
+      "E_raw_soft": 0.8777292576419214
+    },
+    "4": {
+      "n": 615,
+      "E_corrected_soft": 0.5967479674796748,
+      "E_raw_soft": 0.5430894308943089
+    },
+    "5": {
+      "n": 274,
+      "E_corrected_soft": 0.708029197080292,
+      "E_raw_soft": 0.6605839416058394
+    },
+    "6": {
+      "n": 544,
+      "E_corrected_soft": 0.7977941176470589,
+      "E_raw_soft": 0.7665441176470589
+    },
+    "7": {
+      "n": 701,
+      "E_corrected_soft": 0.7788873038516405,
+      "E_raw_soft": 0.7617689015691869
+    },
+    "8": {
+      "n": 592,
+      "E_corrected_soft": 0.7466216216216216,
+      "E_raw_soft": 0.722972972972973
+    },
+    "9": {
+      "n": 562,
+      "E_corrected_soft": 0.7153024911032029,
+      "E_raw_soft": 0.6797153024911032
+    },
+    "10": {
+      "n": 546,
+      "E_corrected_soft": 0.41025641025641024,
+      "E_raw_soft": 0.3608058608058608
+    },
+    "11": {
+      "n": 355,
+      "E_corrected_soft": 0.43380281690140843,
+      "E_raw_soft": 0.37464788732394366
+    },
+    "12": {
+      "n": 549,
+      "E_corrected_soft": 0.6120218579234973,
+      "E_raw_soft": 0.5828779599271403
+    },
+    "13": {
+      "n": 916,
+      "E_corrected_soft": 0.5720524017467249,
+      "E_raw_soft": 0.5425764192139738
+    },
+    "14": {
+      "n": 476,
+      "E_corrected_soft": 0.5105042016806722,
+      "E_raw_soft": 0.4642857142857143
+    },
+    "15": {
+      "n": 749,
+      "E_corrected_soft": 0.45794392523364486,
+      "E_raw_soft": 0.42990654205607476
+    },
+    "16": {
+      "n": 354,
+      "E_corrected_soft": 0.22033898305084745,
+      "E_raw_soft": 0.18926553672316385
+    },
+    "17": {
+      "n": 356,
+      "E_corrected_soft": 0.25842696629213485,
+      "E_raw_soft": 0.22752808988764045
+    }
+  },
+  "F_corrected_soft": 0.652,
+  "physics_bias_argmax_idx": 17,
+  "physics_bias_argmax_name": "frenet_par120_perp_neg020",
+  "physics_bias_top5_names": [
+    "frenet_par120_perp_neg020",
+    "frenet_best",
+    "frenet_par100_perp000",
+    "frenet_par120_perp020",
+    "frenet_par110_perp_neg020"
+  ]
+}
