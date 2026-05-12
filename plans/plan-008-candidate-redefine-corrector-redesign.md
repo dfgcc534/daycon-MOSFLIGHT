@@ -83,11 +83,11 @@ lb_score: null
 | c4 | code | `analysis/plan-008/prune_and_redefine.py` — Step 2a (prune, v2.7 incremental safety) + Step 2b (**Greedy set cover Strategy D**). spec @ §5 | [DONE b22f86c] |
 | c5 | exp | G001-step2: oracle 측정 (pruned 0.7173 + greedy 6 templates added → oracle_final 0.7543). spec @ §5 | [DONE b22f86c] |
 | G1 | gate | Step 2a 0.7173 ≥ 0.7170 ✓ ∧ Step 2b 0.7543 < 0.85 ✗ (**SEVERE redefinition_severely_insufficient**, plan-009 carry-over per §0.5) | [DONE b22f86c, SEVERE] |
-| **c5.5** | **code** | **`analysis/plan-008/sanity_baseline_27.py` — 27 후보 + 새 hyperparam Variant A 5-fold OOF baseline 측정 (v2.6 신규, family 효과 분리용). spec @ §6.0** | **[TODO]** |
-| c6 | code | `analysis/plan-008/selector_retrain.py` — Variant A path 강제 wrapper (regime_prior_strength=0). spec @ §6 | [TODO] |
-| c7 | exp | G001-step3: 5-fold selector + 기존 corrector full-fit + submission 생성 (LB 미제출). spec @ §6 | [TODO] |
-| ~~c8~~ | ~~sub-lb~~ | **본 plan 내 미수행** (LB 할당량 소진). plan-008.1 carry-over (다음 날). spec @ §8 | [DEFERRED] |
-| G2 | gate | OOF ≥ 0.70 + family_effect ≥ +0.03 (vs sanity_baseline_27) + submission schema OK (LB 미제출, carry-over) | [TODO] |
+| c5.5 | code | `analysis/plan-008/sanity_baseline_27.py` — 27 후보 + 새 hyperparam Variant A 5-fold OOF baseline 측정 (v2.6 신규, family 효과 분리용). spec @ §6.0 | [DONE 637f7e2, 1a8c05c run] — soft_hit=0.6466 |
+| c6 | code | `analysis/plan-008/selector_retrain.py` — Variant A path 강제 wrapper (regime_prior_strength=0). spec @ §6 | [DONE 637f7e2 + 48adfed + 62b6344] |
+| c7 | exp | G001-step3: 5-fold selector + 기존 corrector full-fit + submission 생성 (LB 미제출). spec @ §6 | [DONE 1a8c05c] — soft=0.6503 oracle=0.7562 |
+| ~~c8~~ | ~~sub-lb~~ | 본 plan 내 미수행 (LB 할당량 소진). plan-008.1 carry-over (다음 날). spec @ §8 | [DEFERRED] |
+| G2 | gate | OOF ≥ 0.70 ✗ (0.6503) + family_effect ≥ +0.03 ✗ (+0.0037) → **SEVERE selector_no_improvement + 2 warn**. §6.5 fallback skip (autonomous, family_effect marginal). | [DONE 1a8c05c, SEVERE+2WARN] |
 | c9 | code | `analysis/plan-008/corrector_band.py` — band-specific corrector loss + 학습 wrapper. spec @ §7 | [TODO] |
 | c10 | exp | G002-step4: corrector 재학습 + per-band hit 측정 + submission 생성 (LB 미제출). spec @ §7 | [TODO] |
 | ~~c11~~ | ~~sub-lb~~ | **본 plan 내 미수행** (LB 할당량 소진). plan-008.1 carry-over (다음 날). spec @ §8 | [DEFERRED] |
