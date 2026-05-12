@@ -2,7 +2,10 @@
 plan_id: 011
 version: 1
 date: 2026-05-13 (Asia/Seoul)
-status: draft
+status: partial (G1 complete, Phase 3+ autonomous skip)
+best_phase: Phase 1 In axis ID
+best_oof_fold0: 0.6450
+best_submission: runs/baseline/H012_phase1-input-ablation/sub_ID/submission.csv
 based_on:
   - 004
   - 005
@@ -68,11 +71,11 @@ lb_score: null
 
 - G0: Phase 0 diagnostics + preflight.json 생성 [DONE] (b6e582a — D001=0.6570 < 0.66, c008 path disabled, P1.L2 자동 skip)
 - G1: Phase 1 4-axis ablation (24 sub-exp) — L NEG / In POSITIVE (ID +0.0050) / M NEG / F NEG → G1 (b) FAIL (1/4 positive) [DONE] (73a1446 — `phase1_no_lever_positive` warn, autonomous: P3.1 만 진행)
-- G2: Phase 3 pairwise (4 pair 5-fold) — super-additive 입증 [TODO]
-- G3: Phase 4 triple stack (P4.1 + 조건부 P4.2) — OOF ≥ G2 + 0.003 [TODO]
-- G4: Phase 5 iterative (조건부 G3 > 0.69) — [1,1.5cm) hit ≥ 0.20 + iter_gap ≤ 0.05 [TODO]
-- G5: Phase 6 inference augment (조건부) — marginal +0.002 [TODO]
-- G_final: synthesis + plan-012 후보 ≥ 3 + 3 파일 frontmatter sync + best Phase submission 박제 + plan-011.1 instruction [TODO]
+- G2: Phase 3 pairwise (4 pair 5-fold) — super-additive 입증 [SKIP] (autonomous per §9.3 option a — G1 (b) FAIL)
+- G3: Phase 4 triple stack (P4.1 + 조건부 P4.2) — OOF ≥ G2 + 0.003 [SKIP] (autonomous — G2 skip)
+- G4: Phase 5 iterative (조건부 G3 > 0.69) — [1,1.5cm) hit ≥ 0.20 + iter_gap ≤ 0.05 [SKIP] (autonomous — G3 skip + M4 iterative 자체 -0.0693)
+- G5: Phase 6 inference augment (조건부) — marginal +0.002 [SKIP] (autonomous — base 없음)
+- G_final: synthesis + plan-012 후보 ≥ 3 + 3 파일 frontmatter sync + best Phase submission 박제 + plan-011.1 instruction [DONE]
 
 ### Commit chain (next-up)
 
@@ -95,8 +98,8 @@ lb_score: null
 | c14 | code+exp | Phase 4 triple stack: P4.1 (L̂+In̂+M̂) 5-fold + (조건부) P4.2. spec @ §11 | **G3** |
 | c15 | code+exp | (조건부 G3 > 0.69) Phase 5 iterative refinement. spec @ §12 | G4 |
 | c16 | code+exp | (조건부) Phase 6 inference augment (TTA + multi-parse). spec @ §13 | G5 |
-| c17 | analysis | `analysis/plan-011/results.md` + `next_plan_candidates.md` (≥ 3 후보) + 3 파일 frontmatter sync + best Phase submission 박제 + plan-011.1 carry-over instruction. spec @ §14 | **G_final** |
-| c17.1 | sync | §0.5 [TODO]→[DONE] | — |
+| c17 | analysis | `analysis/plan-011/results.md` + `next_plan_candidates.md` (≥ 3 후보) + 3 파일 frontmatter sync + best Phase submission 박제 + plan-011.1 carry-over instruction. spec @ §14 | **G_final** [DONE] |
+| c17.1 | sync | §0.5 [TODO]→[DONE] | [DONE] |
 
 ### Plan-specific severe (WORKFLOW.md §12.3 default 위 추가분)
 
