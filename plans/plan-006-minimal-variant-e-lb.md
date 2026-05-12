@@ -2,7 +2,7 @@
 plan_id: 006
 version: 2
 date: 2026-05-12 (Asia/Seoul)
-status: draft
+status: partial
 based_on:
   - 004
   - 005
@@ -11,7 +11,7 @@ based_on:
 scope: minimal-variant LB validation (no retrain — physics_bias + soft averaging only, 1 LB submission)
 exp_ids:
   - E001_minimal-variant-e
-lb_score: null
+lb_score: TBD
 ---
 
 # plan-006 v1 — Minimal Variant E LB Validation (physics_bias + soft averaging, no GRU, no regime)
