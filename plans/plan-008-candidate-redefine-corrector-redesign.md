@@ -62,11 +62,11 @@ warn_flags: [diagnostic_inconclusive, sanity_baseline_drift, family_effect_margi
 ### G-gates
 
 - G0: STAGE 1 진단 (v2.5: **oracle miss mask** residual decomposition + 가지치기 list + softmax diffusion + per-regime oracle gap (sanity) + ranking-vs-drift 분해) [DONE ebd4979] — n_oracle_miss=2812, prune=24 (strict), main_bottleneck=ranking, warn=diagnostic_inconclusive
-- G1: STAGE 2 후보 풀 재정의 완료 — Step 2a (가지치기, oracle ≥ 0.7170) + Step 2b (**Greedy set cover Strategy D**, oracle ≥ 0.85) [TODO]
-- G2: STAGE 3 selector 재학습 (Variant A path) — OOF ≥ 0.70 + submission.csv 생성 (LB 미제출) [TODO]
-- G3: STAGE 4 corrector 재설계 (secondary) — band hit 검증 + 전체 OOF ≥ Step 3 + 0.02 + submission.csv 생성 (LB 미제출) [TODO]
-- G4: (선택) STAGE 5 test-internal validation [TODO]
-- G_final: STAGE 6 synthesis + plan-009 후보 + 3 파일 frontmatter 동시 박제 (`lb_score: TBD` — carry-over) [TODO]
+- G1: STAGE 2 후보 풀 재정의 완료 — Step 2a (가지치기, oracle ≥ 0.7170) + Step 2b (**Greedy set cover Strategy D**, oracle ≥ 0.85) [DONE b22f86c, SEVERE redefinition_severely_insufficient — oracle_final=0.7543 < 0.78]
+- G2: STAGE 3 selector 재학습 (Variant A path) — OOF ≥ 0.70 + submission.csv 생성 (LB 미제출) [DONE 1a8c05c, SEVERE selector_no_improvement — oof_soft=0.6503, family_effect +0.0037]
+- G3: STAGE 4 corrector 재설계 (secondary) — band hit 검증 + 전체 OOF ≥ Step 3 + 0.02 + submission.csv 생성 (LB 미제출) [DEFERRED 4277a21 — boundary.py LOSS_ATTR 부재, plan-009 hook 신설 필요]
+- G4: (선택) STAGE 5 test-internal validation [SKIPPED — 선택 stage, G2 severe 위 ROI 낮음]
+- G_final: STAGE 6 synthesis + plan-009 후보 + 3 파일 frontmatter 동시 박제 (`lb_score: TBD` — carry-over) [DONE 5f47c0a — results.md + next_plan_candidates.md (4 시나리오 + 6 카테고리 ROI 표 + Phase 1~4) + plan-008.results.md sync]
 
 ### Commit chain (next-up)
 
@@ -82,7 +82,7 @@ warn_flags: [diagnostic_inconclusive, sanity_baseline_drift, family_effect_margi
 | c1.7 | docs | v2.7 spec 갱신 — plan-review-master 5-iter sweep (16 BLOCKER + 14 AMB fix) + §4.1 pruning auto-relaxation. spec @ §0/§0.5/§3/§4/§5/§6/§7/§N+3 #17/§N+4 | [DONE ce7366c] |
 | c2 | code | `analysis/plan-008/diagnostic.py` — STAGE 1 진단 (**oracle miss residual** + structural pruning containment + softmax diffusion + per-regime oracle sanity + ranking-vs-drift 분해). spec @ §4 | [DONE ebd4979] |
 | c2.5 | code | `src/pb_0_6822/selector.py` partial 수정 — CandidateSpec schema 확장 (Option A, 3 곳). spec @ §5.2.0 | [DONE 89f3b3f] — smoke 6 pass, dim (27,16) (27→32) ✓ |
-| G0 | gate | diagnostic.{json,md} 박제 + dominant cause(s) + prune list + margin 분포 + per-regime oracle gap | [TODO] |
+| G0 | gate | diagnostic.{json,md} 박제 + dominant cause(s) + prune list + margin 분포 + per-regime oracle gap | [DONE ebd4979] — warn diagnostic_inconclusive (dominant_causes=[]), main_bottleneck="ranking" |
 | c3 | code | `src/pb_0_6822/candidates_extended.py` — 5 family 후보 정의 모듈 (Family 4 drop, snap drop, fs_3d_binormal). spec @ §5.2 | [DONE 9e8b61f] |
 | c4 | code | `analysis/plan-008/prune_and_redefine.py` — Step 2a (prune, v2.7 incremental safety) + Step 2b (**Greedy set cover Strategy D**). spec @ §5 | [DONE b22f86c] |
 | c5 | exp | G001-step2: oracle 측정 (pruned 0.7173 + greedy 6 templates added → oracle_final 0.7543). spec @ §5 | [DONE b22f86c] |
