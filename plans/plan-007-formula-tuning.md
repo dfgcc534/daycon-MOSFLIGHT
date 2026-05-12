@@ -40,7 +40,7 @@ lb_score: null
 
 - Step 1 sliding window aug 의 distribution match: KS p > 0.075 ∨ quantile-by-quantile RMSE < 0.0015m (= plan-006 standard 의 *1.5배 완화*). 위반 시 aug 비사용 분기 (10K train) — `sliding_window_distribution_drift` warn-only (severe X).
 - Step 2 CMA-ES OOF hit (single formula, 기존 변수) finite + `0.62 ≤ x ≤ 0.78` (inclusive). 위반 시 `cma_es_out_of_range` severe.
-- Step 3 ablation 의 각 변수 marginal hit gain ≥ 0.001 인 변수만 best basis 에 포함. cutoff 이하는 drop. 18 ablation 회 (4 변수 × 진단 검증 + 변수 cumulative) 의 산출 모두 `analysis/plan-007/basis_ablation.{json,md}` 박제.
+- Step 3 ablation 의 각 변수 marginal hit gain ≥ 0.001 인 변수만 best basis 에 포함. cutoff 이하는 drop. 총 5 CMA-ES fit (4 단계 cumulative addition + 1 최종 best basis 재확인 — §6.2 algorithm) 의 산출 모두 `analysis/plan-007/basis_ablation.{json,md}` 박제.
 - Step 4 MLP 학습 OOF hit finite + Step 3 best baseline 보다 ≥ 0.005 향상 (= per-sample 적응의 minimum gain). 위반 시 `mlp_no_improvement` severe (MLP 가 단일 global coeff 보다 못함 = arch/loss/data 문제).
 - LB 제출: Step 2 끝 + Step 3 끝 = 총 **2회**. Step 4 끝은 본 plan 미제출 (후속 plan-008 또는 carry-over).
 - `lb_score` frontmatter 3 파일 (`plans/plan-007-*.md` top + `.results.md` + `analysis/plan-007/results.md`) 동시 박제. plan-004/006 패턴 답습.
@@ -134,7 +134,7 @@ lb_score: null
 | 가설 | 검증 방법 | 합격 산출 |
 |---|---|---|
 | H1: sliding window aug 가 distribution 보존 | Step 1 KS / quantile match | aug 사용 분기 결정 |
-| H2: 단일 공식 + 기존 변수 의 CMA-ES ceiling > 65% (현 baseline) | Step 2 CMA-ES fit | OOF hit, ~68~72% 추정 |
+| H2: 단일 공식 + 기존 변수 의 CMA-ES ceiling 을 *측정* (가설 기대값 ~68~72%, baseline 0.6491 대비). G1 gate 하한 0.62 는 *측정 신뢰성* 의 sanity 최저선 (가설 미달도 측정값으로 박제) | Step 2 CMA-ES fit | OOF hit, ~68~72% 추정 |
 | H3: 새 변수 (speed_slope·d1, rotation_term, ‖d1‖·acc_par, v_mean3) 의 marginal contribution 양수 | Step 3 ablation | 각 변수 marginal 박제, best basis 결정 |
 | H4: per-sample MLP coefficient regression 이 global 단일 공식 ceiling 돌파 | Step 4 MLP 학습 | OOF ≥ Step 3 + 0.005 |
 
@@ -149,7 +149,7 @@ lb_score: null
 | 항목 | 값 |
 |---|---|
 | 단일 공식 출발점 | `frenet_par120_perp_neg020` (plan-006 1등) |
-| 데이터 증폭 | sliding window (Step 1 검증 통과 시) — train 10K → 60K |
+| 데이터 증폭 | sliding window (Step 1 검증 통과 시) — train 10K → 40K (end_idx ∈ [5,8], horizon=2; §6.1 speed_slope 의 end−5 lookback 와 boundary-safe) |
 | 최적화 | CMA-ES (cma library, popsize=30, maxiter=200) |
 | 새 변수 | speed_slope·d1, rotation_term, ‖d1‖·acc_par, v_mean3 (4 개) |
 | 모델 | per-sample MLP coefficient regression (1 hidden × 32) |
@@ -179,15 +179,15 @@ lb_score: null
 | 분할 | 출처 | 사용 |
 |---|---|---|
 | Train original (10K, end_idx=10) | `data/train/` + `train_labels.csv` | Step 1 baseline distribution, Step 2~4 main fit |
-| Train sliding (60K, end_idx ∈ [5, 10]) | sliding window 추출 | Step 1 비교 분포, Step 2~4 (검증 통과 시) |
+| Train sliding (40K, end_idx ∈ [5, 8], horizon=2, target=train_x[:, end_idx+2]) | sliding window 추출 (§4.1) | Step 1 비교 분포, Step 2~4 (검증 통과 시) |
 | Test (10K, end_idx=10) | `data/test/` | Step 2/3 inference + submission, Step 4 inference |
-| Fold 정의 | `selector.stable_fold_id(sample_id, 5)` | OOF 정합성 (plan-004/006 와 동일) |
+| Fold 정의 | `selector.stable_fold_id(sample_id, 5)`. sliding 의 4 view (end_idx ∈ [5,8]) 는 부모 sample_id 의 fold 를 *상속* (leakage 방지 — 같은 sample_id 의 view 가 fold split 양쪽에 분산 X) | OOF 정합성 (plan-004/006 와 동일) |
 
 ### §3.2 합격 기준 (정량)
 
 - **G0**: Step 1 의 (KS test p > 0.075) ∨ (quantile-by-quantile RMSE < 0.0015m). 둘 중 하나 통과 시 aug 사용, 둘 다 실패 시 aug 비사용 (warn-only).
 - **G1**: Step 2 OOF hit finite + `0.62 ≤ x ≤ 0.78`. submission.csv schema == `sample_submission.csv`. LB 회수 (float 또는 TBD/null).
-- **G2**: Step 3 의 4 변수 각각의 marginal hit gain 박제 (양수든 음수든). best basis = (기존 6 + marginal > 0.001 인 새 변수 N 개). submission.csv + LB 회수.
+- **G2**: Step 3 의 4 변수 각각의 marginal hit gain 박제 (양수든 음수든). best basis = (기존 6 + marginal_gain ≥ 0.001 인 새 변수 N 개; inclusive — §6.2 의 `kept = marginal_gain >= 0.001` 와 동일). submission.csv + LB 회수.
 - **G3**: Step 4 MLP OOF ≥ Step 3 best + 0.005.
 - **G_final**: `analysis/plan-007/results.md` 작성 + `next_plan_candidates.md` 후보 ≥ 2 (각 후보 4 항목 박제) + 3 파일 frontmatter `lb_score` 동시 갱신.
 
@@ -217,22 +217,31 @@ def stage1_sliding_validity() -> dict:
     ids, train_y = selector.read_labels(DATA_ROOT / "train_labels.csv")
     train_x = selector.load_stack(DATA_ROOT / "train", ids)
 
-    # ── 1. Original residuals (end_idx=10) ──
+    # ── 1. Original residuals (end_idx = train_x.shape[1] - 1 = 10, horizon=2) ──
+    # selector.make_candidates 는 (N, 27, 3) 의 candidate 예측을 반환. 27-family ordering 은
+    # plan-004 §4 (selector.CANDIDATE_LIST) 박제 — frenet_par120_perp_neg020 는 그 list 의
+    # index 17 (plan-006 §5.5 박제). 본 plan 본문은 외부 source 직접 read 없이 index 만 인용
+    # (decision-note: spec-default — selector lock-in 의 ordering 신뢰, 변경 X).
     cands_orig = selector.make_candidates(train_x, train_x.shape[1] - 1, horizon=2)
-    best_idx = 17   # frenet_par120_perp_neg020 (plan-006 박제)
+    best_idx = 17   # frenet_par120_perp_neg020 (= plan-004 CANDIDATE_LIST[17], plan-006 박제)
     pred_orig = cands_orig[:, best_idx, :]
     err_orig = np.linalg.norm(pred_orig - train_y, axis=1)   # [N=10K]
 
-    # ── 2. Sliding window residuals (end_idx ∈ [5, 9], horizon=1) ──
-    # 각 sub-trajectory: (x[0:end+1], target=x[end+1])
+    # ── 2. Sliding window residuals (end_idx ∈ [5, 8], horizon=2 — original 과 동일 task) ──
+    # decision-note: spec-default — sliding 도 horizon=2 사용. original 의 target 은 train_y (외부 label)
+    # 이고 sliding 의 target 은 train_x[:, end_idx + 2] (within-trajectory). 둘 다 "end_idx 로부터 2 step
+    # ahead 예측의 residual" 이라는 *같은 task* 의 분포 → KS / quantile 비교가 stationarity 측정 의도와 정합.
+    # end_idx ∈ [5, 8] 의 lower bound = 5 는 §6.1 의 speed_slope (x[end−5] 사용) 의 최소 history 와
+    #   호환 (Step 3 ablation 까지 모든 변수에 boundary-safe). upper bound = 8 은
+    #   target = x[end+2] = x[10] 가 train_x 안에 존재 (shape[1]=11 가정).
     err_slide_list = []
-    for end_idx in range(5, 10):       # 5 단계 sliding (5, 6, 7, 8, 9)
-        cands_sub = selector.make_candidates(train_x, end_idx, horizon=1)
-        target_sub = train_x[:, end_idx + 1]
+    for end_idx in range(5, 9):        # 4 단계 sliding (5, 6, 7, 8) → 4 × 10K = 40K
+        cands_sub = selector.make_candidates(train_x, end_idx, horizon=2)
+        target_sub = train_x[:, end_idx + 2]
         pred_sub = cands_sub[:, best_idx, :]
         err_sub = np.linalg.norm(pred_sub - target_sub, axis=1)
         err_slide_list.append(err_sub)
-    err_slide = np.concatenate(err_slide_list)   # [50K]
+    err_slide = np.concatenate(err_slide_list)   # [40K]
 
     # ── 3. KS test (two-sample) ──
     ks_stat, ks_pvalue = stats.ks_2samp(err_orig, err_slide)
@@ -279,7 +288,7 @@ def stage1_sliding_validity() -> dict:
 ### §4.3 G0 합격 기준 (자동 판정)
 
 - `aug_usable = True` (KS p > 0.075 ∨ quantile RMSE < 0.0015m)
-- 통과 → Step 2~4 가 sliding aug (60K) 사용
+- 통과 → Step 2~4 가 sliding aug 사용 (sliding 40K ∪ original 10K = 총 **50K** train pool, §5.2 동일)
 - 실패 → Step 2~4 가 original only (10K) 사용 + `sliding_window_distribution_drift` warn-only flag
 
 ### §4.4 시간 예산
@@ -305,8 +314,18 @@ where:
   acc_perp = acc − acc_par                                    (직교 가속)
   prev_acc = d2 − (x[:, end_idx − 2] − x[:, end_idx − 3])
   jerk     = acc − prev_acc                                   (저크)
-  time_scale_term = time_scale_factor × d1                    (linear time warp)
+  time_scale_factor = ||d1|| / global_mean_speed              (per-sample 스칼라,
+                                                              global_mean_speed = mean(||d1||) over
+                                                              **original train 10K only** (end_idx=10
+                                                              의 d1, aug 분기와 무관 — 단 한 번 사전
+                                                              계산 후 고정. coefficient 정의의 aug
+                                                              불변성 확보). fast sample > 1, slow < 1)
+  time_scale_term   = time_scale_factor × d1                  (= ||d1|| · d1 / global_mean_speed,
+                                                              speed-quadratic 항, a·d1 과 *redundant 아님*
+                                                              — coefficient 가 sample-dependent)
 ```
+
+**Numerical safety (모든 helper 공통)**: `||d1||`, `mean_speed`, `global_mean_speed` 가 0 인 sample (정지 또는 history 부재) 에서 ZeroDivision 방지 — 모든 normalize 분모에 `eps = 1e-9` 더해 clamp (`x / (denom + eps)`). 직접 reciprocal (e.g., `tangent = d1 / max(||d1||, eps)`) 도 동일 효과. CMA-ES fitness 의 NaN propagation 방지.
 
 ### §5.2 CMA-ES 학습
 
@@ -319,27 +338,73 @@ def fitness_step2(params, p0, d1, acc_par, acc_perp, d2, jerk, ts_term, target):
     err = np.linalg.norm(pred - target, axis=1)
     return -(err <= 0.01).mean()    # CMA-ES minimizes
 
-x0 = [1.98, 1.20, -0.20, 0.0, 0.0, 0.0]   # plan-006 best 에서 시작
+x0 = [1.98, 1.20, -0.20, 0.0, 0.0, 0.0]   # 첫 3 entry = plan-006 best `frenet_par120_perp_neg020`
+                                          #   의 effective coefficient seed (a≈1.98 on d1,
+                                          #   b=1.20 on acc_par, c=-0.20 on acc_perp). 출처:
+                                          #   plan-006 §5.5 의 argmax single-formula fit.
+                                          # decision-note: spec-default — *init seed only*, CMA-ES
+                                          #   가 더 나은 optimum 으로 자유 이동. 정확 mapping 식이
+                                          #   불확실해도 sigma0=0.3 의 exploration 폭이 충분.
 sigma0 = 0.3
 es = cma.CMAEvolutionStrategy(x0, sigma0, {
     'popsize': 30, 'maxiter': 200, 'tolfun': 1e-5, 'seed': 20260606,
 })
+# fit data source = G0 분기 결과:
+#   aug_usable == True  → sliding 40K (end_idx ∈ [5,8], horizon=2, target = train_x[:, end_idx+2])
+#                        ∪ original 10K (end_idx=10, target = train_y) = 총 50K
+#   aug_usable == False → original 10K (end_idx=10, horizon=2, target = train_y) 만
+# 모든 fold (5-fold OOF) 외부 single fit. 같은 sample_id 의 sliding view 는 같은 fold 상속 (§3.1).
+# OOF 측정은 별도 fold-wise 재호출 (동일 seed=20260606, popsize=30, maxiter=200 고정).
+
+def _stack_train_terms(aug_usable: bool) -> tuple[np.ndarray, ...]:
+    """G0 결과에 따라 train sample stack 생성 후 §5.1 의 6 basis term 을 한 번에 계산.
+
+    반환 (모두 np.ndarray, float32, sample order = aug_usable 별 fixed):
+      - p0      : (M, 3)   현 위치 = train_x[:, end_idx]
+      - d1      : (M, 3)
+      - acc_par : (M, 3)
+      - acc_perp: (M, 3)
+      - d2      : (M, 3)
+      - jerk    : (M, 3)
+      - ts_term : (M, 3)   time_scale_term = time_scale_factor(per-sample) × d1 (§5.1)
+      - target  : (M, 3)   horizon=2 ahead 의 ground-truth (original 은 train_y, sliding 은 train_x[:, end_idx+2])
+    M = 50K (aug_usable=True) 또는 10K (False).
+    fold id 는 별도 (M,) int8 array 로 함께 반환 (zip 으로 동시 indexing). 같은 sample_id 의 sliding view 는
+    parent fold 를 상속해 leakage 방지 (§3.1).
+    """
+    ...
+
+p0, d1, acc_par, acc_perp, d2, jerk, ts_term, target = _stack_train_terms(aug_usable)
 while not es.stop():
     solutions = es.ask()
-    es.tell(solutions, [fitness_step2(s, ...) for s in solutions])
-best_params = es.result.xbest
-best_hit = -es.result.fbest
+    es.tell(solutions, [fitness_step2(s, p0, d1, acc_par, acc_perp, d2, jerk, ts_term, target)
+                        for s in solutions])
+best_params = es.result.xbest         # → test inference + submission 에 사용
+single_fit_best_hit = -es.result.fbest  # in-sample fitness (전체 50K/10K 단일 fit)
+
+# 별도 OOF 측정: 5 folds × CMA-ES 재호출. 각 fold k 마다 train = 4 folds 만, val = 1 fold 의
+# original end_idx=10. 각 fold 의 best_params 로 val predict → 5 fold concat hit = oof_hit_5fold.
+# (G1 의 판정 대상은 oof_hit_5fold; single_fit_best_hit 는 convergence 진단용으로만 박제.)
+def run_5fold_oof_cma_es(aug_usable: bool) -> float:
+    """5-fold OOF CMA-ES re-fit. 각 fold k 의 train = §3.1 fold 정의의 4 folds 의 모든 sample
+    (aug_usable=True 면 sliding view + original; False 면 original 만). val = remaining fold 의
+    *original end_idx=10 sample 만* (§7.2 와 동일 규약 — sliding view 는 val 에서 제외).
+    각 fold 마다 새 CMA-ES instance (popsize=30, maxiter=200, sigma0=0.3, seed=20260606),
+    fold 의 best_params 로 val predict. 5 fold concat → hit@1cm = oof_hit_5fold (float).
+    """
+    ...
+oof_hit_5fold = run_5fold_oof_cma_es(aug_usable)
 ```
 
 ### §5.3 산출
 
-- `analysis/plan-007/cma_es_step2.json` — best_params, best_hit, convergence_history
+- `analysis/plan-007/cma_es_step2.json` — `best_params` (single fit, test 적용), `single_fit_best_hit` (in-sample 진단용), `oof_hit_5fold` (G1 판정값), `convergence_history`
 - `runs/baseline/F001_formula-ga/submission_step2.csv` — test prediction (best_params 적용)
 - `runs/baseline/F001_formula-ga/submission.csv` = `submission_step2.csv` 사본 (LB 제출용)
 
 ### §5.4 G1 합격 기준 (자동 판정)
 
-- `cma_es_step2.json["best_hit"]` finite + `0.62 ≤ x ≤ 0.78`
+- `cma_es_step2.json["oof_hit_5fold"]` finite + `0.62 ≤ x ≤ 0.78` (= H2 검증 metric; OOF concatenated hit@1cm, plan-004/006 표준)
 - CMA-ES 마지막 50 generations 의 fitness 변동 < 0.005 (수렴)
 - `submission.csv` schema 4-line assert (plan-006 §6 동일)
 - LB 회수 (Step 2 = 2026-05-12 이후 자율 dacon-submit 호출)
@@ -367,17 +432,20 @@ new_term    = speed_slope · d1     (sample 마다 다른 effective d1 coefficie
 #### ① rotation_term (우선순위 2)
 
 ```
-omega       = atan2(cross(d2, d1).z, dot(d2, d1))   (signed angular velocity, xy 평면)
-R(theta)    = 2D rotation matrix
-rot_term    = R(omega · horizon) · d1 − d1
+# d1, d2: shape (3,). np.cross(d2, d1): shape (3,), 그 중 z = [2] 인덱스.
+omega       = atan2(np.cross(d2, d1)[2], np.dot(d2, d1))   (signed angular velocity, xy 평면)
+R(theta)    = 2D rotation matrix applied to (d1[0], d1[1]); z component pass-through
+rot_term    = R(omega · horizon)(d1) − d1                  (shape (3,) — xy 회전 + z 보존)
 horizon     = 2  (plan-004 default 와 일관)
 ```
 
-**3D 데이터 주의**: `cross(d2, d1)` 의 z 컴포넌트만 사용 (xy 평면 회전 가정). z 축 회전 (banking) 은 caveat §N+3 #2 박제.
+**3D 데이터 주의**: `np.cross(d2, d1)[2]` 만 사용 (xy 평면 회전 가정). z 축 회전 (banking) 은 caveat §N+3 #2 박제.
 
 #### ④ ‖d1‖ · acc_par (우선순위 3 — 또 하나의 cross-term)
 
 ```
+# mean_speed 정의는 ② 와 *동일* (decision-note: spec-default — t ∈ [end−4, end−1] 범위의
+#   ||x[t+1] − x[t]|| 의 산술 평균. 본 plan 의 모든 'mean_speed' 참조는 단일 정의 사용).
 speed_norm  = ||d1|| / mean_speed
 new_term    = speed_norm · acc_par
 ```
@@ -392,15 +460,26 @@ new_term    = v_mean3 − d1
 ### §6.2 Ablation 순서 + 측정 식
 
 ```python
-def stage3_ablation():
-    """4 변수 cumulative ablation. 각 단계마다 CMA-ES 재최적화."""
+def cma_es_fit(var_names: list[str]) -> tuple[np.ndarray, float]:
+    """단일 helper. stage2 와 stage3 의 모든 ablation 에서 동일 호출.
 
-    base_vars = ['d1', 'acc_par', 'acc_perp', 'd2', 'jerk', 'ts_term']
-    new_vars  = ['speed_slope_d1', 'rotation_term', 'speed_norm_acc_par', 'v_mean3_minus_d1']
+    내부 규약 (변경 X — marginal_gain 측정의 noise floor 통일):
+      - 입력 데이터 = §5.2 의 _stack_train_terms(aug_usable) 결과 (G0 분기 동일)
+      - CMA-ES params: popsize=30, maxiter=200, tolfun=1e-5, sigma0=0.3, seed=20260606
+      - x0 = (var_names 길이만큼 0.0, 단 d1/acc_par/acc_perp 의 첫 3 entry 는 plan-006 best 로 init)
+      - fitness = -(err <= 0.01).mean()  (Step 2 식과 동일)
+    반환: (best_params: shape (len(var_names),), best_hit: float = -es.result.fbest)
+    """
+
+base_vars = ['d1', 'acc_par', 'acc_perp', 'd2', 'jerk', 'ts_term']   # 'ts_term' = §5.1 의 'time_scale_term' 축약 (동치)
+new_vars  = ['speed_slope_d1', 'rotation_term', 'speed_norm_acc_par', 'v_mean3_minus_d1']
+
+def stage3_ablation():
+    """4 변수 cumulative ablation. 각 단계마다 cma_es_fit 재호출 (동일 데이터 + 동일 seed)."""
 
     results = []
     current_vars = list(base_vars)
-    prev_hit = stage2_best_hit   # from Step 2
+    prev_hit = stage2_best_hit   # from Step 2 — cma_es_fit(base_vars) 의 결과와 정확히 일치 (동일 helper)
 
     for new_var in new_vars:
         current_vars.append(new_var)
@@ -435,10 +514,51 @@ def stage3_ablation():
 - `analysis/plan-007/basis_ablation.md` — markdown 표 (변수, marginal_gain, kept/dropped, cumulative hit)
 - `runs/baseline/F001_formula-ga/submission_step3.csv` + `submission.csv` 갱신
 
+### §6.3.1 Test-time inference (Step 2/3 공통)
+
+```python
+# Step 2 / Step 3 의 test prediction 생성. best_basis_vars 와 best_basis_params 만 다르고
+# 식은 동일 — basis 항을 test_x (end_idx=10, horizon=2 사용) 위에서 계산 후 linear combination.
+
+# var_name string ↔ basis term 식 매핑표 (compute_basis_terms 내부 dispatch).
+# 각 term 의 식 출처는 §5.1 (base 6 변수) + §6.1 (new 4 변수).
+BASIS_TERM_SPEC = {
+    # base — §5.1
+    'd1':                  lambda x, e, h: x[:, e]   - x[:, e-1],
+    'd2':                  lambda x, e, h: x[:, e-1] - x[:, e-2],
+    'acc_par':             lambda x, e, h: _acc_par(x, e),
+    'acc_perp':            lambda x, e, h: _acc_perp(x, e),
+    'jerk':                lambda x, e, h: _jerk(x, e),
+    'ts_term':             lambda x, e, h: _time_scale_factor(x, e) * (x[:, e] - x[:, e-1]),
+    # new — §6.1 (각 식은 §6.1 의 ②①④③ 정의 그대로)
+    'speed_slope_d1':      lambda x, e, h: _speed_slope(x, e) * (x[:, e] - x[:, e-1]),
+    'rotation_term':       lambda x, e, h: _rotation_term(x, e, horizon=h),
+    'speed_norm_acc_par':  lambda x, e, h: (_d1_norm(x, e) / _mean_speed(x, e)) * _acc_par(x, e),
+    'v_mean3_minus_d1':    lambda x, e, h: (x[:, e] - x[:, e-3]) / 3.0 - (x[:, e] - x[:, e-1]),
+}
+
+def compute_basis_terms(test_x: np.ndarray, end_idx: int, horizon: int,
+                        var_names: list[str]) -> dict[str, np.ndarray]:
+    """test_x: (N, T, 3). returns {var_name: (N, 3)} for var_name in var_names."""
+    return {v: BASIS_TERM_SPEC[v](test_x, end_idx, horizon) for v in var_names}
+
+def infer_test(test_x, best_basis_vars, best_basis_params):
+    p0 = test_x[:, 10]                                # (N, 3)
+    terms = compute_basis_terms(test_x, end_idx=10,
+                                horizon=2,
+                                var_names=best_basis_vars)   # dict {var_name: (N, 3)}
+    pred = p0.copy()
+    for coeff, var_name in zip(best_basis_params, best_basis_vars):
+        pred = pred + coeff * terms[var_name]
+    return pred   # (N, 3) — submission.csv 의 col2/3/4
+# Step 2 의 best_basis_vars = base_vars (§5.1 의 6 변수 고정).
+# Step 3 의 best_basis_vars = §6.2 의 marginal_gain ≥ 0.001 통과 변수 누적.
+```
+
 ### §6.4 G2 합격 기준 (자동 판정)
 
 - 4 변수 모두 ablation 수행 (kept/dropped 결정 박제)
-- `best_basis_hit` finite + `> stage2_best_hit` (= 새 변수 추가가 *적어도 noise 위*)
+- `best_basis_hit` finite + `≥ stage2_best_hit` (inclusive — §3.2 G2 / §6.2 의 `marginal_gain ≥ 0.001` 와 boundary 일관. 모든 새 변수가 drop 된 경우 base only 와 동치 = trivially pass 허용)
 - `submission.csv` schema 4-line assert
 - LB 회수 (Step 3 dacon-submit)
 
@@ -479,27 +599,70 @@ class CoefficientMLP(nn.Module):
 ### §7.2 학습
 
 ```python
-# Trajectory features: 기존 selector 의 make_seq_features (6 step × seq_dim) 평탄화 또는 통계 요약
-traj_features = compute_trajectory_features(train_x)   # shape (N, feat_dim)
+# Trajectory features (default: deterministic stats summary, sample 무관 상수 dim).
+# decision-note: spec-default — stats summary 채택 (make_seq_features flatten 6×seq_dim 은 v2 후보).
+#
+# def compute_trajectory_features(x_window) -> np.ndarray, shape (N, feat_dim=13):
+#     # x_window: (N, 6, 3) — last 6 steps before end_idx (포함 end_idx)
+#     pos_mean  = x_window.mean(axis=1)               # (N, 3)
+#     pos_std   = x_window.std(axis=1)                # (N, 3)
+#     pos_range = x_window.max(axis=1) - x_window.min(axis=1)  # (N, 3)  — bounding-box 한 변
+#     deltas    = np.diff(x_window, axis=1)           # (N, 5, 3)
+#     speed_norms = np.linalg.norm(deltas, axis=2)    # (N, 5)
+#     speed_mean = speed_norms.mean(axis=1, keepdims=True)  # (N, 1)
+#     speed_std  = speed_norms.std(axis=1, keepdims=True)   # (N, 1)
+#     speed_max  = speed_norms.max(axis=1, keepdims=True)   # (N, 1)
+#     speed_last = speed_norms[:, -1:]                       # (N, 1)
+#     return np.concatenate([pos_mean, pos_std, pos_range,
+#                            speed_mean, speed_std, speed_max, speed_last], axis=1)   # (N, 3+3+3+1+1+1+1 = 13)
+feat_dim = 13   # = pos_mean(3) + pos_std(3) + pos_range(3) + speed_mean(1) + speed_std(1) + speed_max(1) + speed_last(1)
+traj_features = compute_trajectory_features(train_x[:, -6:])   # shape (N, 13)
 
 def soft_hit_loss(pred, target, threshold=0.01, sharpness=200):
     err = torch.norm(pred - target, dim=1)
     return torch.sigmoid(sharpness * (err - threshold)).mean()
 
-model = CoefficientMLP(feat_dim, n_coeffs=len(best_basis_vars), global_init=stage3_best_params)
-optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-4)
+# OOF 5-fold loop. 각 fold k 마다:
+#   - 매 fold 시작 시 model + optimizer **fresh reinit** (누적 학습 금지 — OOF leakage 방지).
+#   - global_init=stage3_best_params 는 bias seed 로 모든 fold 에 공통 적용 (§7.1 arch).
+for fold_k in range(5):
+    model = CoefficientMLP(feat_dim, n_coeffs=len(best_basis_vars), global_init=stage3_best_params)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-4)
+    # ... (이하 loop body 는 아래 epoch loop 와 batch contract 그대로 적용)
+# (이 함수 골격은 의사코드 — 본문은 한 fold 만 단순화해 표시.)
+
+# 한 fold 의 학습 루프 (위 fold_k loop 안에 들어감):
+#   train_loader = 다른 4 folds 의 *모든 sample* (aug_usable=True 면 sliding view + original 둘 다 = 40K
+#                  + 10K → 50K 의 4/5 = 40K; aug_usable=False 면 original 만 = 10K 의 4/5 = 8K). 같은
+#                  sample_id 의 모든 view 는 같은 fold 에 묶이므로 4 folds 의 train 에는 *해당 sample_id 의
+#                  모든 view 또는 전무* — leakage X.
+#   val_loader   = remaining 1 fold 의 *original end_idx=10 sample 만* (distribution 일관성 —
+#                  over-aug noise 평가 X). 즉 sliding view 는 val 에서 제외.
+# 모든 fold concat → OOF hit (= 10K original 에 대한 5-fold OOF, plan-004/006 와 동일 정합).
+# batch contract:
+#   batch.traj_features : (B, feat_dim=13)        float32
+#   batch.basis_terms   : (B, n_coeffs, 3)        float32 — §6.3.1 의 compute_basis_terms 결과를
+#                                                  best_basis_vars 순서로 stack (var_name dim 사라짐)
+#   batch.p0            : (B, 3)                  float32 — 현 위치 = train_x[:, end_idx]
+#   batch.target        : (B, 3)                  float32
+# coeffs (B, n_coeffs) 와 basis_terms (B, n_coeffs, 3) 의 broadcasting:
+#   pred = p0 + (coeffs.unsqueeze(-1) * basis_terms).sum(dim=1)   # (B, 3)
+def compute_pred(basis_terms: torch.Tensor, coeffs: torch.Tensor,
+                 p0: torch.Tensor) -> torch.Tensor:
+    return p0 + (coeffs.unsqueeze(-1) * basis_terms).sum(dim=1)
 
 for epoch in range(50):
     for batch in dataloader:
-        coeffs = model(batch.traj_features)
-        pred = compute_pred(batch.basis_terms, coeffs)
+        coeffs = model(batch.traj_features)                        # (B, n_coeffs)
+        pred = compute_pred(batch.basis_terms, coeffs, batch.p0)    # (B, 3)
         loss = soft_hit_loss(pred, batch.target)
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), 2.0)
         optimizer.step()
         optimizer.zero_grad()
-    val_hit = evaluate_hit_rate(model, val_loader)
-    # early stop by val_hit
+    val_hit = evaluate_hit_rate(model, val_loader)   # val_loader = 본 fold 의 original 10K subset
+    # early stop spec: patience = 8 epoch, metric = val_hit (high-is-better),
+    # min_delta = 1e-4. patience 초과 시 best_epoch state_dict restore 후 break.
 ```
 
 ### §7.3 산출
@@ -565,6 +728,18 @@ Skill(skill="dacon-submit",
 
 → Step 2 LB 회수 시 lb_log 만 박제, frontmatter `lb_score` 는 *Step 3 값* 으로 통일. Step 3 이 최종 LB.
 
+→ **Edge case — Step 3 LB 회수 실패 (`null` 또는 `TBD`)**: 처리:
+1. frontmatter `lb_score` = Step 3 회수 결과 (null/TBD) 그대로 박제 (Step 2 값으로 fallback X — *Step 3 가 본 plan 의 최종 LB* 라는 정책 유지).
+2. frontmatter `lb_exp_id` 도 hard-coded `F001_formula-ga-step3` 유지 (실패도 박제 대상).
+3. `status: partial` + 사유 `lb_step3_unrecovered`. carry-over commit (c8.1) 으로 후속 회수.
+4. Step 2 LB 는 lb_log 에 그대로 남음 (정보 손실 X).
+
+→ **Edge case — Step 2 LB > Step 3 LB**: 새 변수 추가가 LB 에서 *역효과* 라는 신호. 처리:
+1. frontmatter `lb_score` 는 여전히 **Step 3 값** 으로 박제 (linear progression 의 *최종* LB 라는 의미 유지).
+2. lb_log 에 추가 row + `detail: STEP2_BETTER` 표기.
+3. `analysis/plan-007/results.md` 에 *regression* 절 추가 (OOF 와 LB 간 disagreement 분석).
+4. `next_plan_candidates.md` 시나리오 분기에 본 신호를 *추가 anchor* 로 박제 (= 새 변수의 LB 일반화 실패는 단일 공식 framework 한계의 직접 증거 → 시나리오 B 의 후보 우선순위 상향).
+
 ---
 
 ## §9. STAGE 5 — Synthesis + plan-008 후보 (c11)
@@ -602,11 +777,15 @@ lb_submitted_at: <ISO8601 KST>
 
 **최소 후보 2 개 (G_final 조건)**. 결과 분기별:
 
-**시나리오 A — MLP 가 단일 공식 ceiling 돌파 (Step 4 OOF > Step 3 + 0.01)**:
+> **두 임계의 분리** (G3 vs 시나리오 branch):
+> - G3 (+0.005) = "MLP 가 global coeff *위* 어떤 식으로든 개선" 의 *최소* 통과선 (per-sample 적응이 noise 아닌지).
+> - 시나리오 A/B branch (+0.010) = "MLP 가 다음 plan 의 *주력 무기* 로 쓸 만큼 *의미 있게* 개선" 의 임계. G3 통과 ≠ 시나리오 A (G3 만 통과하고 +0.005 ~ +0.010 사이면 시나리오 B 가 default).
+
+**시나리오 A — MLP 가 단일 공식 ceiling *의미 있게* 돌파 (Step 4 OOF > Step 3 + 0.010)**:
 1. **Step 4 LB 제출 + corrector 재설계 결합** — F002 의 OOF predictions 위에 plan-008 의 band-specific corrector
 2. **Test-internal validation set 구축** — Step 4 의 일반화 검증 + hyperparam re-tune
 
-**시나리오 B — MLP 가 marginal gain 만 (Step 4 OOF ≤ Step 3 + 0.01)**:
+**시나리오 B — MLP 가 marginal gain 만 (Step 4 OOF ≤ Step 3 + 0.010, G3 통과/미통과 무관)**:
 1. **단일 공식 framework 한계 인정 → 27 후보 풀 확장 (35+)** — plan-005 worst-100 분석 기반
 2. **selector arch 교체 + 본 plan basis 후보 풀에 추가** — discrete + continuous 하이브리드
 
