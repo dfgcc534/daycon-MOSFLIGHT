@@ -57,7 +57,7 @@ lb_score: null
 
 ### G-gates
 
-- G0: STAGE 1 진단 (v2.5: **oracle miss mask** residual decomposition + 가지치기 list + softmax diffusion + per-regime oracle gap (sanity) + ranking-vs-drift 분해) [TODO]
+- G0: STAGE 1 진단 (v2.5: **oracle miss mask** residual decomposition + 가지치기 list + softmax diffusion + per-regime oracle gap (sanity) + ranking-vs-drift 분해) [DONE ebd4979] — n_oracle_miss=2812, prune=24 (strict), main_bottleneck=ranking, warn=diagnostic_inconclusive
 - G1: STAGE 2 후보 풀 재정의 완료 — Step 2a (가지치기, oracle ≥ 0.7170) + Step 2b (**Greedy set cover Strategy D**, oracle ≥ 0.85) [TODO]
 - G2: STAGE 3 selector 재학습 (Variant A path) — OOF ≥ 0.70 + submission.csv 생성 (LB 미제출) [TODO]
 - G3: STAGE 4 corrector 재설계 (secondary) — band hit 검증 + 전체 OOF ≥ Step 3 + 0.02 + submission.csv 생성 (LB 미제출) [TODO]
@@ -72,10 +72,11 @@ lb_score: null
 | c1.1 | docs | v2 spec 갱신 — radical expansion + Variant A baseline 확정. spec @ §0~§7, §N+3 | [DONE in v2/v2.1] |
 | c1.2 | docs | v2.2 spec 갱신 — Option A (CandidateSpec schema 확장). spec @ §2.1/§5.2.0/§6.1.5/§N+3 #11 | [DONE in v2.2] |
 | c1.3 | docs | v2.3 spec 갱신 — reviewer 피드백 (Family 4/5 drop, fs_3d_binormal, cap fallback, selector fallback 강화) + Strategy D (greedy set cover) + Step 1 ranking-vs-drift 분해. spec @ §0~§N+4 | [DONE in v2.3] |
-| **c1.4** | **docs** | **v2.4 spec 갱신 — pruning 기준 변경 (selector pick rate → structural containment). spec @ §0/§0.5/§1.4/§2.1/§4.1/§5.1/§N+4** | **[TODO]** |
-| **c1.5** | **docs** | **v2.5 spec 갱신 — STAGE 1 mask `worst_regime ∈ {10,16,17}` → `oracle_miss` (Variant A 정합, main lever 직접 target). G2 OOF 0.71 → 0.70 완화. spec @ §0/§0.5/§4 + caveat 박제** | **[TODO]** |
-| **c1.6** | **docs** | **v2.6 spec 갱신 — Plan agent 검토 반영. (1) §7.1 LB 잔재 fix, (2) §6.0 sanity_baseline_27 신설 (family 효과 분리), (3) caveat #20 (oracle 0.85 낙관), (4) §6.2 assert 강화 (regime_bias_table 분산). spec @ §0/§0.5/§6.0/§6.2/§6.4/§6.6/§7.1/§7.7/§N+3/§N+4** | **[TODO]** |
-| c2 | code | `analysis/plan-008/diagnostic.py` — STAGE 1 진단 (**oracle miss residual** + structural pruning containment + softmax diffusion + per-regime oracle sanity + ranking-vs-drift 분해). spec @ §4 | [TODO] |
+| c1.4 | docs | v2.4 spec 갱신 — pruning 기준 변경 (selector pick rate → structural containment). spec @ §0/§0.5/§1.4/§2.1/§4.1/§5.1/§N+4 | [DONE a52b984] |
+| c1.5 | docs | v2.5 spec 갱신 — STAGE 1 mask `worst_regime ∈ {10,16,17}` → `oracle_miss` (Variant A 정합, main lever 직접 target). G2 OOF 0.71 → 0.70 완화. spec @ §0/§0.5/§4 + caveat 박제 | [DONE a52b984] |
+| c1.6 | docs | v2.6 spec 갱신 — Plan agent 검토 반영. (1) §7.1 LB 잔재 fix, (2) §6.0 sanity_baseline_27 신설 (family 효과 분리), (3) caveat #20 (oracle 0.85 낙관), (4) §6.2 assert 강화 (regime_bias_table 분산). spec @ §0/§0.5/§6.0/§6.2/§6.4/§6.6/§7.1/§7.7/§N+3/§N+4 | [DONE a52b984] |
+| c1.7 | docs | v2.7 spec 갱신 — plan-review-master 5-iter sweep (16 BLOCKER + 14 AMB fix) + §4.1 pruning auto-relaxation. spec @ §0/§0.5/§3/§4/§5/§6/§7/§N+3 #17/§N+4 | [DONE ce7366c] |
+| c2 | code | `analysis/plan-008/diagnostic.py` — STAGE 1 진단 (**oracle miss residual** + structural pruning containment + softmax diffusion + per-regime oracle sanity + ranking-vs-drift 분해). spec @ §4 | [DONE ebd4979] |
 | c2.5 | code | `src/pb_0_6822/selector.py` partial 수정 — CandidateSpec schema 확장 (Option A, 3 곳). spec @ §5.2.0 | [TODO] |
 | G0 | gate | diagnostic.{json,md} 박제 + dominant cause(s) + prune list + margin 분포 + per-regime oracle gap | [TODO] |
 | c3 | code | `src/pb_0_6822/candidates_extended.py` — 5 family 후보 정의 모듈 (Family 4 drop, snap drop, fs_3d_binormal). spec @ §5.2 | [TODO] |
