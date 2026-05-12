@@ -1,0 +1,87 @@
+{
+  "exp_id": "H010_phase0-diagnostics",
+  "generated_at": "2026-05-13T04:22:53.661486+09:00",
+  "g0_pass": false,
+  "d001_oracle_simulation": {
+    "description": "perfect gate ceiling — destructive samples 모두 skip 시 OOF 상한",
+    "plan_005_corrected_oof_npz": "analysis/plan-005/corrected_oof.npz",
+    "plan_005_raw_scores_path": "analysis/plan-005/corrected_oof.npz",
+    "n_train": 10000,
+    "n_destructive_samples": 79,
+    "perfect_gate_oof_5fold": 0.657,
+    "anchor_oof_5fold": 0.6491,
+    "delta": 0.007900000000000018,
+    "go_no_go_threshold": 0.66,
+    "c008_path_enabled": false
+  },
+  "plan_006_reproduce": {
+    "single_formula": "frenet_par120_perp_neg020",
+    "candidate_idx": 17,
+    "oof_argmax_hit_raw_measured": 0.632,
+    "oof_argmax_hit_raw_expected": 0.632,
+    "oof_argmax_hit_corrected_measured": 0.6491,
+    "oof_argmax_hit_corrected_expected": 0.6491,
+    "drift": 0.0,
+    "drift_threshold": 0.005,
+    "reproduce_ok": true
+  },
+  "corrector_decomp_remeasure": {
+    "n_train": 10000,
+    "band_table": {
+      "[0,0.5cm)": {
+        "n_in_band": 3368,
+        "hit_before": 1.0,
+        "hit_after": 1.0,
+        "delta": 0.0
+      },
+      "[0.5,1cm)": {
+        "n_in_band": 2952,
+        "hit_before": 1.0,
+        "hit_after": 0.9732384823848238,
+        "delta": -0.0267615176151762
+      },
+      "[1,1.5cm)": {
+        "n_in_band": 1713,
+        "hit_before": 0.0,
+        "hit_after": 0.14594279042615294,
+        "delta": 0.14594279042615294
+      },
+      "[1.5,2cm)": {
+        "n_in_band": 506,
+        "hit_before": 0.0,
+        "hit_after": 0.0,
+        "delta": 0.0
+      },
+      "[2cm,inf)": {
+        "n_in_band": 1461,
+        "hit_before": 0.0,
+        "hit_after": 0.0,
+        "delta": 0.0
+      }
+    },
+    "destructive_band_evidence": {
+      "band": "[0.5,1cm)",
+      "n_samples": 2952,
+      "hits_lost": -79,
+      "plan_005_baseline_lost": -203,
+      "drift_ok": false
+    },
+    "direction_breakdown": {
+      "delta_world_norm_mean": 0.0013611311375193523,
+      "parallel_baseline": 0.0451,
+      "perp_baseline": 0.0214,
+      "binormal_baseline": 0.0064,
+      "note": "trajectory 미보유 — Frenet basis 분해는 c3 (corrector_redesign_v2.py) 의 build_frenet_basis 도입 후 별도 측정",
+      "drift_ok": true
+    }
+  },
+  "f4_init_check": {
+    "spec_init_k_d1": 1.94,
+    "canonical_k_d1_candidates_17": 1.98,
+    "k_d1_diff": 0.040000000000000036,
+    "estimated_init_drift_m": 0.0006000000000000005,
+    "threshold_m": 0.0001,
+    "f4_init_vs_f0_max_dist": 0.0006000000000000005,
+    "recalibrate_needed": true
+  }
+}
