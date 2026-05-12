@@ -168,6 +168,35 @@ def main() -> None:
     variant_a_check = _verify_variant_a(RUN_DIR)
     print(f"[c6] variant_a_check: {variant_a_check}")
 
+    # ── 기존 corrector full-fit (plan-004 default) + submission generation ──
+    # §6.1: "corrector 는 기존 (plan-004) 그대로 적용 (Step 3 단계, Step 4 에서 재설계)"
+    score_bank = RUN_DIR / "oof_selector_scores.npz"
+    test_score_bank = RUN_DIR / "test_selector_scores.npz"
+    assert score_bank.exists() and test_score_bank.exists(), (
+        f"selector full-fit 결과 누락 — {score_bank}, {test_score_bank}"
+    )
+    from src.pb_0_6822 import boundary
+    _call_main(boundary.BOUNDARY_MAIN, [
+        "--root", DATA_ROOT,
+        "--out-dir", RUN_DIR,
+        "--fold", 0, "--folds", 5,
+        "--score-bank", score_bank,
+        "--test-score-bank", test_score_bank,
+        "--epochs", 12, "--fine-epochs", 8, "--min-epochs", 5, "--patience", 4,
+        "--hidden", 64, "--batch", 8192,
+        "--lr", 0.001, "--fine-lr-scale", 0.18,
+        "--cap", 0.006, "--apply-scale", 1.0,
+        "--device", "cuda:1", "--seed", 20260606, "--save-val-pred",
+        "--make-test",
+    ])
+
+    # Copy soft submission to step3 canonical name
+    soft_csv = RUN_DIR / "submission_boundary_tiny_soft.csv"
+    step3_csv = RUN_DIR / "submission_step3.csv"
+    if soft_csv.exists():
+        step3_csv.write_bytes(soft_csv.read_bytes())
+        print(f"[c6] submission_step3.csv ← {soft_csv.name}")
+
     # ── OOF metrics + submission (Step 4 분리: corrector 미실행, 기존 corrector
     #     full-fit 은 §7.3 monkey-patch 와 별도 — 본 단계는 selector OOF만) ──
     score_path = RUN_DIR / "oof_selector_scores.npz"
