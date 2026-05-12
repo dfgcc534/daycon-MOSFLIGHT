@@ -47,7 +47,7 @@ lb_score: null
 
 ### G-gates
 
-- G0: STAGE 1 sliding window distribution validity check 통과 [TODO]
+- G0: STAGE 1 sliding window distribution validity check 통과 [DONE 117eeb4] — aug_usable=True (quantile RMSE 0.001252 < 0.0015)
 - G1: STAGE 2 기존 변수 CMA-ES + OOF + LB 제출 1회 [TODO]
 - G2: STAGE 3 새 변수 ablation 완료 + best basis 결정 + LB 제출 1회 [TODO]
 - G3: STAGE 4 MLP coefficient regression + OOF 향상 박제 (LB 미제출) [TODO]
@@ -57,9 +57,9 @@ lb_score: null
 
 | # | type | spec section | status |
 |---|---|---|---|
-| c1 | docs | `plans/plan-007-formula-tuning.md` 작성 (본 파일) | [TODO] |
-| c2 | code | `analysis/plan-007/sliding_validity.py` — STAGE 1 sliding window distribution match check. spec @ §4 | [TODO] |
-| G0 | gate | KS p > 0.075 ∨ quantile RMSE < 0.0015 (aug 사용 여부 결정) | [TODO] |
+| c1 | docs | `plans/plan-007-formula-tuning.md` 작성 (본 파일) | [DONE 884b831] (+ v1.1 e189754) |
+| c2 | code | `analysis/plan-007/sliding_validity.py` — STAGE 1 sliding window distribution match check. spec @ §4 | [DONE 117eeb4] |
+| G0 | gate | KS p > 0.075 ∨ quantile RMSE < 0.0015 (aug 사용 여부 결정) | [DONE] aug_usable=True |
 | c3 | code | `analysis/plan-007/cma_es_baseline.py` — STAGE 2 기존 변수 CMA-ES fit. spec @ §5 | [TODO] |
 | c4 | exp | F001-step2: CMA-ES baseline fit + OOF + submission 생성. spec @ §5 | [TODO] |
 | c5 | sub-lb | STAGE 2 dacon-submit + lb_log row + frontmatter 갱신. spec @ §8 | [TODO] |
