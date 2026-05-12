@@ -1,8 +1,8 @@
 ---
 plan_id: 008
-version: 2.6
+version: 2.7
 date: 2026-05-12 (Asia/Seoul)
-status: draft
+status: partial (carry-over)
 based_on:
   - 004
   - 005
@@ -12,8 +12,12 @@ based_on:
 scope: candidate pool greedy set-cover expansion (Strategy D, oracle 0.85+ target, stretch 0.90) + pruning + (secondary) corrector band-specific on Variant A baseline (regime infra discarded). Family 4 per_regime drop (regime backdoor), snap drop (4th derivative noise), fs_3d_binormal reformulation.
 exp_ids:
   - G001_candidate-redefine
-  - G002_corrector-band
-lb_score: null
+  - G002_corrector-band   # DEFERRED to plan-009
+lb_score: null  # TBD — quota_exhausted_2026-05-12, plan-008.1 carry-over
+severe_flags:
+  - redefinition_severely_insufficient (G1)
+  - selector_no_improvement (G2)
+warn_flags: [diagnostic_inconclusive, sanity_baseline_drift, family_effect_marginal]
 ---
 
 # plan-008 v2.6 — Greedy Set-Cover Expansion + Containment-Based Pruning + Corrector Band-Specific (on Variant A)
@@ -88,15 +92,15 @@ lb_score: null
 | c7 | exp | G001-step3: 5-fold selector + 기존 corrector full-fit + submission 생성 (LB 미제출). spec @ §6 | [DONE 1a8c05c] — soft=0.6503 oracle=0.7562 |
 | ~~c8~~ | ~~sub-lb~~ | 본 plan 내 미수행 (LB 할당량 소진). plan-008.1 carry-over (다음 날). spec @ §8 | [DEFERRED] |
 | G2 | gate | OOF ≥ 0.70 ✗ (0.6503) + family_effect ≥ +0.03 ✗ (+0.0037) → **SEVERE selector_no_improvement + 2 warn**. §6.5 fallback skip (autonomous, family_effect marginal). | [DONE 1a8c05c, SEVERE+2WARN] |
-| c9 | code | `analysis/plan-008/corrector_band.py` — band-specific corrector loss + 학습 wrapper. spec @ §7 | [TODO] |
-| c10 | exp | G002-step4: corrector 재학습 + per-band hit 측정 + submission 생성 (LB 미제출). spec @ §7 | [TODO] |
-| ~~c11~~ | ~~sub-lb~~ | **본 plan 내 미수행** (LB 할당량 소진). plan-008.1 carry-over (다음 날). spec @ §8 | [DEFERRED] |
-| G3 | gate | per-band hit OK + 전체 OOF ≥ Step 3 + 0.02 + submission schema OK (LB 미제출) | [TODO] |
-| c12 | code | (선택) `analysis/plan-008/test_internal.py` — STAGE 5 test-internal hyperparam re-tune. spec @ §9 | [TODO] |
-| c13 | exp | (선택) G002-step5: test-internal grid search. spec @ §9 | [TODO] |
-| G4 | gate | (선택) gap 50%+ 회수 — 미달 시 carry-over plan-009 | [TODO] |
-| c14 | synthesis | `analysis/plan-008/results.md` + `next_plan_candidates.md` (≥ 2 시나리오 후보 + **§10.2.1 의 ranking 6 카테고리 ROI 표 필수 박제**, v2.6). spec @ §10 | [TODO] |
-| G_final | gate | results.md + next plan 후보 ≥ 2 + 3 파일 frontmatter 동시 박제 | [TODO] |
+| c9 | code | `analysis/plan-008/corrector_band.py` — band-specific corrector loss + 학습 wrapper. spec @ §7 | [DONE 4277a21] — LOSS_ATTR=None detect, defer |
+| c10 | exp | G002-step4: corrector 재학습 + per-band hit 측정. spec @ §7 | [DEFERRED 4277a21] — plan-009 (boundary.py hook 부재) |
+| ~~c11~~ | ~~sub-lb~~ | 본 plan 내 미수행 (LB 할당량 소진). plan-008.1 carry-over. spec @ §8 | [DEFERRED] |
+| G3 | gate | per-band hit + 전체 OOF + submission — DEFERRED (plan-009) | [DEFERRED 4277a21] |
+| c12 | code | (선택) `analysis/plan-008/test_internal.py` — STAGE 5. spec @ §9 | [SKIPPED] — 선택 stage, G2 severe 위 ROI 낮음 |
+| c13 | exp | (선택) G002-step5: test-internal grid search. spec @ §9 | [SKIPPED] |
+| G4 | gate | (선택) gap 50%+ 회수 | [SKIPPED] |
+| c14 | synthesis | `analysis/plan-008/results.md` + `next_plan_candidates.md` (≥ 2 시나리오 후보 + **§10.2.1 의 ranking 6 카테고리 ROI 표 필수 박제**, v2.6). spec @ §10 | [DONE 5f47c0a] |
+| G_final | gate | results.md + next plan 후보 ≥ 2 + 3 파일 frontmatter 동시 박제 | [DONE 5f47c0a] |
 
 ### Plan-specific severe (WORKFLOW.md §12.3 default 위 추가분)
 
