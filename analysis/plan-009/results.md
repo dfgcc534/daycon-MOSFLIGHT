@@ -1,12 +1,17 @@
 ---
 plan_id: 009
-status: partial (carry-over to plan-009.1 for LB submission)
+status: complete (LB carry-over closed 2026-05-13)
 date: 2026-05-13 (Asia/Seoul)
 best_submission: runs/baseline/H002_corrector-strengthen/submission_step2.csv
 best_oof: 0.6653
 plan_008_baseline_oof: 0.6503
-real_gain_vs_plan_008: +0.0150
-lb_score: null  # carry-over to plan-009.1 (다음 날 사용자 수동 dacon-submit)
+real_gain_vs_plan_008_oof: +0.0150
+lb_score: 0.6748  # plan-009.1 actual (H002 sub-exp b submission_step2.csv)
+lb_score_plan_008_1: 0.6812  # plan-008 baseline actual — plan-009 의 ceiling
+pair_delta_lb_actual: -0.0064  # ★ OOF +0.0150 → LB -0.0064 REGRESSION
+oof_to_lb_gap_plan_008_1: +0.0309
+oof_to_lb_gap_plan_009_1: +0.0095
+post_hoc_finding: plan-008 c7 baseline LB 0.6812 가 plan-009 의 모든 후보의 ceiling. G2 sub-exp b 의 OOF +0.0150 gain 은 LB 에서 -0.0064 regression — 1-fold approx + band over-fit 결합 의심.
 ---
 
 # plan-009 results — Ranking Loss (G1 SEVERE FAIL) + Corrector Strengthening (G2 partial)
@@ -97,6 +102,41 @@ lb_score: null  # carry-over to plan-009.1 (다음 날 사용자 수동 dacon-su
 - 2026-05-12: plan-009 v1.3 + plan-review-master 자동 fix (BLOCKER 16 + AMB 18)
 - 2026-05-12: c2 (preflight) + c2.1 (G0) + c3/c4/c5 (G1 SEVERE) + c6/c7/c8 (G2 SEVERE)
 - 2026-05-13: c16 (G_final) + H002 b submission + results.md/next_plan_candidates.md
+
+## §10.0 ★ post-hoc LB finding (2026-05-13)
+
+**Actual LB 회수 (사용자 수동, DACON 236716, isSubmitted=True × 2)**:
+
+| metric | plan-008.1 (step3) | plan-009.1 (step2) | delta |
+|---|---|---|---|
+| OOF | 0.6503 (5-fold) | 0.6653 (fold 0) | +0.0150 (OOF estimate) |
+| LB est. (OOF+0.022) | 0.6723 | 0.6873 | +0.0150 |
+| **LB actual** | **0.6812** | **0.6748** | **−0.0064 (REGRESSION)** |
+| OOF→LB gap actual | **+0.0309** | **+0.0095** | gap 비대칭 +0.0214 |
+
+**중요 발견**:
+
+1. **pair-delta sign inversion**: OOF 추정 +0.0150 → LB actual **−0.0064**. plan-009 의 G2 sub-exp b "real gain" 가설 **부정**.
+2. **plan-008 c7 baseline LB 0.6812 = plan-009 ceiling** — 본 plan 의 모든 후보 (G1 H001, G2 H002 b) 가 plan-008 baseline 미달.
+3. **OOF→LB gap 비대칭** = 핵심 단서:
+   - plan-008.1: gap **+0.0309** (under-OOF, over-LB — training 시 conservative learning + test generalization 잘 됨)
+   - plan-009.1: gap **+0.0095** (over-fit pattern — fold 0 val 에 band weight 가 잘 맞춰짐, test 에서 generalize 약)
+4. **1-fold approx 의 misleading**: H002 sub-exp b 의 OOF +0.0010 (vs baseline fold 0) 은 *fold-specific artifact* 가능. 5-fold concat 측정 시 noise floor 안 가능성.
+5. **band-specific lever 의 over-fit**: weight (1/2/3/0.5) 가 fold 0 val 의 *특정 분포* 에 over-fit. plan-005 의 [0.5,1cm) hit 100%→92% regression 와 동일 패턴 (corrector 의 *변형 학습*).
+
+**plan-009 의 v1.3 framing 재해석**:
+- cap_saturation_extended 29.18% 측정 자체는 valid → "강화 path" anchor 유지.
+- 단 *cap/band/arch lever 의 어느 것도 plan-008 baseline 위 LB 향상* 입증 X.
+- ★ corrector framework 의 *본질 한계* 확인 — plan-005 caveat #13 의 *framework 자체 한계* 결론 (loss design 문제 아님) 으로 재해석.
+- *plan-010 main lever* 후보 격하: band-weight tuning 의 LB 검증 가설 약화.
+
+**plan-010 권장 우선순위 수정** (next_plan_candidates.md update 필요):
+- 1. **plan-008 c7 baseline 5-fold concat reproduce + LB validation** — H002 sub-exp 0 (fold 0 OOF 0.6644) 가 plan-008 c7 (5-fold 0.6503) 보다 *높음*. 1-fold noise 또는 selector source 차이 검증.
+- 2. **ranking loss design ablation** (G1 root cause) — OOF→LB gap 비대칭 의 loss-specific 검증 (★ 우선순위 격상).
+- 3. **framework 교체** — LB 0.6748 < 0.69 → 시나리오 D, KNN/GP/plan-006 회귀 priority 격상.
+- 4. band-weight tuning (lower priority, 5-fold concat 필수).
+
+---
 
 ## §10 plan-009.1 carry-over instruction (LB 회수)
 

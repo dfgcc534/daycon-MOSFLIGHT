@@ -20,7 +20,11 @@
       "expected_lb": null,
       "anchor": "OOF + 0.022 gap (plan-005/008 trajectory)",
       "estimated_lb": 0.6723,
-      "status": "submitted (2026-05-13, dacon-submit isSubmitted=True); pending lb_score from user (DACON 웹페이지 회수)",
+      "actual_lb": 0.6812,
+      "oof_to_lb_gap_actual": 0.0309,
+      "oof_to_lb_gap_estimated": 0.022,
+      "deviation_vs_estimate": 0.0089,
+      "status": "closed (2026-05-13, LB 0.6812 회수)",
       "submitted_at": "2026-05-13",
       "submitted_memo": "plan-008.1 carry-over (plan-008 c7 baseline, Variant A extended 25 cands, OOF 0.6503)"
     },
@@ -31,8 +35,15 @@
       "real_gain_vs_plan_008_baseline": 0.0150,
       "estimated_lb": 0.6873,
       "estimated_lb_formula": "OOF 0.6653 + 0.022 gap (plan-005/008 trajectory)",
-      "scenario_class": "C (낮음) 0.69~0.72 LB 영역 의 상단",
-      "status": "submitted (2026-05-13, dacon-submit isSubmitted=True); pending lb_score from user (DACON 웹페이지 회수)",
+      "actual_lb": 0.6748,
+      "oof_to_lb_gap_actual": 0.0095,
+      "oof_to_lb_gap_estimated": 0.022,
+      "deviation_vs_estimate": -0.0125,
+      "pair_delta_actual_vs_plan_008_1": -0.0064,
+      "pair_delta_oof_estimate": 0.0150,
+      "pair_delta_inversion": "OOF +0.0150 expected → LB -0.0064 actual (REGRESSION)",
+      "scenario_class": "D (실패) LB < 0.69 — plan-008 baseline 미달",
+      "status": "closed (2026-05-13, LB 0.6748 회수)",
       "submitted_at": "2026-05-13",
       "submitted_memo": "plan-009.1 carry-over (H002 sub-exp b band-specific, OOF 0.6653, +0.0150 vs plan-008)",
       "g_status_summary": {
@@ -50,11 +61,22 @@
   },
   "plan_010_carry_over": {
     "candidates_file": "analysis/plan-009/next_plan_candidates.md",
-    "priority": [
-      "1. band-weight tuning ablation (G2 attribution 직접 후속)",
-      "2. ranking loss design ablation (G1 SEVERE root cause)",
-      "3. (조건부) framework 교체 (KNN/GP/plan-006 회귀) — LB<0.65 시",
-      "4. (조건부) Set Transformer arch swap — overfit risk"
+    "post_hoc_lb_finding": {
+      "core_finding": "OOF→LB pair-delta sign inversion. plan-008.1 LB 0.6812 = ceiling; plan-009 의 모든 후보가 plan-008 baseline 미달.",
+      "implications": [
+        "G2 sub-exp b 의 attribution +0.0010 (fold 0) 은 *fold-specific artifact* 가능. 5-fold concat 측정 필요.",
+        "band-specific lever (weight 1/2/3/0.5) 가 fold 0 val 에 over-fit — test set 에서 generalize 약 (LB gap +0.0095 vs plan-008.1 의 +0.0309).",
+        "OOF→LB gap 자체가 *plan 마다 비대칭* — plan-009 의 추정 anchor (+0.022) 가 universal 아님. plan-008.1 의 +0.0309 gap 은 *under-OOF / over-LB* (training 시 conservative learning + test generalization). plan-009 의 +0.0095 gap 은 *over-fit pattern*.",
+        "plan-009 §1.1 의 v1.3 framing (corrector main lever) 의 *evidence anchor (cap_saturation 29.18%)* 는 valid 단 *lever 자체* 가 LB 향상으로 translate 안 됨.",
+        "★ plan-008 c7 baseline (0.6812 LB) 가 현 단계 best — plan-010 main = *plan-008 baseline 위 generalize-aware lever* 발굴 (OOF gain 가설을 LB 로 검증 의무)."
+      ]
+    },
+    "priority_revised_post_lb": [
+      "1. ★ plan-008 baseline reproduce 측정 (5-fold concat) — H002 sub-exp 0 의 OOF 0.6644 (fold 0) 가 plan-008 c7 baseline (5-fold concat 0.6503) 보다 fold 0 에서 *높음* — 1-fold approx 의 noise 또는 selector source 차이 검증.",
+      "2. band-weight tuning ablation — 5-fold concat 측정 + LB validation 의무 (단 plan-009 결과 기반 ROI 약, lower priority).",
+      "3. (★ 우선순위 격상) ranking loss design ablation (G1 root cause) — OOF→LB gap 비대칭 의 *loss-specific* 측정.",
+      "4. (조건부) framework 교체 — LB 0.6748 < 0.69 시점 진입 (현재 plan-009.1 결과 그대로면 condition 충족).",
+      "5. (조건부, ROI 재평가) Set Transformer arch swap — over-fit risk caveat 그대로."
     ]
   },
   "decision_note": "spec-default — lb_baseline.json schema 가 plan-009 본문에 명시 부재로 자율 결정 채택 (CLAUDE.md Autonomous Execution Policy). plan_009_1 carry-over field 는 G_final c16 commit 에서 update."

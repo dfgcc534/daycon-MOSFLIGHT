@@ -20,10 +20,13 @@ exp_ids:
   - H003_topk-filter           # cheap booster — SKIPPED (autonomous, plan-010 carry-over)
   - H004_coarse-to-fine        # 조건부 — SKIPPED (entry 조건 충족하나 G2 attribution 결과 기반 ROI 약)
   - H005_set-transformer       # 조건부 — SKIPPED (동일)
-lb_score: null  # plan-009.1 carry-over (다음 날 사용자 수동 dacon-submit)
-best_submission: runs/baseline/H002_corrector-strengthen/submission_step2.csv  # H002 sub-exp b (band-specific), OOF 0.6653, estimated LB 0.6873
+lb_score: 0.6748  # plan-009.1 actual (closed 2026-05-13, H002 sub-exp b)
+lb_score_plan_008_1: 0.6812  # plan-008.1 carry-over actual — plan-009 ceiling
+best_submission: runs/baseline/H002_corrector-strengthen/submission_step2.csv  # H002 sub-exp b (band-specific), OOF 0.6653, LB 0.6748 (estimated 0.6873)
 best_oof: 0.6653
-real_gain_vs_plan_008: +0.0150
+real_gain_vs_plan_008_oof: +0.0150  # OOF estimate
+real_gain_vs_plan_008_lb_actual: -0.0064  # ★ LB REGRESSION (sign inversion)
+status_final: complete (plan-010 carry-over with revised priority — plan-008 baseline 미달, framework 한계 검증)
 ---
 
 # plan-009 v1.3 — Ranking Loss (G1 main, robust) + Corrector Strengthening (G2 main, additive ablation) + Multi-stage Filter (on Variant A + extended pool)
@@ -835,6 +838,7 @@ G1+G2+G3+G4 누적 OOF < **0.75** 일 때만. 미달 시만 — *high risk* (ove
 - v1 (2026-05-12): 초안. plan-008 의 main_bottleneck="ranking" 결론 + carry-over 2 항목 (LB + corrector hook) 통합. Phase 1 (cheap, no arch) + Phase 2 (mid) + Phase 3 (big, 조건부) sequence 채택.
 - v1.1 (2026-05-12): **LB 제출 정책 0 회로 변경** (할당량 소진 인계). G0 = preflight (LB 회수 → plan-008.1 그대로 carry-over) + G_final = best submission *경로* 박제 (LB 미제출, plan-009.1 carry-over). caveat #9 갱신, severe `lb_quota_exhausted` 제거. spec @ §0/§0.5/§2/§4/§10/§N+1/§N+3.
 - v1.2 (2026-05-12): main lever 재정렬 — corrector 강화 가 main, ranking loss 가 secondary. 사용자 challenge 반영 (oracle 1.5cm = 84.78% 발견). [SUPERSEDED by v1.3]
+- **v1.3-final (2026-05-13, LB closed)**: **post-hoc LB finding 박제**. plan-008.1 LB **0.6812** (est. 0.6723, +0.0089 gap = +0.0309 OOF→LB gap), plan-009.1 LB **0.6748** (est. 0.6873, -0.0125 gap = +0.0095 OOF→LB gap). pair-delta = **−0.0064** (OOF 추정 +0.0150 → LB **REGRESSION**). plan-008 baseline LB 0.6812 = plan-009 ceiling — 본 plan 의 모든 후보 (G1 H001 SEVERE FAIL, G2 H002 b 0.6748) 가 plan-008 baseline 미달. 재해석: corrector framework 의 *본질 한계* (caveat #13 framework limit 결론 회복) — band/cap/arch lever 의 어느 것도 plan-008 baseline 위 LB 향상 X. 1-fold approx + band over-fit 결합 의심 (plan-009.1 OOF→LB gap +0.0095 << plan-008.1 +0.0309). plan-010 권장 격상: ranking loss design ablation + plan-008 baseline 5-fold reproduce + framework 교체 (KNN/GP/plan-006 회귀, LB<0.69 시나리오 D 충족).
 - **v1.3 (2026-05-12)**: **Phase 순서 재배치 (B 안) — fragile/robust 위험도로 G1/G2 순서 swap**. v1.2 의 oracle 1.5cm = 0.8478 ceiling 발견은 *전략적 anchor* 유지 (target LB 0.74~0.80 보수 조정). cap_saturation 3.58% 실측이 v1.2 의 "cap 확장 main" framing 과 충돌 → fragile lever (corrector — boundary.py + arch + cap + loss 4 곳) 를 G2 로, robust lever (ranking — selector.py partial only) 를 G1 으로 swap. 변경:
   - **§0**: H1 = ranking (G1 main robust, plan-008 §10.2.1 직접 후속), H2 = corrector (G2 main 추가 push, additive ablation). target LB 0.75~0.82 → 0.74~0.80 보수 조정 (fragile lever variance 반영).
   - **§0.5 G-gates**: G1 = ranking (v1.2 의 G2 격상), G2 = corrector (v1.2 의 G1 격하). 조건부 threshold (0.78 / 0.75) 동일.
