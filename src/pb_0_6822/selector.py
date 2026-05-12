@@ -33,6 +33,7 @@ from pathlib import Path
 import numpy as np
 import torch
 from torch import nn
+from torch.nn import functional as F  # plan-009 c3 — ranking loss 3 component spec @ §5.1
 from torch.utils.data import DataLoader, TensorDataset
 
 
@@ -1242,6 +1243,10 @@ def train_one(
     pairwise_margin: float = 0.10,
     pairwise_min_label_gap: float = 0.04,
     fine_distill_weight: float = 0.0,
+    # plan-009 c3 — ranking loss 3 component (spec @ §5.1)
+    loss_components: tuple[str, ...] = (),
+    loss_K_pairs: int = 10,
+    loss_temperature: float = 0.5,
 ) -> list[float]:
     if len(data) == 3:
         seqs, cand_feats, labels = data
@@ -1294,6 +1299,41 @@ def train_one(
                     valid = neg_score > -1.0e8
                     pair_loss = torch.relu(pairwise_margin - pos_score + neg_score)
                     row_loss = row_loss + pairwise_loss_weight * pair_loss * valid.float()
+            # ── plan-009 c3 — ranking loss 3 component (spec @ §5.1) ──
+            # labels (soft_candidate_targets output) 의 argmax/argsort 를
+            # oracle_best_idx/permutation 대용 사용 — soft_candidate_targets 가
+            # per_cand_err 의 monotonic transform 이므로 수학적 등가.
+            # decision-note: spec-default — dataloader 변경 회피로 partial scope 축소.
+            if loss_components:
+                score = logits  # (B, C)
+                oracle_best_idx = torch.argmax(label, dim=1)  # (B,) long
+                # 1. NDCG@1 differentiable surrogate (soft top-1 likelihood)
+                if "ndcg1" in loss_components:
+                    soft = F.softmax(score / loss_temperature, dim=-1)
+                    loss_ndcg1 = 1.0 - soft.gather(-1, oracle_best_idx.unsqueeze(-1)).squeeze(-1)
+                    row_loss = row_loss + loss_ndcg1 * 1.0
+                # 2. Pairwise margin × 2.0 (err-rank-adjacent pairs, K_pairs=10)
+                if "pair2x" in loss_components:
+                    # permutation: label descending = err ascending
+                    permutation = torch.argsort(label, dim=-1, descending=True)  # (B, C)
+                    C_eff = permutation.shape[-1]
+                    K = min(loss_K_pairs, C_eff - 1)
+                    sp_idx0 = permutation[:, :K]       # rank-(k), label higher / err smaller
+                    sp_idx1 = permutation[:, 1:K + 1]  # rank-(k+1), label lower / err larger
+                    pair_score_diff = score.gather(-1, sp_idx0) - score.gather(-1, sp_idx1)
+                    loss_pair = F.relu(0.1 - pair_score_diff).mean(dim=-1) * 2.0  # internal × 2.0 (effective weight = 2.0)
+                    row_loss = row_loss + loss_pair * 1.0
+                # 3. Listwise ListMLE (relevance-descending = err-ascending)
+                if "listmle" in loss_components:
+                    permutation = torch.argsort(label, dim=-1, descending=True)
+                    score_sorted = score.gather(-1, permutation)  # (B, C) — relevance-descending
+                    C_full = score_sorted.shape[-1]
+                    log_probs = []
+                    for k in range(C_full):
+                        log_norm = torch.logsumexp(score_sorted[:, k:], dim=-1)
+                        log_probs.append(score_sorted[:, k] - log_norm)
+                    loss_listmle = -torch.stack(log_probs, dim=-1).sum(-1)  # (B,)
+                    row_loss = row_loss + loss_listmle * 0.5
             loss = (row_loss * weight).sum() / (weight.sum() + 1e-8)
             loss.backward()
             nn.utils.clip_grad_norm_(model.parameters(), 2.0)
@@ -1638,6 +1678,7 @@ def run_fold(
         pairwise_loss_weight=args.pairwise_loss_weight,
         pairwise_margin=args.pairwise_margin,
         pairwise_min_label_gap=args.pairwise_min_label_gap,
+                **_plan_009_loss_kw,
     )
     pre_state = clone_state_dict(model)
     pre_metric = evaluate_selector_state(model, gauge, device, args.batch, val_bias)
@@ -1681,6 +1722,7 @@ def run_fold(
                         pairwise_loss_weight=args.pairwise_loss_weight,
                         pairwise_margin=args.pairwise_margin,
                         pairwise_min_label_gap=args.pairwise_min_label_gap,
+                **_plan_009_loss_kw,
                         fine_distill_weight=args.fine_distill_weight,
                     )
                 )
@@ -1706,6 +1748,7 @@ def run_fold(
                         pairwise_loss_weight=args.pairwise_loss_weight,
                         pairwise_margin=args.pairwise_margin,
                         pairwise_min_label_gap=args.pairwise_min_label_gap,
+                **_plan_009_loss_kw,
                         fine_distill_weight=args.fine_distill_weight,
                     )
                 )
@@ -1762,6 +1805,7 @@ def run_fold(
                 pairwise_loss_weight=args.pairwise_loss_weight,
                 pairwise_margin=args.pairwise_margin,
                 pairwise_min_label_gap=args.pairwise_min_label_gap,
+                **_plan_009_loss_kw,
                 fine_distill_weight=args.fine_distill_weight,
             )
         )
@@ -1787,6 +1831,7 @@ def run_fold(
                 pairwise_loss_weight=args.pairwise_loss_weight,
                 pairwise_margin=args.pairwise_margin,
                 pairwise_min_label_gap=args.pairwise_min_label_gap,
+                **_plan_009_loss_kw,
                 fine_distill_weight=args.fine_distill_weight,
             )
         )
@@ -1931,6 +1976,7 @@ def train_full_predict(
         pairwise_loss_weight=args.pairwise_loss_weight,
         pairwise_margin=args.pairwise_margin,
         pairwise_min_label_gap=args.pairwise_min_label_gap,
+                **_plan_009_loss_kw,
     )
     fine_teacher = np.zeros_like(fine_label, dtype=np.float32)
     if args.fine_distill_weight > 0.0:
@@ -1958,6 +2004,7 @@ def train_full_predict(
         pairwise_loss_weight=args.pairwise_loss_weight,
         pairwise_margin=args.pairwise_margin,
         pairwise_min_label_gap=args.pairwise_min_label_gap,
+                **_plan_009_loss_kw,
         fine_distill_weight=args.fine_distill_weight,
     )
     test_seq = make_seq_features(test_x, test_x.shape[1] - 1)
@@ -1999,6 +2046,13 @@ def main() -> None:
     parser.add_argument("--pairwise-loss-weight", type=float, default=0.0, help="Extra ranking pressure so the best soft-label candidate beats plausible wrong candidates.")
     parser.add_argument("--pairwise-margin", type=float, default=0.10)
     parser.add_argument("--pairwise-min-label-gap", type=float, default=0.04)
+    # plan-009 c3 — ranking loss 3 component (spec @ §5.1)
+    parser.add_argument("--loss-components", type=str, default="",
+        help="comma-separated enable list, valid tokens: ndcg1,pair2x,listmle (empty=baseline CE only).")
+    parser.add_argument("--K-pairs", type=int, default=10,
+        help="Number of err-rank-adjacent pairs for pairwise loss. Must be < C-1.")
+    parser.add_argument("--loss-temperature", type=float, default=0.5,
+        help="Softmax temperature for NDCG@1 differentiable surrogate.")
     parser.add_argument("--fine-distill-weight", type=float, default=0.0, help="During fine-tuning, keep the pretrained selector distribution as a teacher to reduce final-label noise overfit.")
     parser.add_argument("--fine-distill-temp", type=float, default=0.07)
     parser.add_argument("--batch", type=int, default=1024)
@@ -2023,6 +2077,12 @@ def main() -> None:
     parser.add_argument("--augment-accel-noise", type=float, default=0.08)
     parser.add_argument("--augment-weight", type=float, default=0.35)
     args = parser.parse_args()
+    # plan-009 c3 — ranking loss 3 component kwargs (spec @ §5.1)
+    _plan_009_loss_kw = dict(
+        loss_components=tuple(t.strip() for t in args.loss_components.split(",") if t.strip()),
+        loss_K_pairs=args.K_pairs,
+        loss_temperature=args.loss_temperature,
+    )
 
     root = args.root.resolve()
     out_dir = args.out_dir.resolve()
