@@ -1,0 +1,881 @@
+[c6] kept_indices (12): [0, 4, 11, 14, 15, 18, 19, 21, 23, 24, 25, 26]
+[c6] kept_families (4): ['arc', 'cross_term', 'frenet_serret_3d', 'trig']
+inline selector loaded: 27 candidates
+[c6] EXTENDED_CANDIDATES len = 25 (= base_kept 12 + new 13)
+[c6] schema_v22 assert OK: cand_feat shape = (5, 25, 32)
+FOLD_START model=attn_gru fold=1/5 train_pre=207480 pre_eff=191919.0 norm=real train_fine=7980 val=2020 oracle_hit=0.7653 prior_top=[{'name': 'speed_norm_acc_par', 'count': 2020}]
+GAUGE model=attn_gru fold=1 stage=pretrain epoch=1/10 loss=3.35977 arg_hit=0.6401 soft_hit=0.6480 soft_temp=0.03 arg_mean=0.012253 soft_mean=0.012245 best_soft_hit=0.6480 wait=0/4 top=[{'name': 'frenet_par110_perp_neg020', 'count': 1222}, {'name': 'jerk_small_pos', 'count': 333}, {'name': 'fs_3d_planar', 'count': 115}, {'name': 'jerk_small_neg', 'count': 95}]
+GAUGE model=attn_gru fold=1 stage=pretrain epoch=2/10 loss=3.17759 arg_hit=0.6500 soft_hit=0.6584 soft_temp=0.03 arg_mean=0.012003 soft_mean=0.011984 best_soft_hit=0.6584 wait=0/4 top=[{'name': 'frenet_par110_perp_neg020', 'count': 724}, {'name': 'jerk_small_pos', 'count': 560}, {'name': 'frenet_fast_par120_perp_neg020', 'count': 212}, {'name': 'speed_norm_acc_par', 'count': 138}]
+GAUGE model=attn_gru fold=1 stage=pretrain epoch=3/10 loss=3.22293 arg_hit=0.6500 soft_hit=0.6629 soft_temp=0.03 arg_mean=0.012007 soft_mean=0.011893 best_soft_hit=0.6629 wait=0/4 top=[{'name': 'jerk_small_pos', 'count': 577}, {'name': 'frenet_par110_perp_neg020', 'count': 507}, {'name': 'frenet_fast_par120_perp_neg020', 'count': 349}, {'name': 'latency_short_frenet_best_085', 'count': 180}]
+GAUGE model=attn_gru fold=1 stage=pretrain epoch=4/10 loss=3.22684 arg_hit=0.6559 soft_hit=0.6634 soft_temp=0.05 arg_mean=0.011941 soft_mean=0.011822 best_soft_hit=0.6634 wait=0/4 top=[{'name': 'jerk_small_pos', 'count': 579}, {'name': 'frenet_par110_perp_neg020', 'count': 312}, {'name': 'speed_norm_acc_par', 'count': 258}, {'name': 'frenet_fast_par120_perp_neg020', 'count': 251}]
+GAUGE model=attn_gru fold=1 stage=pretrain epoch=5/10 loss=3.18225 arg_hit=0.6559 soft_hit=0.6663 soft_temp=0.07 arg_mean=0.011902 soft_mean=0.011740 best_soft_hit=0.6663 wait=0/4 top=[{'name': 'jerk_small_pos', 'count': 552}, {'name': 'frenet_par110_perp_neg020', 'count': 344}, {'name': 'frenet_fast_par120_perp_neg020', 'count': 275}, {'name': 'jerk_small_neg', 'count': 236}]
+GAUGE model=attn_gru fold=1 stage=pretrain epoch=6/10 loss=3.21121 arg_hit=0.6525 soft_hit=0.6644 soft_temp=0.07 arg_mean=0.011816 soft_mean=0.011714 best_soft_hit=0.6663 wait=1/4 top=[{'name': 'frenet_par110_perp_neg020', 'count': 474}, {'name': 'jerk_small_pos', 'count': 325}, {'name': 'jerk_small_neg', 'count': 304}, {'name': 'speed_norm_acc_par', 'count': 245}]
+GAUGE model=attn_gru fold=1 stage=pretrain epoch=7/10 loss=3.20724 arg_hit=0.6510 soft_hit=0.6629 soft_temp=0.1 arg_mean=0.011866 soft_mean=0.011754 best_soft_hit=0.6663 wait=2/4 top=[{'name': 'frenet_par110_perp_neg020', 'count': 442}, {'name': 'jerk_small_neg', 'count': 392}, {'name': 'jerk_small_pos', 'count': 273}, {'name': 'latency_short_frenet_best_085', 'count': 248}]
+GAUGE model=attn_gru fold=1 stage=pretrain epoch=8/10 loss=3.13658 arg_hit=0.6535 soft_hit=0.6624 soft_temp=0.1 arg_mean=0.011815 soft_mean=0.011729 best_soft_hit=0.6663 wait=3/4 top=[{'name': 'frenet_par110_perp_neg020', 'count': 576}, {'name': 'jerk_small_neg', 'count': 354}, {'name': 'speed_norm_acc_par', 'count': 266}, {'name': 'latency_short_frenet_best_085', 'count': 227}]
+GAUGE model=attn_gru fold=1 stage=pretrain epoch=9/10 loss=3.21940 arg_hit=0.6540 soft_hit=0.6634 soft_temp=0.05 arg_mean=0.011832 soft_mean=0.011697 best_soft_hit=0.6663 wait=4/4 top=[{'name': 'frenet_par110_perp_neg020', 'count': 578}, {'name': 'jerk_small_neg', 'count': 405}, {'name': 'speed_norm_acc_par', 'count': 291}, {'name': 'latency_short_frenet_best_085', 'count': 239}]
+EARLY_STOP model=attn_gru fold=1 stage=pretrain epoch=9 best_soft_hit=0.6663
+GAUGE model=attn_gru fold=1 stage=finetune_head epoch=1/3 loss=2.99830 arg_hit=0.6564 soft_hit=0.6644 soft_temp=0.07 arg_mean=0.011886 soft_mean=0.011734 best_soft_hit=0.6644 wait=0/4 top=[{'name': 'jerk_small_pos', 'count': 547}, {'name': 'frenet_par110_perp_neg020', 'count': 352}, {'name': 'frenet_fast_par120_perp_neg020', 'count': 257}, {'name': 'latency_short_frenet_best_085', 'count': 244}]
+GAUGE model=attn_gru fold=1 stage=finetune_head epoch=2/3 loss=2.99549 arg_hit=0.6530 soft_hit=0.6639 soft_temp=0.1 arg_mean=0.011918 soft_mean=0.011754 best_soft_hit=0.6644 wait=1/4 top=[{'name': 'jerk_small_pos', 'count': 539}, {'name': 'frenet_par110_perp_neg020', 'count': 369}, {'name': 'latency_short_frenet_best_085', 'count': 260}, {'name': 'frenet_fast_par120_perp_neg020', 'count': 244}]
+GAUGE model=attn_gru fold=1 stage=finetune_head epoch=3/3 loss=2.99115 arg_hit=0.6535 soft_hit=0.6649 soft_temp=0.07 arg_mean=0.011911 soft_mean=0.011733 best_soft_hit=0.6649 wait=0/4 top=[{'name': 'jerk_small_pos', 'count': 528}, {'name': 'frenet_par110_perp_neg020', 'count': 395}, {'name': 'latency_short_frenet_best_085', 'count': 267}, {'name': 'frenet_fast_par120_perp_neg020', 'count': 237}]
+GAUGE model=attn_gru fold=1 stage=finetune epoch=1/5 loss=2.98944 arg_hit=0.6535 soft_hit=0.6649 soft_temp=0.1 arg_mean=0.011926 soft_mean=0.011740 best_soft_hit=0.6649 wait=0/4 top=[{'name': 'jerk_small_pos', 'count': 529}, {'name': 'frenet_par110_perp_neg020', 'count': 388}, {'name': 'latency_short_frenet_best_085', 'count': 290}, {'name': 'frenet_fast_par120_perp_neg020', 'count': 228}]
+GAUGE model=attn_gru fold=1 stage=finetune epoch=2/5 loss=2.98642 arg_hit=0.6525 soft_hit=0.6649 soft_temp=0.07 arg_mean=0.011938 soft_mean=0.011733 best_soft_hit=0.6649 wait=1/4 top=[{'name': 'jerk_small_pos', 'count': 527}, {'name': 'frenet_par110_perp_neg020', 'count': 397}, {'name': 'latency_short_frenet_best_085', 'count': 304}, {'name': 'frenet_fast_par120_perp_neg020', 'count': 219}]
+GAUGE model=attn_gru fold=1 stage=finetune epoch=3/5 loss=2.98415 arg_hit=0.6520 soft_hit=0.6649 soft_temp=0.07 arg_mean=0.011961 soft_mean=0.011734 best_soft_hit=0.6649 wait=2/4 top=[{'name': 'jerk_small_pos', 'count': 521}, {'name': 'frenet_par110_perp_neg020', 'count': 404}, {'name': 'latency_short_frenet_best_085', 'count': 323}, {'name': 'speed_norm_acc_par', 'count': 214}]
+GAUGE model=attn_gru fold=1 stage=finetune epoch=4/5 loss=2.98198 arg_hit=0.6500 soft_hit=0.6639 soft_temp=0.07 arg_mean=0.011975 soft_mean=0.011735 best_soft_hit=0.6649 wait=3/4 top=[{'name': 'jerk_small_pos', 'count': 516}, {'name': 'frenet_par110_perp_neg020', 'count': 406}, {'name': 'latency_short_frenet_best_085', 'count': 341}, {'name': 'speed_norm_acc_par', 'count': 213}]
+GAUGE model=attn_gru fold=1 stage=finetune epoch=5/5 loss=2.97867 arg_hit=0.6485 soft_hit=0.6634 soft_temp=0.07 arg_mean=0.012003 soft_mean=0.011740 best_soft_hit=0.6649 wait=4/4 top=[{'name': 'jerk_small_pos', 'count': 511}, {'name': 'frenet_par110_perp_neg020', 'count': 407}, {'name': 'latency_short_frenet_best_085', 'count': 358}, {'name': 'speed_norm_acc_par', 'count': 211}]
+EARLY_STOP model=attn_gru fold=1 stage=finetune epoch=5 best_soft_hit=0.6649
+FOLD_START model=attn_gru fold=2/5 train_pre=206778 pre_eff=191269.7 norm=real train_fine=7953 val=2047 oracle_hit=0.7460 prior_top=[{'name': 'speed_norm_acc_par', 'count': 2047}]
+GAUGE model=attn_gru fold=2 stage=pretrain epoch=1/10 loss=3.36044 arg_hit=0.6380 soft_hit=0.6356 soft_temp=0.03 arg_mean=0.012190 soft_mean=0.012251 best_soft_hit=0.6356 wait=0/4 top=[{'name': 'frenet_par110_perp_neg020', 'count': 1201}, {'name': 'jerk_small_pos', 'count': 356}, {'name': 'speed_norm_acc_par', 'count': 152}, {'name': 'jerk_small_neg', 'count': 114}]
+GAUGE model=attn_gru fold=2 stage=pretrain epoch=2/10 loss=3.24106 arg_hit=0.6404 soft_hit=0.6419 soft_temp=0.05 arg_mean=0.011988 soft_mean=0.011994 best_soft_hit=0.6419 wait=0/4 top=[{'name': 'frenet_par110_perp_neg020', 'count': 574}, {'name': 'frenet_fast_par120_perp_neg020', 'count': 309}, {'name': 'speed_norm_acc_par', 'count': 263}, {'name': 'jerk_small_pos', 'count': 225}]
+GAUGE model=attn_gru fold=2 stage=pretrain epoch=3/10 loss=3.21508 arg_hit=0.6414 soft_hit=0.6468 soft_temp=0.03 arg_mean=0.011937 soft_mean=0.011887 best_soft_hit=0.6468 wait=0/4 top=[{'name': 'jerk_small_pos', 'count': 558}, {'name': 'frenet_par110_perp_neg020', 'count': 471}, {'name': 'frenet_fast_par120_perp_neg020', 'count': 344}, {'name': 'jerk_small_neg', 'count': 179}]
+GAUGE model=attn_gru fold=2 stage=pretrain epoch=4/10 loss=3.23414 arg_hit=0.6380 soft_hit=0.6478 soft_temp=0.03 arg_mean=0.011906 soft_mean=0.011802 best_soft_hit=0.6478 wait=0/4 top=[{'name': 'jerk_small_pos', 'count': 526}, {'name': 'frenet_par110_perp_neg020', 'count': 293}, {'name': 'jerk_small_neg', 'count': 277}, {'name': 'latency_short_frenet_best_085', 'count': 221}]
+GAUGE model=attn_gru fold=2 stage=pretrain epoch=5/10 loss=3.22461 arg_hit=0.6444 soft_hit=0.6478 soft_temp=0.05 arg_mean=0.011798 soft_mean=0.011756 best_soft_hit=0.6478 wait=1/4 top=[{'name': 'frenet_par110_perp_neg020', 'count': 419}, {'name': 'jerk_small_neg', 'count': 321}, {'name': 'speed_norm_acc_par', 'count': 306}, {'name': 'jerk_small_pos', 'count': 298}]
+GAUGE model=attn_gru fold=2 stage=pretrain epoch=6/10 loss=3.19044 arg_hit=0.6448 soft_hit=0.6468 soft_temp=0.07 arg_mean=0.011817 soft_mean=0.011747 best_soft_hit=0.6478 wait=2/4 top=[{'name': 'frenet_par110_perp_neg020', 'count': 513}, {'name': 'jerk_small_neg', 'count': 403}, {'name': 'speed_norm_acc_par', 'count': 349}, {'name': 'frenet_fast_par120_perp_neg020', 'count': 295}]
+GAUGE model=attn_gru fold=2 stage=pretrain epoch=7/10 loss=3.24008 arg_hit=0.6453 soft_hit=0.6492 soft_temp=0.07 arg_mean=0.011813 soft_mean=0.011732 best_soft_hit=0.6492 wait=0/4 top=[{'name': 'frenet_par110_perp_neg020', 'count': 437}, {'name': 'speed_norm_acc_par', 'count': 392}, {'name': 'jerk_small_neg', 'count': 349}, {'name': 'frenet_fast_par120_perp_neg020', 'count': 261}]
+GAUGE model=attn_gru fold=2 stage=pretrain epoch=8/10 loss=3.16467 arg_hit=0.6419 soft_hit=0.6473 soft_temp=0.05 arg_mean=0.011879 soft_mean=0.011699 best_soft_hit=0.6492 wait=1/4 top=[{'name': 'frenet_par110_perp_neg020', 'count': 518}, {'name': 'jerk_small_neg', 'count': 292}, {'name': 'speed_norm_acc_par', 'count': 286}, {'name': 'latency_short_frenet_best_085', 'count': 256}]
+GAUGE model=attn_gru fold=2 stage=pretrain epoch=9/10 loss=3.16816 arg_hit=0.6453 soft_hit=0.6478 soft_temp=0.03 arg_mean=0.011838 soft_mean=0.011741 best_soft_hit=0.6492 wait=2/4 top=[{'name': 'frenet_par110_perp_neg020', 'count': 477}, {'name': 'jerk_small_neg', 'count': 327}, {'name': 'frenet_fast_par120_perp_neg020', 'count': 265}, {'name': 'latency_short_frenet_best_085', 'count': 242}]
+GAUGE model=attn_gru fold=2 stage=pretrain epoch=10/10 loss=3.18314 arg_hit=0.6419 soft_hit=0.6458 soft_temp=0.07 arg_mean=0.011897 soft_mean=0.011720 best_soft_hit=0.6492 wait=3/4 top=[{'name': 'speed_norm_acc_par', 'count': 479}, {'name': 'jerk_small_neg', 'count': 389}, {'name': 'frenet_par110_perp_neg020', 'count': 372}, {'name': 'frenet_fast_par120_perp_neg020', 'count': 245}]
+GAUGE model=attn_gru fold=2 stage=finetune_head epoch=1/3 loss=2.98732 arg_hit=0.6448 soft_hit=0.6483 soft_temp=0.07 arg_mean=0.011798 soft_mean=0.011728 best_soft_hit=0.6483 wait=0/4 top=[{'name': 'frenet_par110_perp_neg020', 'count': 448}, {'name': 'speed_norm_acc_par', 'count': 409}, {'name': 'jerk_small_neg', 'count': 327}, {'name': 'frenet_fast_par120_perp_neg020', 'count': 245}]
+GAUGE model=attn_gru fold=2 stage=finetune_head epoch=2/3 loss=2.98446 arg_hit=0.6434 soft_hit=0.6488 soft_temp=0.07 arg_mean=0.011818 soft_mean=0.011726 best_soft_hit=0.6488 wait=0/4 top=[{'name': 'frenet_par110_perp_neg020', 'count': 463}, {'name': 'speed_norm_acc_par', 'count': 414}, {'name': 'jerk_small_neg', 'count': 311}, {'name': 'latency_short_frenet_best_085', 'count': 248}]
+GAUGE model=attn_gru fold=2 stage=finetune_head epoch=3/3 loss=2.98204 arg_hit=0.6409 soft_hit=0.6497 soft_temp=0.1 arg_mean=0.011830 soft_mean=0.011737 best_soft_hit=0.6497 wait=0/4 top=[{'name': 'frenet_par110_perp_neg020', 'count': 466}, {'name': 'speed_norm_acc_par', 'count': 424}, {'name': 'jerk_small_neg', 'count': 291}, {'name': 'latency_short_frenet_best_085', 'count': 268}]
+GAUGE model=attn_gru fold=2 stage=finetune epoch=1/5 loss=2.97805 arg_hit=0.6419 soft_hit=0.6512 soft_temp=0.1 arg_mean=0.011845 soft_mean=0.011731 best_soft_hit=0.6512 wait=0/4 top=[{'name': 'frenet_par110_perp_neg020', 'count': 479}, {'name': 'speed_norm_acc_par', 'count': 405}, {'name': 'latency_short_frenet_best_085', 'count': 280}, {'name': 'jerk_small_neg', 'count': 280}]
+GAUGE model=attn_gru fold=2 stage=finetune epoch=2/5 loss=2.97463 arg_hit=0.6409 soft_hit=0.6512 soft_temp=0.05 arg_mean=0.011855 soft_mean=0.011726 best_soft_hit=0.6512 wait=1/4 top=[{'name': 'frenet_par110_perp_neg020', 'count': 485}, {'name': 'speed_norm_acc_par', 'count': 388}, {'name': 'latency_short_frenet_best_085', 'count': 294}, {'name': 'jerk_small_neg', 'count': 270}]
+GAUGE model=attn_gru fold=2 stage=finetune epoch=3/5 loss=2.97265 arg_hit=0.6419 soft_hit=0.6507 soft_temp=0.1 arg_mean=0.011875 soft_mean=0.011723 best_soft_hit=0.6512 wait=2/4 top=[{'name': 'frenet_par110_perp_neg020', 'count': 480}, {'name': 'speed_norm_acc_par', 'count': 388}, {'name': 'latency_short_frenet_best_085', 'count': 306}, {'name': 'jerk_small_neg', 'count': 260}]
+GAUGE model=attn_gru fold=2 stage=finetune epoch=4/5 loss=2.96965 arg_hit=0.6419 soft_hit=0.6507 soft_temp=0.05 arg_mean=0.011882 soft_mean=0.011729 best_soft_hit=0.6512 wait=3/4 top=[{'name': 'frenet_par110_perp_neg020', 'count': 476}, {'name': 'speed_norm_acc_par', 'count': 383}, {'name': 'latency_short_frenet_best_085', 'count': 318}, {'name': 'jerk_small_neg', 'count': 251}]
+GAUGE model=attn_gru fold=2 stage=finetune epoch=5/5 loss=2.96783 arg_hit=0.6429 soft_hit=0.6507 soft_temp=0.1 arg_mean=0.011862 soft_mean=0.011719 best_soft_hit=0.6512 wait=4/4 top=[{'name': 'frenet_par110_perp_neg020', 'count': 482}, {'name': 'speed_norm_acc_par', 'count': 378}, {'name': 'latency_short_frenet_best_085', 'count': 331}, {'name': 'jerk_small_neg', 'count': 241}]
+EARLY_STOP model=attn_gru fold=2 stage=finetune epoch=5 best_soft_hit=0.6512
+FOLD_START model=attn_gru fold=3/5 train_pre=210054 pre_eff=194300.0 norm=real train_fine=8079 val=1921 oracle_hit=0.7590 prior_top=[{'name': 'speed_norm_acc_par', 'count': 1921}]
+GAUGE model=attn_gru fold=3 stage=pretrain epoch=1/10 loss=3.36390 arg_hit=0.6283 soft_hit=0.6288 soft_temp=0.03 arg_mean=0.012457 soft_mean=0.012430 best_soft_hit=0.6288 wait=0/4 top=[{'name': 'frenet_par110_perp_neg020', 'count': 919}, {'name': 'jerk_small_pos', 'count': 529}, {'name': 'jerk_small_neg', 'count': 270}, {'name': 'acc_2d1_060', 'count': 110}]
+GAUGE model=attn_gru fold=3 stage=pretrain epoch=2/10 loss=3.30752 arg_hit=0.6450 soft_hit=0.6419 soft_temp=0.03 arg_mean=0.012164 soft_mean=0.012117 best_soft_hit=0.6419 wait=0/4 top=[{'name': 'frenet_par110_perp_neg020', 'count': 666}, {'name': 'jerk_small_pos', 'count': 454}, {'name': 'speed_norm_acc_par', 'count': 222}, {'name': 'frenet_fast_par120_perp_neg020', 'count': 221}]
+GAUGE model=attn_gru fold=3 stage=pretrain epoch=3/10 loss=3.31141 arg_hit=0.6382 soft_hit=0.6403 soft_temp=0.03 arg_mean=0.012150 soft_mean=0.012077 best_soft_hit=0.6419 wait=1/4 top=[{'name': 'frenet_par110_perp_neg020', 'count': 541}, {'name': 'jerk_small_pos', 'count': 493}, {'name': 'frenet_fast_par120_perp_neg020', 'count': 230}, {'name': 'latency_short_frenet_best_085', 'count': 217}]
+GAUGE model=attn_gru fold=3 stage=pretrain epoch=4/10 loss=3.25016 arg_hit=0.6294 soft_hit=0.6429 soft_temp=0.03 arg_mean=0.012130 soft_mean=0.012034 best_soft_hit=0.6429 wait=0/4 top=[{'name': 'jerk_small_pos', 'count': 587}, {'name': 'frenet_par110_perp_neg020', 'count': 295}, {'name': 'speed_norm_acc_par', 'count': 281}, {'name': 'frenet_fast_par120_perp_neg020', 'count': 229}]
+GAUGE model=attn_gru fold=3 stage=pretrain epoch=5/10 loss=3.23368 arg_hit=0.6382 soft_hit=0.6424 soft_temp=0.03 arg_mean=0.012124 soft_mean=0.012021 best_soft_hit=0.6429 wait=1/4 top=[{'name': 'jerk_small_pos', 'count': 442}, {'name': 'frenet_par110_perp_neg020', 'count': 425}, {'name': 'jerk_small_neg', 'count': 311}, {'name': 'speed_norm_acc_par', 'count': 225}]
+GAUGE model=attn_gru fold=3 stage=pretrain epoch=6/10 loss=3.22880 arg_hit=0.6434 soft_hit=0.6450 soft_temp=0.03 arg_mean=0.012078 soft_mean=0.011993 best_soft_hit=0.6450 wait=0/4 top=[{'name': 'frenet_par110_perp_neg020', 'count': 535}, {'name': 'jerk_small_neg', 'count': 413}, {'name': 'frenet_fast_par120_perp_neg020', 'count': 253}, {'name': 'jerk_small_pos', 'count': 173}]
+GAUGE model=attn_gru fold=3 stage=pretrain epoch=7/10 loss=3.22145 arg_hit=0.6465 soft_hit=0.6450 soft_temp=0.03 arg_mean=0.012109 soft_mean=0.011995 best_soft_hit=0.6450 wait=1/4 top=[{'name': 'frenet_par110_perp_neg020', 'count': 455}, {'name': 'jerk_small_neg', 'count': 417}, {'name': 'speed_norm_acc_par', 'count': 244}, {'name': 'latency_short_frenet_best_085', 'count': 175}]
+GAUGE model=attn_gru fold=3 stage=pretrain epoch=8/10 loss=3.16534 arg_hit=0.6481 soft_hit=0.6502 soft_temp=0.03 arg_mean=0.012062 soft_mean=0.011911 best_soft_hit=0.6502 wait=0/4 top=[{'name': 'jerk_small_neg', 'count': 518}, {'name': 'frenet_par110_perp_neg020', 'count': 384}, {'name': 'speed_norm_acc_par', 'count': 272}, {'name': 'latency_short_frenet_best_085', 'count': 217}]
+GAUGE model=attn_gru fold=3 stage=pretrain epoch=9/10 loss=3.18635 arg_hit=0.6481 soft_hit=0.6528 soft_temp=0.03 arg_mean=0.012184 soft_mean=0.012038 best_soft_hit=0.6528 wait=0/4 top=[{'name': 'jerk_small_neg', 'count': 576}, {'name': 'frenet_par110_perp_neg020', 'count': 361}, {'name': 'latency_short_frenet_best_085', 'count': 260}, {'name': 'speed_norm_acc_par', 'count': 218}]
+GAUGE model=attn_gru fold=3 stage=pretrain epoch=10/10 loss=3.13906 arg_hit=0.6491 soft_hit=0.6528 soft_temp=0.03 arg_mean=0.012030 soft_mean=0.011918 best_soft_hit=0.6528 wait=1/4 top=[{'name': 'jerk_small_neg', 'count': 619}, {'name': 'frenet_par110_perp_neg020', 'count': 334}, {'name': 'speed_norm_acc_par', 'count': 218}, {'name': 'latency_short_frenet_best_085', 'count': 188}]
+GAUGE model=attn_gru fold=3 stage=finetune_head epoch=1/3 loss=2.96674 arg_hit=0.6476 soft_hit=0.6523 soft_temp=0.03 arg_mean=0.012201 soft_mean=0.012042 best_soft_hit=0.6523 wait=0/4 top=[{'name': 'jerk_small_neg', 'count': 547}, {'name': 'frenet_par110_perp_neg020', 'count': 375}, {'name': 'latency_short_frenet_best_085', 'count': 274}, {'name': 'speed_norm_acc_par', 'count': 247}]
+GAUGE model=attn_gru fold=3 stage=finetune_head epoch=2/3 loss=2.96303 arg_hit=0.6486 soft_hit=0.6517 soft_temp=0.03 arg_mean=0.012138 soft_mean=0.012044 best_soft_hit=0.6523 wait=1/4 top=[{'name': 'jerk_small_neg', 'count': 518}, {'name': 'frenet_par110_perp_neg020', 'count': 392}, {'name': 'latency_short_frenet_best_085', 'count': 286}, {'name': 'speed_norm_acc_par', 'count': 281}]
+GAUGE model=attn_gru fold=3 stage=finetune_head epoch=3/3 loss=2.95870 arg_hit=0.6476 soft_hit=0.6517 soft_temp=0.03 arg_mean=0.012146 soft_mean=0.012043 best_soft_hit=0.6523 wait=2/4 top=[{'name': 'jerk_small_neg', 'count': 469}, {'name': 'frenet_par110_perp_neg020', 'count': 408}, {'name': 'speed_norm_acc_par', 'count': 313}, {'name': 'latency_short_frenet_best_085', 'count': 309}]
+GAUGE model=attn_gru fold=3 stage=finetune epoch=1/5 loss=2.96250 arg_hit=0.6476 soft_hit=0.6507 soft_temp=0.03 arg_mean=0.012211 soft_mean=0.012047 best_soft_hit=0.6507 wait=0/4 top=[{'name': 'jerk_small_neg', 'count': 520}, {'name': 'frenet_par110_perp_neg020', 'count': 400}, {'name': 'latency_short_frenet_best_085', 'count': 286}, {'name': 'speed_norm_acc_par', 'count': 242}]
+GAUGE model=attn_gru fold=3 stage=finetune epoch=2/5 loss=2.95917 arg_hit=0.6460 soft_hit=0.6512 soft_temp=0.03 arg_mean=0.012154 soft_mean=0.012053 best_soft_hit=0.6512 wait=0/4 top=[{'name': 'jerk_small_neg', 'count': 468}, {'name': 'frenet_par110_perp_neg020', 'count': 451}, {'name': 'latency_short_frenet_best_085', 'count': 309}, {'name': 'speed_norm_acc_par', 'count': 235}]
+GAUGE model=attn_gru fold=3 stage=finetune epoch=3/5 loss=2.95562 arg_hit=0.6471 soft_hit=0.6517 soft_temp=0.03 arg_mean=0.012170 soft_mean=0.012057 best_soft_hit=0.6517 wait=0/4 top=[{'name': 'frenet_par110_perp_neg020', 'count': 497}, {'name': 'jerk_small_neg', 'count': 426}, {'name': 'latency_short_frenet_best_085', 'count': 321}, {'name': 'speed_norm_acc_par', 'count': 225}]
+GAUGE model=attn_gru fold=3 stage=finetune epoch=4/5 loss=2.95107 arg_hit=0.6450 soft_hit=0.6497 soft_temp=0.03 arg_mean=0.012190 soft_mean=0.012062 best_soft_hit=0.6517 wait=1/4 top=[{'name': 'frenet_par110_perp_neg020', 'count': 517}, {'name': 'jerk_small_neg', 'count': 398}, {'name': 'latency_short_frenet_best_085', 'count': 343}, {'name': 'speed_norm_acc_par', 'count': 216}]
+GAUGE model=attn_gru fold=3 stage=finetune epoch=5/5 loss=2.94762 arg_hit=0.6413 soft_hit=0.6502 soft_temp=0.05 arg_mean=0.012206 soft_mean=0.012018 best_soft_hit=0.6517 wait=2/4 top=[{'name': 'frenet_par110_perp_neg020', 'count': 522}, {'name': 'jerk_small_neg', 'count': 382}, {'name': 'latency_short_frenet_best_085', 'count': 365}, {'name': 'speed_norm_acc_par', 'count': 204}]
+FOLD_START model=attn_gru fold=4/5 train_pre=207480 pre_eff=191919.0 norm=real train_fine=7980 val=2020 oracle_hit=0.7624 prior_top=[{'name': 'speed_norm_acc_par', 'count': 2020}]
+GAUGE model=attn_gru fold=4 stage=pretrain epoch=1/10 loss=3.54697 arg_hit=0.6386 soft_hit=0.6391 soft_temp=0.03 arg_mean=0.012255 soft_mean=0.012255 best_soft_hit=0.6391 wait=0/4 top=[{'name': 'frenet_par110_perp_neg020', 'count': 1010}, {'name': 'jerk_small_pos', 'count': 446}, {'name': 'frenet_fast_par120_perp_neg020', 'count': 216}, {'name': 'speed_norm_acc_par', 'count': 148}]
+GAUGE model=attn_gru fold=4 stage=pretrain epoch=2/10 loss=3.39307 arg_hit=0.6351 soft_hit=0.6426 soft_temp=0.05 arg_mean=0.012104 soft_mean=0.012027 best_soft_hit=0.6426 wait=0/4 top=[{'name': 'frenet_par110_perp_neg020', 'count': 714}, {'name': 'jerk_small_pos', 'count': 494}, {'name': 'latency_short_frenet_best_085', 'count': 250}, {'name': 'frenet_fast_par120_perp_neg020', 'count': 182}]
+GAUGE model=attn_gru fold=4 stage=pretrain epoch=3/10 loss=3.26540 arg_hit=0.6446 soft_hit=0.6510 soft_temp=0.03 arg_mean=0.011967 soft_mean=0.011888 best_soft_hit=0.6510 wait=0/4 top=[{'name': 'jerk_small_pos', 'count': 510}, {'name': 'frenet_par110_perp_neg020', 'count': 464}, {'name': 'frenet_fast_par120_perp_neg020', 'count': 298}, {'name': 'speed_norm_acc_par', 'count': 276}]
+GAUGE model=attn_gru fold=4 stage=pretrain epoch=4/10 loss=3.24965 arg_hit=0.6441 soft_hit=0.6475 soft_temp=0.03 arg_mean=0.011950 soft_mean=0.011838 best_soft_hit=0.6510 wait=1/4 top=[{'name': 'jerk_small_pos', 'count': 407}, {'name': 'jerk_small_neg', 'count': 316}, {'name': 'frenet_par110_perp_neg020', 'count': 285}, {'name': 'frenet_fast_par120_perp_neg020', 'count': 271}]
+GAUGE model=attn_gru fold=4 stage=pretrain epoch=5/10 loss=3.23322 arg_hit=0.6446 soft_hit=0.6485 soft_temp=0.03 arg_mean=0.012119 soft_mean=0.011899 best_soft_hit=0.6510 wait=2/4 top=[{'name': 'frenet_par110_perp_neg020', 'count': 543}, {'name': 'jerk_small_neg', 'count': 415}, {'name': 'frenet_fast_par120_perp_neg020', 'count': 252}, {'name': 'speed_norm_acc_par', 'count': 217}]
+GAUGE model=attn_gru fold=4 stage=pretrain epoch=6/10 loss=3.19801 arg_hit=0.6450 soft_hit=0.6465 soft_temp=0.03 arg_mean=0.012017 soft_mean=0.011868 best_soft_hit=0.6510 wait=3/4 top=[{'name': 'frenet_par110_perp_neg020', 'count': 433}, {'name': 'jerk_small_neg', 'count': 320}, {'name': 'latency_short_frenet_best_085', 'count': 262}, {'name': 'jerk_small_pos', 'count': 245}]
+GAUGE model=attn_gru fold=4 stage=pretrain epoch=7/10 loss=3.16143 arg_hit=0.6470 soft_hit=0.6510 soft_temp=0.07 arg_mean=0.011984 soft_mean=0.011774 best_soft_hit=0.6510 wait=4/4 top=[{'name': 'frenet_par110_perp_neg020', 'count': 417}, {'name': 'frenet_fast_par120_perp_neg020', 'count': 306}, {'name': 'jerk_small_pos', 'count': 277}, {'name': 'latency_short_frenet_best_085', 'count': 239}]
+EARLY_STOP model=attn_gru fold=4 stage=pretrain epoch=7 best_soft_hit=0.6510
+GAUGE model=attn_gru fold=4 stage=finetune_head epoch=1/3 loss=3.02858 arg_hit=0.6446 soft_hit=0.6490 soft_temp=0.03 arg_mean=0.011984 soft_mean=0.011886 best_soft_hit=0.6490 wait=0/4 top=[{'name': 'jerk_small_pos', 'count': 509}, {'name': 'frenet_par110_perp_neg020', 'count': 439}, {'name': 'speed_norm_acc_par', 'count': 306}, {'name': 'frenet_fast_par120_perp_neg020', 'count': 283}]
+GAUGE model=attn_gru fold=4 stage=finetune_head epoch=2/3 loss=3.02649 arg_hit=0.6450 soft_hit=0.6485 soft_temp=0.05 arg_mean=0.011993 soft_mean=0.011893 best_soft_hit=0.6490 wait=1/4 top=[{'name': 'jerk_small_pos', 'count': 502}, {'name': 'frenet_par110_perp_neg020', 'count': 424}, {'name': 'speed_norm_acc_par', 'count': 326}, {'name': 'frenet_fast_par120_perp_neg020', 'count': 272}]
+GAUGE model=attn_gru fold=4 stage=finetune_head epoch=3/3 loss=3.02394 arg_hit=0.6455 soft_hit=0.6485 soft_temp=0.05 arg_mean=0.011989 soft_mean=0.011889 best_soft_hit=0.6490 wait=2/4 top=[{'name': 'jerk_small_pos', 'count': 497}, {'name': 'frenet_par110_perp_neg020', 'count': 403}, {'name': 'speed_norm_acc_par', 'count': 346}, {'name': 'latency_short_frenet_best_085', 'count': 278}]
+GAUGE model=attn_gru fold=4 stage=finetune epoch=1/5 loss=3.02585 arg_hit=0.6446 soft_hit=0.6480 soft_temp=0.05 arg_mean=0.012002 soft_mean=0.011894 best_soft_hit=0.6480 wait=0/4 top=[{'name': 'jerk_small_pos', 'count': 501}, {'name': 'frenet_par110_perp_neg020', 'count': 442}, {'name': 'speed_norm_acc_par', 'count': 300}, {'name': 'frenet_fast_par120_perp_neg020', 'count': 277}]
+GAUGE model=attn_gru fold=4 stage=finetune epoch=2/5 loss=3.02283 arg_hit=0.6441 soft_hit=0.6475 soft_temp=0.05 arg_mean=0.011987 soft_mean=0.011890 best_soft_hit=0.6480 wait=1/4 top=[{'name': 'jerk_small_pos', 'count': 497}, {'name': 'frenet_par110_perp_neg020', 'count': 438}, {'name': 'speed_norm_acc_par', 'count': 294}, {'name': 'latency_short_frenet_best_085', 'count': 292}]
+GAUGE model=attn_gru fold=4 stage=finetune epoch=3/5 loss=3.02061 arg_hit=0.6426 soft_hit=0.6470 soft_temp=0.05 arg_mean=0.011988 soft_mean=0.011887 best_soft_hit=0.6480 wait=2/4 top=[{'name': 'jerk_small_pos', 'count': 478}, {'name': 'frenet_par110_perp_neg020', 'count': 445}, {'name': 'latency_short_frenet_best_085', 'count': 301}, {'name': 'speed_norm_acc_par', 'count': 296}]
+GAUGE model=attn_gru fold=4 stage=finetune epoch=4/5 loss=3.01905 arg_hit=0.6436 soft_hit=0.6475 soft_temp=0.05 arg_mean=0.011987 soft_mean=0.011885 best_soft_hit=0.6480 wait=3/4 top=[{'name': 'jerk_small_pos', 'count': 468}, {'name': 'frenet_par110_perp_neg020', 'count': 445}, {'name': 'latency_short_frenet_best_085', 'count': 312}, {'name': 'speed_norm_acc_par', 'count': 296}]
+GAUGE model=attn_gru fold=4 stage=finetune epoch=5/5 loss=3.01705 arg_hit=0.6416 soft_hit=0.6475 soft_temp=0.05 arg_mean=0.012001 soft_mean=0.011885 best_soft_hit=0.6480 wait=4/4 top=[{'name': 'jerk_small_pos', 'count': 457}, {'name': 'frenet_par110_perp_neg020', 'count': 447}, {'name': 'latency_short_frenet_best_085', 'count': 326}, {'name': 'speed_norm_acc_par', 'count': 290}]
+EARLY_STOP model=attn_gru fold=4 stage=finetune epoch=5 best_soft_hit=0.6480
+FOLD_START model=attn_gru fold=5/5 train_pre=208208 pre_eff=192592.4 norm=real train_fine=8008 val=1992 oracle_hit=0.7485 prior_top=[{'name': 'speed_norm_acc_par', 'count': 1992}]
+GAUGE model=attn_gru fold=5 stage=pretrain epoch=1/10 loss=3.37684 arg_hit=0.6260 soft_hit=0.6295 soft_temp=0.03 arg_mean=0.012875 soft_mean=0.012802 best_soft_hit=0.6295 wait=0/4 top=[{'name': 'jerk_small_pos', 'count': 470}, {'name': 'frenet_fast_par120_perp_neg020', 'count': 468}, {'name': 'frenet_par110_perp_neg020', 'count': 394}, {'name': 'jerk_small_neg', 'count': 287}]
+GAUGE model=attn_gru fold=5 stage=pretrain epoch=2/10 loss=3.36285 arg_hit=0.6290 soft_hit=0.6310 soft_temp=0.03 arg_mean=0.012551 soft_mean=0.012495 best_soft_hit=0.6310 wait=0/4 top=[{'name': 'frenet_par110_perp_neg020', 'count': 675}, {'name': 'jerk_small_pos', 'count': 433}, {'name': 'frenet_fast_par120_perp_neg020', 'count': 239}, {'name': 'latency_short_frenet_best_085', 'count': 200}]
+GAUGE model=attn_gru fold=5 stage=pretrain epoch=3/10 loss=3.27744 arg_hit=0.6290 soft_hit=0.6305 soft_temp=0.05 arg_mean=0.012499 soft_mean=0.012423 best_soft_hit=0.6310 wait=1/4 top=[{'name': 'jerk_small_pos', 'count': 626}, {'name': 'frenet_par110_perp_neg020', 'count': 472}, {'name': 'latency_short_frenet_best_085', 'count': 275}, {'name': 'frenet_fast_par120_perp_neg020', 'count': 245}]
+GAUGE model=attn_gru fold=5 stage=pretrain epoch=4/10 loss=3.28096 arg_hit=0.6265 soft_hit=0.6290 soft_temp=0.07 arg_mean=0.012462 soft_mean=0.012406 best_soft_hit=0.6310 wait=2/4 top=[{'name': 'jerk_small_pos', 'count': 670}, {'name': 'latency_short_frenet_best_085', 'count': 322}, {'name': 'frenet_par110_perp_neg020', 'count': 229}, {'name': 'jerk_small_neg', 'count': 227}]
+GAUGE model=attn_gru fold=5 stage=pretrain epoch=5/10 loss=3.21733 arg_hit=0.6391 soft_hit=0.6391 soft_temp=0.03 arg_mean=0.012438 soft_mean=0.012343 best_soft_hit=0.6391 wait=0/4 top=[{'name': 'frenet_par110_perp_neg020', 'count': 580}, {'name': 'jerk_small_neg', 'count': 276}, {'name': 'jerk_small_pos', 'count': 273}, {'name': 'latency_short_frenet_best_085', 'count': 267}]
+GAUGE model=attn_gru fold=5 stage=pretrain epoch=6/10 loss=3.16098 arg_hit=0.6340 soft_hit=0.6386 soft_temp=0.03 arg_mean=0.012416 soft_mean=0.012358 best_soft_hit=0.6391 wait=1/4 top=[{'name': 'frenet_par110_perp_neg020', 'count': 784}, {'name': 'jerk_small_neg', 'count': 304}, {'name': 'latency_short_frenet_best_085', 'count': 241}, {'name': 'frenet_fast_par120_perp_neg020', 'count': 164}]
+GAUGE model=attn_gru fold=5 stage=pretrain epoch=7/10 loss=3.17781 arg_hit=0.6325 soft_hit=0.6381 soft_temp=0.03 arg_mean=0.012423 soft_mean=0.012323 best_soft_hit=0.6391 wait=2/4 top=[{'name': 'frenet_par110_perp_neg020', 'count': 620}, {'name': 'jerk_small_neg', 'count': 327}, {'name': 'latency_short_frenet_best_085', 'count': 246}, {'name': 'frenet_fast_par120_perp_neg020', 'count': 196}]
+GAUGE model=attn_gru fold=5 stage=pretrain epoch=8/10 loss=3.16976 arg_hit=0.6376 soft_hit=0.6381 soft_temp=0.03 arg_mean=0.012409 soft_mean=0.012311 best_soft_hit=0.6391 wait=3/4 top=[{'name': 'jerk_small_neg', 'count': 561}, {'name': 'frenet_par110_perp_neg020', 'count': 538}, {'name': 'latency_short_frenet_best_085', 'count': 287}, {'name': 'latency_long_frenet_best_108', 'count': 113}]
+GAUGE model=attn_gru fold=5 stage=pretrain epoch=9/10 loss=3.15052 arg_hit=0.6386 soft_hit=0.6396 soft_temp=0.05 arg_mean=0.012317 soft_mean=0.012259 best_soft_hit=0.6396 wait=0/4 top=[{'name': 'jerk_small_neg', 'count': 431}, {'name': 'frenet_par110_perp_neg020', 'count': 412}, {'name': 'latency_short_frenet_best_085', 'count': 343}, {'name': 'speed_norm_acc_par', 'count': 161}]
+GAUGE model=attn_gru fold=5 stage=pretrain epoch=10/10 loss=3.14644 arg_hit=0.6396 soft_hit=0.6421 soft_temp=0.03 arg_mean=0.012338 soft_mean=0.012260 best_soft_hit=0.6421 wait=0/4 top=[{'name': 'jerk_small_neg', 'count': 494}, {'name': 'latency_short_frenet_best_085', 'count': 298}, {'name': 'frenet_par110_perp_neg020', 'count': 259}, {'name': 'frenet_fast_par120_perp_neg020', 'count': 257}]
+GAUGE model=attn_gru fold=5 stage=finetune_head epoch=1/3 loss=2.97158 arg_hit=0.6391 soft_hit=0.6411 soft_temp=0.03 arg_mean=0.012373 soft_mean=0.012255 best_soft_hit=0.6411 wait=0/4 top=[{'name': 'jerk_small_neg', 'count': 478}, {'name': 'latency_short_frenet_best_085', 'count': 314}, {'name': 'frenet_par110_perp_neg020', 'count': 265}, {'name': 'frenet_fast_par120_perp_neg020', 'count': 236}]
+GAUGE model=attn_gru fold=5 stage=finetune_head epoch=2/3 loss=2.96759 arg_hit=0.6381 soft_hit=0.6416 soft_temp=0.03 arg_mean=0.012369 soft_mean=0.012254 best_soft_hit=0.6416 wait=0/4 top=[{'name': 'jerk_small_neg', 'count': 448}, {'name': 'latency_short_frenet_best_085', 'count': 332}, {'name': 'frenet_par110_perp_neg020', 'count': 286}, {'name': 'speed_norm_acc_par', 'count': 225}]
+GAUGE model=attn_gru fold=5 stage=finetune_head epoch=3/3 loss=2.96448 arg_hit=0.6376 soft_hit=0.6421 soft_temp=0.03 arg_mean=0.012348 soft_mean=0.012255 best_soft_hit=0.6421 wait=0/4 top=[{'name': 'jerk_small_neg', 'count': 403}, {'name': 'latency_short_frenet_best_085', 'count': 348}, {'name': 'frenet_par110_perp_neg020', 'count': 315}, {'name': 'speed_norm_acc_par', 'count': 251}]
+GAUGE model=attn_gru fold=5 stage=finetune epoch=1/5 loss=2.96071 arg_hit=0.6345 soft_hit=0.6421 soft_temp=0.03 arg_mean=0.012351 soft_mean=0.012255 best_soft_hit=0.6421 wait=0/4 top=[{'name': 'jerk_small_neg', 'count': 385}, {'name': 'latency_short_frenet_best_085', 'count': 372}, {'name': 'frenet_par110_perp_neg020', 'count': 340}, {'name': 'speed_norm_acc_par', 'count': 249}]
+GAUGE model=attn_gru fold=5 stage=finetune epoch=2/5 loss=2.95589 arg_hit=0.6330 soft_hit=0.6416 soft_temp=0.03 arg_mean=0.012361 soft_mean=0.012257 best_soft_hit=0.6421 wait=1/4 top=[{'name': 'latency_short_frenet_best_085', 'count': 390}, {'name': 'jerk_small_neg', 'count': 363}, {'name': 'frenet_par110_perp_neg020', 'count': 355}, {'name': 'speed_norm_acc_par', 'count': 251}]
+GAUGE model=attn_gru fold=5 stage=finetune epoch=3/5 loss=2.95264 arg_hit=0.6320 soft_hit=0.6411 soft_temp=0.03 arg_mean=0.012366 soft_mean=0.012262 best_soft_hit=0.6421 wait=2/4 top=[{'name': 'latency_short_frenet_best_085', 'count': 405}, {'name': 'frenet_par110_perp_neg020', 'count': 373}, {'name': 'jerk_small_neg', 'count': 340}, {'name': 'speed_norm_acc_par', 'count': 251}]
+GAUGE model=attn_gru fold=5 stage=finetune epoch=4/5 loss=2.94873 arg_hit=0.6310 soft_hit=0.6401 soft_temp=0.03 arg_mean=0.012380 soft_mean=0.012270 best_soft_hit=0.6421 wait=3/4 top=[{'name': 'latency_short_frenet_best_085', 'count': 412}, {'name': 'frenet_par110_perp_neg020', 'count': 383}, {'name': 'jerk_small_neg', 'count': 324}, {'name': 'speed_norm_acc_par', 'count': 259}]
+GAUGE model=attn_gru fold=5 stage=finetune epoch=5/5 loss=2.94650 arg_hit=0.6310 soft_hit=0.6401 soft_temp=0.03 arg_mean=0.012382 soft_mean=0.012281 best_soft_hit=0.6421 wait=4/4 top=[{'name': 'latency_short_frenet_best_085', 'count': 428}, {'name': 'frenet_par110_perp_neg020', 'count': 380}, {'name': 'jerk_small_neg', 'count': 308}, {'name': 'speed_norm_acc_par', 'count': 270}]
+EARLY_STOP model=attn_gru fold=5 stage=finetune epoch=5 best_soft_hit=0.6421
+FULL_START model=attn_gru pre=260000 pre_eff=240500.0 norm=real fine=10000 prior_top=[{'name': 'speed_norm_acc_par', 'count': 1}]
+FULL_GAUGE stage=pretrain_full epoch=1/12 loss=3.48944
+FULL_GAUGE stage=pretrain_full epoch=2/12 loss=3.30220
+FULL_GAUGE stage=pretrain_full epoch=3/12 loss=3.30452
+FULL_GAUGE stage=pretrain_full epoch=4/12 loss=3.32922
+FULL_GAUGE stage=pretrain_full epoch=5/12 loss=3.23370
+FULL_GAUGE stage=pretrain_full epoch=6/12 loss=3.20943
+FULL_GAUGE stage=pretrain_full epoch=7/12 loss=3.19617
+FULL_GAUGE stage=pretrain_full epoch=8/12 loss=3.15619
+FULL_GAUGE stage=pretrain_full epoch=9/12 loss=3.13630
+FULL_GAUGE stage=pretrain_full epoch=10/12 loss=3.14526
+FULL_GAUGE stage=pretrain_full epoch=11/12 loss=3.14923
+FULL_GAUGE stage=pretrain_full epoch=12/12 loss=3.11825
+FULL_GAUGE stage=finetune_full epoch=1/6 loss=2.95401
+FULL_GAUGE stage=finetune_full epoch=2/6 loss=2.94305
+FULL_GAUGE stage=finetune_full epoch=3/6 loss=2.93325
+FULL_GAUGE stage=finetune_full epoch=4/6 loss=2.92523
+FULL_GAUGE stage=finetune_full epoch=5/6 loss=2.91703
+FULL_GAUGE stage=finetune_full epoch=6/6 loss=2.90911
+{
+  "root": "/workspace/daycon-muflight/data",
+  "out_dir": "/workspace/daycon-muflight/runs/baseline/G001_candidate-redefine",
+  "device": "cuda:1",
+  "candidate_names": [
+    "p0_2d1",
+    "acc_2d1_060",
+    "frenet_par110_perp_neg020",
+    "jerk_small_pos",
+    "jerk_small_neg",
+    "frenet_par120_perp020",
+    "frenet_fast_par120_perp_neg020",
+    "latency_short_frenet_best_085",
+    "latency_long_frenet_best_108",
+    "latency_long_frenet_best_115",
+    "latency_long_turn_neg_110",
+    "latency_short_turn_pos_090",
+    "rot_low_080",
+    "rot_mid_100",
+    "rot_mid_120",
+    "rot_high_150",
+    "arc_continue",
+    "arc_decel",
+    "arc_accel",
+    "fs_3d_planar",
+    "fs_3d_low_torsion",
+    "fs_3d_binormal",
+    "speed_slope_d1_120",
+    "speed_norm_acc_par",
+    "omega_speed"
+  ],
+  "family_names": [
+    "base",
+    "acc",
+    "frenet",
+    "turn",
+    "jerk",
+    "latency"
+  ],
+  "candidate_family": {
+    "p0_2d1": "base",
+    "acc_2d1_060": "acc",
+    "frenet_par110_perp_neg020": "acc",
+    "jerk_small_pos": "acc",
+    "jerk_small_neg": "acc",
+    "frenet_par120_perp020": "frenet",
+    "frenet_fast_par120_perp_neg020": "turn",
+    "latency_short_frenet_best_085": "turn",
+    "latency_long_frenet_best_108": "turn",
+    "latency_long_frenet_best_115": "turn",
+    "latency_long_turn_neg_110": "turn",
+    "latency_short_turn_pos_090": "turn",
+    "rot_low_080": "turn",
+    "rot_mid_100": "turn",
+    "rot_mid_120": "jerk",
+    "rot_high_150": "jerk",
+    "arc_continue": "turn",
+    "arc_decel": "turn",
+    "arc_accel": "turn",
+    "fs_3d_planar": "turn",
+    "fs_3d_low_torsion": "turn",
+    "fs_3d_binormal": "latency",
+    "speed_slope_d1_120": "latency",
+    "speed_norm_acc_par": "latency",
+    "omega_speed": "latency"
+  },
+  "hier_family_gate": false,
+  "family_gate_scale": 1.0,
+  "latent_env_experts": 1,
+  "latent_physics_adapter": false,
+  "latent_physics_coeff_scale": 0.85,
+  "final_repeat": 1,
+  "include_late_fine": false,
+  "fine_ensemble": false,
+  "fine_branch_scales": [
+    0.65,
+    1.0,
+    1.45
+  ],
+  "fine_branch_weight_powers": [
+    0.75,
+    1.0,
+    1.35
+  ],
+  "include_pre_branch": false,
+  "candidate_metrics": {
+    "p0_2d1": {
+      "hit": 0.5787,
+      "hits": 5787,
+      "mean": 0.012940611690282822,
+      "q50": 0.008324827998876572,
+      "q75": 0.013364028185606003,
+      "q90": 0.026507442817091942,
+      "q95": 0.04479984566569328,
+      "q99": 0.09399053454399109
+    },
+    "acc_2d1_060": {
+      "hit": 0.6008,
+      "hits": 6008,
+      "mean": 0.012977389618754387,
+      "q50": 0.008157627657055855,
+      "q75": 0.013418221846222878,
+      "q90": 0.027342818677425385,
+      "q95": 0.044838931411504745,
+      "q99": 0.09297627210617065
+    },
+    "frenet_par110_perp_neg020": {
+      "hit": 0.6284,
+      "hits": 6284,
+      "mean": 0.01300755050033331,
+      "q50": 0.007649529725313187,
+      "q75": 0.012860982678830624,
+      "q90": 0.028533415868878365,
+      "q95": 0.05024345964193344,
+      "q99": 0.09626592695713043
+    },
+    "jerk_small_pos": {
+      "hit": 0.6245,
+      "hits": 6245,
+      "mean": 0.01280124019831419,
+      "q50": 0.007709826342761517,
+      "q75": 0.012829868122935295,
+      "q90": 0.02796880528330803,
+      "q95": 0.047345783561468124,
+      "q99": 0.0951463058590889
+    },
+    "jerk_small_neg": {
+      "hit": 0.6184,
+      "hits": 6184,
+      "mean": 0.012934890575706959,
+      "q50": 0.007797428406774998,
+      "q75": 0.01301543042063713,
+      "q90": 0.028154784813523293,
+      "q95": 0.047935400158166885,
+      "q99": 0.09477393329143524
+    },
+    "frenet_par120_perp020": {
+      "hit": 0.628,
+      "hits": 6280,
+      "mean": 0.01296951249241829,
+      "q50": 0.007567848078906536,
+      "q75": 0.012836704030632973,
+      "q90": 0.028885377570986748,
+      "q95": 0.04959358274936676,
+      "q99": 0.0979846715927124
+    },
+    "frenet_fast_par120_perp_neg020": {
+      "hit": 0.5997,
+      "hits": 5997,
+      "mean": 0.013848390430212021,
+      "q50": 0.008001870475709438,
+      "q75": 0.01372114010155201,
+      "q90": 0.030676215887069702,
+      "q95": 0.05326594412326813,
+      "q99": 0.10215502977371216
+    },
+    "latency_short_frenet_best_085": {
+      "hit": 0.4525,
+      "hits": 4525,
+      "mean": 0.014922726899385452,
+      "q50": 0.011043054051697254,
+      "q75": 0.017741814255714417,
+      "q90": 0.026544110849499702,
+      "q95": 0.04387081786990166,
+      "q99": 0.08669020235538483
+    },
+    "latency_long_frenet_best_108": {
+      "hit": 0.5567,
+      "hits": 5567,
+      "mean": 0.014467422850430012,
+      "q50": 0.008886678144335747,
+      "q75": 0.014599541202187538,
+      "q90": 0.0310345645993948,
+      "q95": 0.05318261310458183,
+      "q99": 0.10236536711454391
+    },
+    "latency_long_frenet_best_115": {
+      "hit": 0.4323,
+      "hits": 4323,
+      "mean": 0.016962874680757523,
+      "q50": 0.011483007110655308,
+      "q75": 0.018266482278704643,
+      "q90": 0.03497908636927605,
+      "q95": 0.0575670525431633,
+      "q99": 0.10807359218597412
+    },
+    "latency_long_turn_neg_110": {
+      "hit": 0.5173,
+      "hits": 5173,
+      "mean": 0.015358822420239449,
+      "q50": 0.00968199037015438,
+      "q75": 0.0156332328915596,
+      "q90": 0.033260639756917953,
+      "q95": 0.05621683970093727,
+      "q99": 0.10649065673351288
+    },
+    "latency_short_turn_pos_090": {
+      "hit": 0.5041,
+      "hits": 5041,
+      "mean": 0.013873583637177944,
+      "q50": 0.009935718029737473,
+      "q75": 0.015491246245801449,
+      "q90": 0.02585352025926113,
+      "q95": 0.04377012699842453,
+      "q99": 0.08786025643348694
+    },
+    "rot_low_080": {
+      "hit": 0.466,
+      "hits": 4660,
+      "mean": 0.017550963908433914,
+      "q50": 0.010744143277406693,
+      "q75": 0.019613157957792282,
+      "q90": 0.039994481950998306,
+      "q95": 0.06039652228355408,
+      "q99": 0.107121542096138
+    },
+    "rot_mid_100": {
+      "hit": 0.4316,
+      "hits": 4316,
+      "mean": 0.01877135969698429,
+      "q50": 0.01155995111912489,
+      "q75": 0.021553903818130493,
+      "q90": 0.04308037459850311,
+      "q95": 0.06392328441143036,
+      "q99": 0.10904081165790558
+    },
+    "rot_mid_120": {
+      "hit": 0.4015,
+      "hits": 4015,
+      "mean": 0.019987912848591805,
+      "q50": 0.012460744008421898,
+      "q75": 0.023856984451413155,
+      "q90": 0.04616214707493782,
+      "q95": 0.06604970246553421,
+      "q99": 0.11372420936822891
+    },
+    "rot_high_150": {
+      "hit": 0.3601,
+      "hits": 3601,
+      "mean": 0.02211543172597885,
+      "q50": 0.013793984428048134,
+      "q75": 0.027140535414218903,
+      "q90": 0.05182505026459694,
+      "q95": 0.07188703119754791,
+      "q99": 0.11874273419380188
+    },
+    "arc_continue": {
+      "hit": 0.4316,
+      "hits": 4316,
+      "mean": 0.01877135969698429,
+      "q50": 0.01155995111912489,
+      "q75": 0.021553903818130493,
+      "q90": 0.04308037459850311,
+      "q95": 0.06392328441143036,
+      "q99": 0.10904081165790558
+    },
+    "arc_decel": {
+      "hit": 0.4493,
+      "hits": 4493,
+      "mean": 0.01817840337753296,
+      "q50": 0.01114499568939209,
+      "q75": 0.020631957799196243,
+      "q90": 0.04156966134905815,
+      "q95": 0.06253275275230408,
+      "q99": 0.10838980227708817
+    },
+    "arc_accel": {
+      "hit": 0.4169,
+      "hits": 4169,
+      "mean": 0.019358675926923752,
+      "q50": 0.012016352266073227,
+      "q75": 0.022637339308857918,
+      "q90": 0.044685233384370804,
+      "q95": 0.06484569609165192,
+      "q99": 0.11206609010696411
+    },
+    "fs_3d_planar": {
+      "hit": 0.5787,
+      "hits": 5787,
+      "mean": 0.012940611690282822,
+      "q50": 0.008324827998876572,
+      "q75": 0.013364028185606003,
+      "q90": 0.026507442817091942,
+      "q95": 0.04479984566569328,
+      "q99": 0.09399053454399109
+    },
+    "fs_3d_low_torsion": {
+      "hit": 0.0057,
+      "hits": 57,
+      "mean": 0.18433122336864471,
+      "q50": 0.1078152060508728,
+      "q75": 0.194212406873703,
+      "q90": 0.4118277430534363,
+      "q95": 0.62700355052948,
+      "q99": 1.2268562316894531
+    },
+    "fs_3d_binormal": {
+      "hit": 0.0015,
+      "hits": 15,
+      "mean": 0.36684417724609375,
+      "q50": 0.2135707437992096,
+      "q75": 0.3865520656108856,
+      "q90": 0.8197935223579407,
+      "q95": 1.252294898033142,
+      "q99": 2.445045232772827
+    },
+    "speed_slope_d1_120": {
+      "hit": 0.1056,
+      "hits": 1056,
+      "mean": 0.03258928284049034,
+      "q50": 0.02723550796508789,
+      "q75": 0.04298577457666397,
+      "q90": 0.05660099536180496,
+      "q95": 0.07020930200815201,
+      "q99": 0.12357409298419952
+    },
+    "speed_norm_acc_par": {
+      "hit": 0.6342,
+      "hits": 6342,
+      "mean": 0.013012048788368702,
+      "q50": 0.0072838361375033855,
+      "q75": 0.012911696918308735,
+      "q90": 0.028926940634846687,
+      "q95": 0.05027482286095619,
+      "q99": 0.0952911302447319
+    },
+    "omega_speed": {
+      "hit": 0.0225,
+      "hits": 225,
+      "mean": 0.05584798753261566,
+      "q50": 0.04923491179943085,
+      "q75": 0.07446365058422089,
+      "q90": 0.10762330889701843,
+      "q95": 0.11020747572183609,
+      "q99": 0.15747319161891937
+    }
+  },
+  "candidate_oracle_metrics": {
+    "hit": 0.7562,
+    "hits": 7562,
+    "mean": 0.009228027425706387,
+    "q50": 0.0051347920671105385,
+    "q75": 0.009835411794483662,
+    "q90": 0.019060274586081505,
+    "q95": 0.033572178333997726,
+    "q99": 0.07637598365545273
+  },
+  "fold_rows": [
+    {
+      "fold": 1,
+      "attn_gru_argmax": {
+        "hit": 0.6534653465346535,
+        "hits": 1320,
+        "mean": 0.01192555669695139,
+        "q50": 0.007066614925861359,
+        "q75": 0.01236279308795929,
+        "q90": 0.024463383480906487,
+        "q95": 0.04110763221979141,
+        "q99": 0.08800728619098663
+      },
+      "attn_gru_pre_loss_last": 3.2193964641678416,
+      "attn_gru_fine_loss_last": 2.9786662573802443,
+      "attn_gru_pre_best_epoch": 5,
+      "attn_gru_pre_best_hit": 0.6663366336633664,
+      "attn_gru_fine_best_epoch": 1,
+      "attn_gru_fine_best_hit": 0.6648514851485149,
+      "oracle": {
+        "hit": 0.7653465346534654,
+        "hits": 1546,
+        "mean": 0.00907998625189066,
+        "q50": 0.004977211821824312,
+        "q75": 0.009648122824728489,
+        "q90": 0.018779054284095764,
+        "q95": 0.03421337530016899,
+        "q99": 0.07720085978507996
+      },
+      "ensemble_argmax": {
+        "hit": 0.6534653465346535,
+        "hits": 1320,
+        "mean": 0.01192555669695139,
+        "q50": 0.007066614925861359,
+        "q75": 0.01236279308795929,
+        "q90": 0.024463383480906487,
+        "q95": 0.04110763221979141,
+        "q99": 0.08800728619098663
+      }
+    },
+    {
+      "fold": 2,
+      "attn_gru_argmax": {
+        "hit": 0.6419149975574011,
+        "hits": 1314,
+        "mean": 0.011845067143440247,
+        "q50": 0.0071418858133256435,
+        "q75": 0.01280808076262474,
+        "q90": 0.024340040981769562,
+        "q95": 0.03935970738530159,
+        "q99": 0.08816888183355331
+      },
+      "attn_gru_pre_loss_last": 3.1831423330648763,
+      "attn_gru_fine_loss_last": 2.967831175596807,
+      "attn_gru_pre_best_epoch": 7,
+      "attn_gru_pre_best_hit": 0.6492427943331704,
+      "attn_gru_fine_best_epoch": 1,
+      "attn_gru_fine_best_hit": 0.6511968734733756,
+      "oracle": {
+        "hit": 0.7459697117733268,
+        "hits": 1527,
+        "mean": 0.009109734557569027,
+        "q50": 0.005057367496192455,
+        "q75": 0.010153215378522873,
+        "q90": 0.01888241246342659,
+        "q95": 0.030425947159528732,
+        "q99": 0.07780846208333969
+      },
+      "ensemble_argmax": {
+        "hit": 0.6419149975574011,
+        "hits": 1314,
+        "mean": 0.011845067143440247,
+        "q50": 0.0071418858133256435,
+        "q75": 0.01280808076262474,
+        "q90": 0.024340040981769562,
+        "q95": 0.03935970738530159,
+        "q99": 0.08816888183355331
+      }
+    },
+    {
+      "fold": 3,
+      "attn_gru_argmax": {
+        "hit": 0.6470588235294118,
+        "hits": 1243,
+        "mean": 0.012170462869107723,
+        "q50": 0.007445132359862328,
+        "q75": 0.012402194552123547,
+        "q90": 0.024927744641900063,
+        "q95": 0.04484084993600845,
+        "q99": 0.09301900863647461
+      },
+      "attn_gru_pre_loss_last": 3.13906361622763,
+      "attn_gru_fine_loss_last": 2.9476240160205838,
+      "attn_gru_pre_best_epoch": 9,
+      "attn_gru_pre_best_hit": 0.6527850078084331,
+      "attn_gru_fine_best_epoch": 3,
+      "attn_gru_fine_best_hit": 0.6517438833940656,
+      "oracle": {
+        "hit": 0.7589796980739199,
+        "hits": 1458,
+        "mean": 0.009381450712680817,
+        "q50": 0.005221533123403788,
+        "q75": 0.009717612527310848,
+        "q90": 0.019055932760238647,
+        "q95": 0.03364870697259903,
+        "q99": 0.07525235414505005
+      },
+      "ensemble_argmax": {
+        "hit": 0.6470588235294118,
+        "hits": 1243,
+        "mean": 0.012170462869107723,
+        "q50": 0.007445132359862328,
+        "q75": 0.012402194552123547,
+        "q90": 0.024927744641900063,
+        "q95": 0.04484084993600845,
+        "q99": 0.09301900863647461
+      }
+    },
+    {
+      "fold": 4,
+      "attn_gru_argmax": {
+        "hit": 0.6445544554455446,
+        "hits": 1302,
+        "mean": 0.01200210303068161,
+        "q50": 0.007239794358611107,
+        "q75": 0.012505810707807541,
+        "q90": 0.024779358878731728,
+        "q95": 0.04436963424086571,
+        "q99": 0.09480176120996475
+      },
+      "attn_gru_pre_loss_last": 3.1614333995578603,
+      "attn_gru_fine_loss_last": 3.0170528757243527,
+      "attn_gru_pre_best_epoch": 3,
+      "attn_gru_pre_best_hit": 0.650990099009901,
+      "attn_gru_fine_best_epoch": 1,
+      "attn_gru_fine_best_hit": 0.648019801980198,
+      "oracle": {
+        "hit": 0.7623762376237624,
+        "hits": 1540,
+        "mean": 0.00923201534897089,
+        "q50": 0.005162391811609268,
+        "q75": 0.009747744537889957,
+        "q90": 0.018877333030104637,
+        "q95": 0.03377732262015343,
+        "q99": 0.07029201835393906
+      },
+      "ensemble_argmax": {
+        "hit": 0.6445544554455446,
+        "hits": 1302,
+        "mean": 0.01200210303068161,
+        "q50": 0.007239794358611107,
+        "q75": 0.012505810707807541,
+        "q90": 0.024779358878731728,
+        "q95": 0.04436963424086571,
+        "q99": 0.09480176120996475
+      }
+    },
+    {
+      "fold": 5,
+      "attn_gru_argmax": {
+        "hit": 0.6345381526104418,
+        "hits": 1264,
+        "mean": 0.012351344339549541,
+        "q50": 0.0075691938400268555,
+        "q75": 0.012635614722967148,
+        "q90": 0.02631624974310398,
+        "q95": 0.04508797079324722,
+        "q99": 0.09030447155237198
+      },
+      "attn_gru_pre_loss_last": 3.1464393286923777,
+      "attn_gru_fine_loss_last": 2.9464961020024742,
+      "attn_gru_pre_best_epoch": 10,
+      "attn_gru_pre_best_hit": 0.6420682730923695,
+      "attn_gru_fine_best_epoch": 1,
+      "attn_gru_fine_best_hit": 0.6420682730923695,
+      "oracle": {
+        "hit": 0.7484939759036144,
+        "hits": 1491,
+        "mean": 0.009347710758447647,
+        "q50": 0.005241460166871548,
+        "q75": 0.010022631846368313,
+        "q90": 0.019879143685102463,
+        "q95": 0.03440117835998535,
+        "q99": 0.07449833303689957
+      },
+      "ensemble_argmax": {
+        "hit": 0.6345381526104418,
+        "hits": 1264,
+        "mean": 0.012351344339549541,
+        "q50": 0.0075691938400268555,
+        "q75": 0.012635614722967148,
+        "q90": 0.02631624974310398,
+        "q95": 0.04508797079324722,
+        "q99": 0.09030447155237198
+      }
+    }
+  ],
+  "model_oof": {
+    "attn_gru": {
+      "soft": {
+        "temperature": 0.03,
+        "metrics": {
+          "hit": 0.6503,
+          "hits": 6503,
+          "mean": 0.01194579154253006,
+          "q50": 0.00715094618499279,
+          "q75": 0.01239578053355217,
+          "q90": 0.024697721004486084,
+          "q95": 0.042478933930397034,
+          "q99": 0.0913044661283493
+        }
+      },
+      "projected": {
+        "residual_weight": 0.8,
+        "temperature": 0.03,
+        "metrics": {
+          "hit": 0.6515,
+          "hits": 6515,
+          "mean": 0.011933110654354095,
+          "q50": 0.007117241621017456,
+          "q75": 0.01236672606319189,
+          "q90": 0.024760734289884567,
+          "q95": 0.0431348979473114,
+          "q99": 0.08939002454280853
+        }
+      },
+      "argmax_soft_gate": {
+        "temperature": 0.03,
+        "margin_quantile": 1.01,
+        "margin_threshold": Infinity,
+        "argmax_rate": 0.0,
+        "metrics": {
+          "hit": 0.6503,
+          "hits": 6503,
+          "mean": 0.01194579154253006,
+          "q50": 0.00715094618499279,
+          "q75": 0.01239578053355217,
+          "q90": 0.024697721004486084,
+          "q95": 0.042478933930397034,
+          "q99": 0.0913044661283493
+        }
+      }
+    }
+  },
+  "oof_tcn_gru_ensemble_soft": {
+    "temperature": 0.03,
+    "metrics": {
+      "hit": 0.6503,
+      "hits": 6503,
+      "mean": 0.01194579154253006,
+      "q50": 0.00715094618499279,
+      "q75": 0.01239578053355217,
+      "q90": 0.024697721004486084,
+      "q95": 0.042478933930397034,
+      "q99": 0.0913044661283493
+    }
+  },
+  "oof_tcn_gru_ensemble_projected": {
+    "residual_weight": 0.8,
+    "temperature": 0.03,
+    "metrics": {
+      "hit": 0.6515,
+      "hits": 6515,
+      "mean": 0.011933110654354095,
+      "q50": 0.007117241621017456,
+      "q75": 0.01236672606319189,
+      "q90": 0.024760734289884567,
+      "q95": 0.0431348979473114,
+      "q99": 0.08939002454280853
+    }
+  },
+  "oof_tcn_gru_ensemble_argmax_soft_gate": {
+    "temperature": 0.03,
+    "margin_quantile": 1.01,
+    "margin_threshold": Infinity,
+    "argmax_rate": 0.0,
+    "metrics": {
+      "hit": 0.6503,
+      "hits": 6503,
+      "mean": 0.01194579154253006,
+      "q50": 0.00715094618499279,
+      "q75": 0.01239578053355217,
+      "q90": 0.024697721004486084,
+      "q95": 0.042478933930397034,
+      "q99": 0.0913044661283493
+    }
+  },
+  "oof_tcn_gru_ensemble_argmax": {
+    "hit": 0.6443,
+    "hits": 6443,
+    "mean": 0.012056405656039715,
+    "q50": 0.007270150352269411,
+    "q75": 0.012539147399365902,
+    "q90": 0.02502061054110527,
+    "q95": 0.04288661852478981,
+    "q99": 0.0912027433514595
+  },
+  "covered_rows": 10000,
+  "full_losses": {
+    "attn_gru": {
+      "pretrain": 3.1182520576477053,
+      "finetune": 2.9091141914367675,
+      "full_pre_epochs": 12,
+      "full_fine_epochs": 6
+    }
+  },
+  "files": [
+    "submission_attn_gru_selector_soft.csv",
+    "submission_selector_ensemble_soft.csv",
+    "submission_selector_ensemble_argmax.csv"
+  ]
+}
+[DONE] main elapsed=262.6s
+[c6] variant_a_check: {'keys': ['covered', 'y', 'cands', 'attn_gru_scores', 'ens_scores', 'attn_gru_prior', 'ens_prior', 'candidate_names'], 'regime_bias_table': '(absent — Variant A path enforced)', 'variant_a_safe': True}
+inline residual boundary MLP loaded
+BASELINE {"score_source": "/workspace/daycon-muflight/runs/baseline/G001_candidate-redefine/oof_selector_scores.npz:ens_scores", "soft": {"temperature": 0.1, "metrics": {"hit": 0.6648514851485149, "hits": 1343, "mean": 0.011739618144929409, "q50": 0.006979758385568857, "q75": 0.012157188728451729, "q90": 0.023994233459234238, "q95": 0.04076315462589264, "q99": 0.09029660373926163}}, "gate": {"temperature": 0.1, "margin_quantile": 0.9, "margin_threshold": 0.07211779057979584, "argmax_rate": 0.1, "metrics": {"hit": 0.6653465346534654, "hits": 1344, "mean": 0.011767991818487644, "q50": 0.0069731371477246284, "q75": 0.012196975760161877, "q90": 0.02399338036775589, "q95": 0.042201463133096695, "q99": 0.09028813987970352}}}
+TRAIN_ROWS pre=598500 fine=199500 boundary_pre_weight=204774.7
+GAUGE stage=pretrain epoch=1 loss=0.199590 soft_hit=0.6658 gate_hit=0.6658 best_gate=0.6658 wait=0/4
+GAUGE stage=pretrain epoch=2 loss=0.175767 soft_hit=0.6629 gate_hit=0.6624 best_gate=0.6658 wait=1/4
+GAUGE stage=pretrain epoch=3 loss=0.163538 soft_hit=0.6644 gate_hit=0.6649 best_gate=0.6658 wait=2/4
+GAUGE stage=pretrain epoch=4 loss=0.150867 soft_hit=0.6673 gate_hit=0.6678 best_gate=0.6678 wait=0/4
+GAUGE stage=pretrain epoch=5 loss=0.148127 soft_hit=0.6663 gate_hit=0.6663 best_gate=0.6678 wait=1/4
+GAUGE stage=pretrain epoch=6 loss=0.145189 soft_hit=0.6698 gate_hit=0.6698 best_gate=0.6698 wait=0/4
+GAUGE stage=pretrain epoch=7 loss=0.143014 soft_hit=0.6683 gate_hit=0.6683 best_gate=0.6698 wait=1/4
+GAUGE stage=pretrain epoch=8 loss=0.142041 soft_hit=0.6718 gate_hit=0.6718 best_gate=0.6718 wait=0/4
+GAUGE stage=pretrain epoch=9 loss=0.140346 soft_hit=0.6713 gate_hit=0.6673 best_gate=0.6718 wait=1/4
+GAUGE stage=pretrain epoch=10 loss=0.140944 soft_hit=0.6713 gate_hit=0.6713 best_gate=0.6718 wait=2/4
+GAUGE stage=pretrain epoch=11 loss=0.138251 soft_hit=0.6713 gate_hit=0.6693 best_gate=0.6718 wait=3/4
+GAUGE stage=pretrain epoch=12 loss=0.136782 soft_hit=0.6703 gate_hit=0.6668 best_gate=0.6718 wait=4/4
+GAUGE stage=finetune epoch=1 loss=0.112294 soft_hit=0.6653 gate_hit=0.6649 best_gate=0.6718 wait=1/4
+GAUGE stage=finetune epoch=2 loss=0.106820 soft_hit=0.6658 gate_hit=0.6639 best_gate=0.6718 wait=2/4
+GAUGE stage=finetune epoch=3 loss=0.103918 soft_hit=0.6698 gate_hit=0.6663 best_gate=0.6718 wait=3/4
+GAUGE stage=finetune epoch=4 loss=0.102873 soft_hit=0.6688 gate_hit=0.6644 best_gate=0.6718 wait=4/4
+GAUGE stage=finetune epoch=5 loss=0.101616 soft_hit=0.6678 gate_hit=0.6653 best_gate=0.6718 wait=5/4
+FULL_GAUGE stage=pretrain epoch=1 loss=0.190398
+FULL_GAUGE stage=pretrain epoch=2 loss=0.170572
+FULL_GAUGE stage=pretrain epoch=3 loss=0.157215
+FULL_GAUGE stage=pretrain epoch=4 loss=0.149942
+FULL_GAUGE stage=pretrain epoch=5 loss=0.146856
+FULL_GAUGE stage=pretrain epoch=6 loss=0.144705
+FULL_GAUGE stage=pretrain epoch=7 loss=0.142861
+FULL_GAUGE stage=pretrain epoch=8 loss=0.141341
+FULL_GAUGE stage=pretrain epoch=9 loss=0.140872
+FULL_GAUGE stage=pretrain epoch=10 loss=0.138924
+FULL_GAUGE stage=pretrain epoch=11 loss=0.138869
+FULL_GAUGE stage=pretrain epoch=12 loss=0.137080
+FULL_GAUGE stage=finetune epoch=1 loss=0.107410
+FULL_GAUGE stage=finetune epoch=2 loss=0.102842
+FULL_GAUGE stage=finetune epoch=3 loss=0.101279
+FULL_GAUGE stage=finetune epoch=4 loss=0.099954
+FULL_GAUGE stage=finetune epoch=5 loss=0.098868
+FULL_GAUGE stage=finetune epoch=6 loss=0.097723
+FULL_GAUGE stage=finetune epoch=7 loss=0.097397
+FULL_GAUGE stage=finetune epoch=8 loss=0.096930
+{
+  "soft": {
+    "temperature": 0.1,
+    "metrics": {
+      "hit": 0.6717821782178218,
+      "hits": 1357,
+      "mean": 0.011628358624875546,
+      "q50": 0.006958139128983021,
+      "q75": 0.012117136269807816,
+      "q90": 0.02355167828500271,
+      "q95": 0.0404689647257328,
+      "q99": 0.0909615010023117
+    }
+  },
+  "gate": {
+    "temperature": 0.1,
+    "margin_quantile": 1.01,
+    "margin_threshold": Infinity,
+    "argmax_rate": 0.0,
+    "metrics": {
+      "hit": 0.6717821782178218,
+      "hits": 1357,
+      "mean": 0.011628358624875546,
+      "q50": 0.006958139128983021,
+      "q75": 0.012117136269807816,
+      "q90": 0.02355167828500271,
+      "q95": 0.0404689647257328,
+      "q99": 0.0909615010023117
+    }
+  },
+  "argmax": {
+    "hit": 0.6638613861386139,
+    "hits": 1341,
+    "mean": 0.011741233989596367,
+    "q50": 0.006955873221158981,
+    "q75": 0.012151926755905151,
+    "q90": 0.023678341880440712,
+    "q95": 0.04088008031249046,
+    "q99": 0.09034464508295059
+  },
+  "candidate_oracle": {
+    "hit": 0.7653465346534654,
+    "hits": 1546,
+    "mean": 0.00907998625189066,
+    "q50": 0.004977211821824312,
+    "q75": 0.009648122824728489,
+    "q90": 0.018779054284095764,
+    "q95": 0.03421337530016899,
+    "q99": 0.07720085978507996
+  },
+  "test_files": [
+    "/workspace/daycon-muflight/runs/baseline/G001_candidate-redefine/submission_boundary_tiny_soft.csv",
+    "/workspace/daycon-muflight/runs/baseline/G001_candidate-redefine/submission_boundary_tiny_argmax.csv"
+  ]
+}
+[DONE] main elapsed=239.9s
+[c6] submission_step3.csv ← submission_boundary_tiny_soft.csv
+[c6] family_effect = 0.6503 − 0.6466 = +0.0037
+[c7] OOF: argmax=0.6443 soft=0.6503 oracle=0.7562 gap_ranking=0.1119 family_effect=+0.0037

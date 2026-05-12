@@ -1,0 +1,52 @@
+{
+  "exp_id": "G001-candidate-redefine",
+  "n_train": 10000,
+  "n_candidates": 25,
+  "kept_indices": [
+    0,
+    4,
+    11,
+    14,
+    15,
+    18,
+    19,
+    21,
+    23,
+    24,
+    25,
+    26
+  ],
+  "kept_families": [
+    "arc",
+    "cross_term",
+    "frenet_serret_3d",
+    "trig"
+  ],
+  "oof_argmax_hit": 0.6443,
+  "oof_soft_hit": 0.6503,
+  "oracle_extended_pool": 0.7562,
+  "top1_ranking_accuracy": 0.1721,
+  "gap_ranking": 0.1119,
+  "family_effect": 0.0037000000000000366,
+  "sanity_baseline_in_band": false,
+  "variant_a_check": {
+    "keys": [
+      "covered",
+      "y",
+      "cands",
+      "attn_gru_scores",
+      "ens_scores",
+      "attn_gru_prior",
+      "ens_prior",
+      "candidate_names"
+    ],
+    "regime_bias_table": "(absent \u2014 Variant A path enforced)",
+    "variant_a_safe": true
+  },
+  "g2_pass": {
+    "oof_geq_0.70": false,
+    "family_effect_geq_0.03": false,
+    "family_effect_marginal_lt_0.02": true,
+    "ranking_gap_leq_0.07": false
+  }
+}
