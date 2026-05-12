@@ -48,8 +48,8 @@ lb_score: null
 ### G-gates
 
 - G0: STAGE 1 sliding window distribution validity check 통과 [DONE 117eeb4] — aug_usable=True (quantile RMSE 0.001252 < 0.0015)
-- G1: STAGE 2 기존 변수 CMA-ES + OOF + LB 제출 1회 [TODO]
-- G2: STAGE 3 새 변수 ablation 완료 + best basis 결정 + LB 제출 1회 [TODO]
+- G1: STAGE 2 기존 변수 CMA-ES + OOF + LB 제출 1회 [DONE] oof_hit=0.6403, LB TBD carry-over c5.1
+- G2: STAGE 3 새 변수 ablation 완료 + best basis 결정 + LB 제출 1회 [DONE] basis_hit=0.6387, LB TBD carry-over c8.1
 - G3: STAGE 4 MLP coefficient regression + OOF 향상 박제 (LB 미제출) [TODO]
 - G_final: STAGE 5 synthesis + plan-008 후보 + 3 파일 frontmatter 동시 박제 [TODO]
 
@@ -64,9 +64,9 @@ lb_score: null
 | c4 | exp | F001-step2: CMA-ES baseline fit + OOF + submission 생성. spec @ §5 | [DONE b7a2a4a] oof=0.6403 |
 | c5 | sub-lb | STAGE 2 dacon-submit + lb_log row + frontmatter 갱신. spec @ §8 | [TODO] |
 | G1 | gate | Step 2 OOF finite ∈ [0.62, 0.78] + LB 1회 완료 | [TODO] |
-| c6 | code | `analysis/plan-007/basis_ablation.py` — STAGE 3 새 변수 순차 ablation. spec @ §6 | [TODO] |
-| c7 | exp | F001-step3: 4 변수 × ablation + best basis 결정. spec @ §6 | [TODO] |
-| c8 | sub-lb | STAGE 3 dacon-submit (best basis with all kept terms) + lb_log + frontmatter. spec @ §8 | [TODO] |
+| c6 | code | `analysis/plan-007/basis_ablation.py` — STAGE 3 새 변수 순차 ablation. spec @ §6 | [DONE a20258f] |
+| c7 | exp | F001-step3: 4 변수 × ablation + best basis 결정. spec @ §6 | [DONE 963be03] hit=0.6387, basis=base+speed_slope_d1+rotation_term |
+| c8 | sub-lb | STAGE 3 dacon-submit (best basis with all kept terms) + lb_log + frontmatter. spec @ §8 | [DONE (partial)] LB TBD carry-over c8.1 |
 | G2 | gate | basis_ablation.json 박제 + LB 2회차 완료 + best basis 명시 | [TODO] |
 | c9 | code | `analysis/plan-007/mlp_coeff.py` — STAGE 4 MLP coefficient regression. spec @ §7 | [TODO] |
 | c10 | exp | F002: MLP 학습 + OOF 측정 (LB 미제출). spec @ §7 | [TODO] |
