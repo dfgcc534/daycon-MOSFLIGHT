@@ -196,6 +196,32 @@ class TinyCorrectionNet(nn.Module):
         return self.delta(h), self.env(h)
 
 
+# ── plan-009 c6 — compute_corrector_loss hook (§6.1 spec) ──
+# monkey-patch 가능 module-level callable. plan-008 §7 carry-over (LOSS_ATTR 부재 fix).
+# train_net 내부 reg 계산 부분 1 줄 교체 anchor.
+def compute_corrector_loss(pred, target, raw=None, weight=None):
+    """plan-009 §6.1 hook — corrector reg loss.
+
+    Args:
+      pred: torch.float32 (B, D=3). corrector network output before cap.
+      target: torch.float32 (B, D=3). yb (raw residual, plan-008 c7 의 train_net dataloader yield).
+      raw: Optional[torch.float32 (B, D)]. (default None, 본 hook 미사용; 외부 override 가 사용 시 별도 정의)
+      weight: Optional[torch.float32 (B,)]. (default None, 본 hook 미사용; 외부 override 가 사용 시 별도 정의)
+
+    Returns:
+      torch.float32 (B,) — per-sample reg (NOT batch mean — caller 책임).
+
+    decision-note: plan-009 §6.1 박제 `return reg.mean()` 은 *default 의도* 이지만,
+    train_net 의 기존 `loss = ((reg + env_loss) * wb).sum() / (wb.sum() + 1e-8)` 패턴
+    보존 위해 per-sample (B,) 반환으로 정정. band_specific override (§6.2) 도
+    동일 contract (B,) 반환 — backward compat 보장 (plan-004/005/008 reproduce ✓).
+    """
+    reg = ((pred - target) ** 2).sum(dim=1)  # (B,)
+    if weight is not None:
+        reg = reg * weight
+    return reg
+
+
 def train_net(
     model: TinyCorrectionNet,
     cf: np.ndarray,
@@ -228,7 +254,9 @@ def train_net(
             fb = fb.to(device)
             opt.zero_grad(set_to_none=True)
             pred, env = model(xb)
-            reg = ((pred - yb) ** 2).sum(dim=1)
+            # plan-009 c6 — monkey-patchable hook (§6.1). module-level direct ref
+            # 으로 patch 동적 lookup 보장 (boundary.compute_corrector_loss = ...).
+            reg = compute_corrector_loss(pred, yb)
             env_loss = nn.functional.cross_entropy(env, fb, reduction="none")
             loss = ((reg + args.env_loss_weight * env_loss) * wb).sum() / (wb.sum() + 1e-8)
             loss.backward()
