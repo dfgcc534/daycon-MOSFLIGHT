@@ -2,7 +2,7 @@
 plan_id: 007
 version: 1
 date: 2026-05-12 (Asia/Seoul)
-status: draft
+status: partial
 based_on:
   - 004
   - 005
@@ -12,7 +12,7 @@ scope: single-formula CMA-ES tuning + basis ablation + per-sample MLP coefficien
 exp_ids:
   - F001_formula-ga
   - F002_formula-mlp
-lb_score: null
+lb_score: TBD
 ---
 
 # plan-007 v1 — Single-Formula CMA-ES + Basis Ablation + Per-Sample MLP Coefficient Regression
@@ -50,8 +50,8 @@ lb_score: null
 - G0: STAGE 1 sliding window distribution validity check 통과 [DONE 117eeb4] — aug_usable=True (quantile RMSE 0.001252 < 0.0015)
 - G1: STAGE 2 기존 변수 CMA-ES + OOF + LB 제출 1회 [DONE] oof_hit=0.6403, LB TBD carry-over c5.1
 - G2: STAGE 3 새 변수 ablation 완료 + best basis 결정 + LB 제출 1회 [DONE] basis_hit=0.6387, LB TBD carry-over c8.1
-- G3: STAGE 4 MLP coefficient regression + OOF 향상 박제 (LB 미제출) [TODO]
-- G_final: STAGE 5 synthesis + plan-008 후보 + 3 파일 frontmatter 동시 박제 [TODO]
+- G3: STAGE 4 MLP coefficient regression + OOF 향상 박제 (LB 미제출) [DONE] oof_hit=0.6482, gain=+0.0095 (G3 PASS, scenario B)
+- G_final: STAGE 5 synthesis + plan-008 후보 + 3 파일 frontmatter 동시 박제 [DONE (partial)] lb_score=TBD pending c5.1/c8.1 carry-over
 
 ### Commit chain (next-up)
 
@@ -68,11 +68,11 @@ lb_score: null
 | c7 | exp | F001-step3: 4 변수 × ablation + best basis 결정. spec @ §6 | [DONE 963be03] hit=0.6387, basis=base+speed_slope_d1+rotation_term |
 | c8 | sub-lb | STAGE 3 dacon-submit (best basis with all kept terms) + lb_log + frontmatter. spec @ §8 | [DONE (partial)] LB TBD carry-over c8.1 |
 | G2 | gate | basis_ablation.json 박제 + LB 2회차 완료 + best basis 명시 | [TODO] |
-| c9 | code | `analysis/plan-007/mlp_coeff.py` — STAGE 4 MLP coefficient regression. spec @ §7 | [TODO] |
-| c10 | exp | F002: MLP 학습 + OOF 측정 (LB 미제출). spec @ §7 | [TODO] |
-| G3 | gate | MLP OOF ≥ Step 3 best + 0.005 | [TODO] |
-| c11 | synthesis | `analysis/plan-007/results.md` + `next_plan_candidates.md` (≥ 2 후보). spec @ §9 | [TODO] |
-| G_final | gate | results.md + next plan 후보 ≥ 2 + 3 파일 frontmatter 동시 박제 | [TODO] |
+| c9 | code | `analysis/plan-007/mlp_coeff.py` — STAGE 4 MLP coefficient regression. spec @ §7 | [DONE d145bb3] |
+| c10 | exp | F002: MLP 학습 + OOF 측정 (LB 미제출). spec @ §7 | [DONE 2c7eb3d] oof=0.6482 |
+| G3 | gate | MLP OOF ≥ Step 3 best + 0.005 | [DONE] PASS (+0.0095, scenario B) |
+| c11 | synthesis | `analysis/plan-007/results.md` + `next_plan_candidates.md` (≥ 2 후보). spec @ §9 | [DONE (partial)] this commit, lb_score=TBD |
+| G_final | gate | results.md + next plan 후보 ≥ 2 + 3 파일 frontmatter 동시 박제 | [DONE (partial)] lb_score TBD carry-over |
 
 ### Plan-specific severe (WORKFLOW.md §12.3 default 위 추가분)
 
