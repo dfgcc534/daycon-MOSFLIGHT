@@ -1,0 +1,44 @@
+{
+  "sub_exp": "P1.IA",
+  "n_val": 2020,
+  "fold": 0,
+  "oof_soft_hit": 0.6400990099009901,
+  "oof_raw_hit": 0.6400990099009901,
+  "corrector_gain": 0.0,
+  "per_band_hit_after": {
+    "[0,0.5cm)": {
+      "n": 692,
+      "hit_before": 1.0,
+      "hit_after": 1.0,
+      "delta": 0.0
+    },
+    "[0.5,1cm)": {
+      "n": 601,
+      "hit_before": 1.0,
+      "hit_after": 0.9500831946755408,
+      "delta": -0.04991680532445919
+    },
+    "[1,1.5cm)": {
+      "n": 349,
+      "hit_before": 0.0,
+      "hit_after": 0.08595988538681948,
+      "delta": 0.08595988538681948
+    },
+    "[1.5,2cm)": {
+      "n": 97,
+      "hit_before": 0.0,
+      "hit_after": 0.0,
+      "delta": 0.0
+    },
+    "[2cm,inf)": {
+      "n": 281,
+      "hit_before": 0.0,
+      "hit_after": 0.0,
+      "delta": 0.0
+    }
+  },
+  "elapsed_sec": 2.0809693336486816,
+  "best_val_hit": 0.640099048614502,
+  "device": "cuda",
+  "dim_encoder": 0
+}

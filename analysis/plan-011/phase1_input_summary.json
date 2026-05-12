@@ -1,0 +1,198 @@
+{
+  "phase": "Phase 1.In Input axis ablation",
+  "n_folds": 1,
+  "fold": 0,
+  "anchor": "P1.IA",
+  "anchor_oof_soft_hit": 0.6400990099009901,
+  "sub_exps": {
+    "P1.IA": {
+      "sub_exp": "P1.IA",
+      "n_val": 2020,
+      "fold": 0,
+      "oof_soft_hit": 0.6400990099009901,
+      "oof_raw_hit": 0.6400990099009901,
+      "corrector_gain": 0.0,
+      "per_band_hit_after": {
+        "[0,0.5cm)": {
+          "n": 692,
+          "hit_before": 1.0,
+          "hit_after": 1.0,
+          "delta": 0.0
+        },
+        "[0.5,1cm)": {
+          "n": 601,
+          "hit_before": 1.0,
+          "hit_after": 0.9500831946755408,
+          "delta": -0.04991680532445919
+        },
+        "[1,1.5cm)": {
+          "n": 349,
+          "hit_before": 0.0,
+          "hit_after": 0.08595988538681948,
+          "delta": 0.08595988538681948
+        },
+        "[1.5,2cm)": {
+          "n": 97,
+          "hit_before": 0.0,
+          "hit_after": 0.0,
+          "delta": 0.0
+        },
+        "[2cm,inf)": {
+          "n": 281,
+          "hit_before": 0.0,
+          "hit_after": 0.0,
+          "delta": 0.0
+        }
+      },
+      "elapsed_sec": 2.0809693336486816,
+      "best_val_hit": 0.640099048614502,
+      "device": "cuda",
+      "dim_encoder": 0,
+      "delta_vs_anchor": 0.0
+    },
+    "P1.IB": {
+      "sub_exp": "P1.IB",
+      "n_val": 2020,
+      "fold": 0,
+      "oof_soft_hit": 0.6435643564356436,
+      "oof_raw_hit": 0.6400990099009901,
+      "corrector_gain": 0.0034653465346534684,
+      "per_band_hit_after": {
+        "[0,0.5cm)": {
+          "n": 692,
+          "hit_before": 1.0,
+          "hit_after": 1.0,
+          "delta": 0.0
+        },
+        "[0.5,1cm)": {
+          "n": 601,
+          "hit_before": 1.0,
+          "hit_after": 0.9584026622296173,
+          "delta": -0.04159733777038266
+        },
+        "[1,1.5cm)": {
+          "n": 349,
+          "hit_before": 0.0,
+          "hit_after": 0.09169054441260745,
+          "delta": 0.09169054441260745
+        },
+        "[1.5,2cm)": {
+          "n": 97,
+          "hit_before": 0.0,
+          "hit_after": 0.0,
+          "delta": 0.0
+        },
+        "[2cm,inf)": {
+          "n": 281,
+          "hit_before": 0.0,
+          "hit_after": 0.0,
+          "delta": 0.0
+        }
+      },
+      "elapsed_sec": 2.3112375736236572,
+      "best_val_hit": 0.6435644030570984,
+      "device": "cuda",
+      "dim_encoder": 20,
+      "delta_vs_anchor": 0.0034653465346534684
+    },
+    "P1.IC": {
+      "sub_exp": "P1.IC",
+      "skip": true,
+      "reason": "plan-004 selector.AttnGRUCandidateSelector checkpoint 부재"
+    },
+    "P1.ID": {
+      "sub_exp": "P1.ID",
+      "n_val": 2020,
+      "fold": 0,
+      "oof_soft_hit": 0.6450495049504951,
+      "oof_raw_hit": 0.6400990099009901,
+      "corrector_gain": 0.004950495049504955,
+      "per_band_hit_after": {
+        "[0,0.5cm)": {
+          "n": 692,
+          "hit_before": 1.0,
+          "hit_after": 1.0,
+          "delta": 0.0
+        },
+        "[0.5,1cm)": {
+          "n": 601,
+          "hit_before": 1.0,
+          "hit_after": 0.940099833610649,
+          "delta": -0.05990016638935103
+        },
+        "[1,1.5cm)": {
+          "n": 349,
+          "hit_before": 0.0,
+          "hit_after": 0.1318051575931232,
+          "delta": 0.1318051575931232
+        },
+        "[1.5,2cm)": {
+          "n": 97,
+          "hit_before": 0.0,
+          "hit_after": 0.0,
+          "delta": 0.0
+        },
+        "[2cm,inf)": {
+          "n": 281,
+          "hit_before": 0.0,
+          "hit_after": 0.0,
+          "delta": 0.0
+        }
+      },
+      "elapsed_sec": 2.4236373901367188,
+      "best_val_hit": 0.645049512386322,
+      "device": "cuda",
+      "dim_encoder": 64,
+      "delta_vs_anchor": 0.004950495049504955
+    },
+    "P1.IF": {
+      "sub_exp": "P1.IF",
+      "n_val": 2020,
+      "fold": 0,
+      "oof_soft_hit": 0.6415841584158416,
+      "oof_raw_hit": 0.6400990099009901,
+      "corrector_gain": 0.0014851485148514865,
+      "per_band_hit_after": {
+        "[0,0.5cm)": {
+          "n": 692,
+          "hit_before": 1.0,
+          "hit_after": 1.0,
+          "delta": 0.0
+        },
+        "[0.5,1cm)": {
+          "n": 601,
+          "hit_before": 1.0,
+          "hit_after": 0.9733777038269551,
+          "delta": -0.0266222961730449
+        },
+        "[1,1.5cm)": {
+          "n": 349,
+          "hit_before": 0.0,
+          "hit_after": 0.054441260744985676,
+          "delta": 0.054441260744985676
+        },
+        "[1.5,2cm)": {
+          "n": 97,
+          "hit_before": 0.0,
+          "hit_after": 0.0,
+          "delta": 0.0
+        },
+        "[2cm,inf)": {
+          "n": 281,
+          "hit_before": 0.0,
+          "hit_after": 0.0,
+          "delta": 0.0
+        }
+      },
+      "elapsed_sec": 3.394467353820801,
+      "best_val_hit": 0.6415841579437256,
+      "device": "cuda",
+      "dim_encoder": 20,
+      "delta_vs_anchor": 0.0014851485148514865
+    }
+  },
+  "axis_positive_threshold_0p005": false,
+  "max_delta_vs_anchor": 0.004950495049504955,
+  "best_lever": "P1.ID",
+  "generated_at": "2026-05-13T05:27:14.316509+09:00"
+}
