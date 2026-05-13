@@ -1,8 +1,8 @@
 ---
 plan_id: 012
 version: 2
-date: 2026-05-13 (Asia/Seoul)
-status: G_final_complete (warn-recovered — G1 warn + G2 severe-recovered + G4 warn; LB carry-over plan-012.1)
+date: 2026-05-13 (Asia/Seoul; CPU 초회) / 2026-05-14 (Asia/Seoul; GPU spec-faithful re-run)
+status: G_final_complete (warn-recovered — G1 warn + G2 severe-recovered + G4 warn; GPU spec-faithful re-run 동일 결론; LB carry-over plan-012.1)
 based_on:
   - 004
   - 005
@@ -105,6 +105,9 @@ lb_score: null
 | G4 | gate | 5-fold OOF ≥ G1 winner + 0.005 + submission.csv 박제 | [DONE+warn] (d22e6a7 — Δ=+0.0001 < 0.005 → final_no_additive warn, fallback submission_anchor_fallback.csv 사용) |
 | c16 | analysis | `analysis/plan-012/results.md` + `next_plan_candidates.md` (≥ 3 후보) + 3 파일 frontmatter sync + plan-012.1 instruction. spec @ §10 | [DONE] (5886ff6) |
 | G_final | gate | synthesis + plan-013 후보 + 3 파일 sync + plan-012.1 instruction | [DONE] (5886ff6 — plan-013 Candidate A/B/C 박제, default = C corrector+hybrid 합체; 3 파일 sync; plan-012.1 manual dacon-submit instruction) |
+| c17 | code | device auto-detect (cuda if available) + CPU baseline 박제 (`_cpu.json/_cpu.csv`) | [DONE] (78d1d12 — GPU 연결 후 spec-default 재실행 준비) |
+| c18 | exp | phase1~4 GPU spec-faithful re-run (epochs=50/batch=256/patience=5) — paradigm plateau 확정 | [DONE] (ff1e578 — G1 OOF 0.6411 / G4 best 0.6350 anchor 0.6344, all G-gate 정성적 동일, E8 r0 prior 는 GPU NEGATIVE = CPU noise) |
+| c19 | analysis | results.md + plan-012.results.md + plan-012.md frontmatter GPU re-run 결과 sync | [PROGRESS] |
 
 ### Plan-specific severe (WORKFLOW.md §12.3 default 위 추가분)
 

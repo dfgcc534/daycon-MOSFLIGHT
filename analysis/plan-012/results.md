@@ -1,12 +1,12 @@
 ---
 plan_id: 012
 plan_title: Codebook Bake-off Classification + Regression Hybrid (paradigm reframe, 3D)
-status: G_final_complete (warn-recovered)
-date_completed: 2026-05-13 (Asia/Seoul)
+status: G_final_complete (warn-recovered; GPU spec-faithful re-run 동일 결론)
+date_completed: 2026-05-13 (Asia/Seoul; CPU 초회) / 2026-05-14 (Asia/Seoul; GPU spec-faithful re-run)
 exp_ids:
   - H019_phase0-preflight-codebook        # G0 PASS
-  - H020_phase1-codebook-bakeoff          # G1 warn (winner_oof < anchor)
-  - H022_phase2-codebook-K                # G2 severe-recovered
+  - H020_phase1-codebook-bakeoff          # G1 warn (winner_oof < anchor; CPU+GPU 동일)
+  - H022_phase2-codebook-K                # G2 severe-recovered (CPU+GPU 동일)
   - H023_phase2-temperature
   - H024_phase2-loss
   - H025_phase2-reg-head
@@ -14,8 +14,8 @@ exp_ids:
   - H027_phase3-scorer-arch
   - H028_phase3-r0-prior
   - H029_phase4-final-5fold               # G4 warn (final_no_additive, fallback)
-final_submission: runs/baseline/H029_phase4-final-5fold/submission_anchor_fallback.csv
-final_oof_5fold_hit_1cm: 0.6340 (best stack) / 0.6339 (anchor, fallback)
+final_submission: runs/baseline/H029_phase4-final-5fold/submission_anchor_fallback.csv  # GPU rerun anchor
+final_oof_5fold_hit_1cm: 0.6350 (best stack, GPU) / 0.6344 (anchor, GPU; fallback) | CPU: 0.6340 / 0.6339
 lb_score: null  # plan-012.1 carry-over manual submit
 ---
 
@@ -23,18 +23,37 @@ lb_score: null  # plan-012.1 carry-over manual submit
 
 ## 한 줄 결론
 
-> **paradigm reframe (3-way codebook bake-off + classifier+regression hybrid) 은 F0 raw hit 위 +0.002 만 추가 — paradigm 자체 limit.** 5-fold OOF 0.6340 < plan §0 target 0.66 (-0.026 미달). mean-regression trap 완전 회피 못함 (DCM ~0.4mm). plan-013 path-pivot 필요 (corrector + hybrid 합체 또는 paradigm 완전 폐기).
+> **paradigm reframe (3-way codebook bake-off + classifier+regression hybrid) 은 F0 raw hit 위 +0.002~0.003 만 추가 — paradigm 자체 limit (★ GPU spec-faithful re-run 으로 confirmed).** GPU 5-fold OOF 0.6350 (best stack) / 0.6344 (anchor) < plan §0 target 0.66 (-0.025 미달). mean-regression trap 완전 회피 못함 (DCM ~0.4mm). plan-013 path-pivot 필요 (corrector + hybrid 합체 또는 paradigm 완전 폐기).
 
-## G-gate sequence 요약
+## GPU spec-faithful re-run 결과 (2026-05-14, ★ CPU under-train hypothesis 기각)
 
-| G | spec 합격선 | 측정 | 상태 |
+CPU 초회 실행은 GPU 부재로 `epochs=15/batch=512/patience=3` 으로 spec-default 축소. GPU 연결 후 spec-default 그대로 (epochs=50/batch=256/patience=5) 재실행:
+
+| phase | CPU 결과 | GPU 결과 | 정성적 동일성 |
 |---|---|---|---|
-| G0 | preflight 6 essential checks | F0 hit@1cm=0.6320 / oracles 0.74~0.78 / kmeans min cluster 113 | PASS |
-| G1 | winner_oof ≥ 0.6450 + DCM ≥ 0.002 | E0a winner OOF=0.6416 / DCM=0.00037 | warn (baseline_below_anchor + dilution G1 sanity) |
-| G2 | 5 axis 중 1+ axis ΔOOF ≥ 0.005 | max ΔOOF = +0.0015 (E3 τ=0.01) | **severe-recovered** (phase2_no_positive_lever, option a) |
-| G3 | informational only | max ΔOOF = +0.0020 (E8 r=0 +0.5) | PASS |
-| G4 | best_stack ≥ anchor_5fold + 0.005 | Δ = +0.0001 | warn (final_no_additive, fallback) |
-| G_final | synthesis + plan-013 후보 + 3 파일 sync | 본 commit | PASS (warn-recovered) |
+| G1 winner (E0a OOF) | 0.6416 | 0.6411 | ✓ (winner=E0a tie-break, G1 warn 유지) |
+| G2 max ΔOOF | +0.0015 (E3.tau0.01) | +0.0015 (E3.tau0.00 또는 E2.K9) | ✓ (positive_lever 없음 유지) |
+| G3 max ΔOOF | +0.0020 (E8.r0_plus0_5) | +0.0005 (E6.bweight_on) | ✗ (E8 r=0 prior 는 GPU 에서 NEGATIVE — CPU 의 +0.0020 = under-train noise) |
+| G4 anchor 5-fold | 0.6339 | 0.6344 | ≈ (+0.0005) |
+| G4 best stack 5-fold | 0.6340 (tau=0.01+r0=+0.5) | 0.6350 (tau=0.0+r0=0.0) | ≈ (+0.0010) |
+| G4 Δ | +0.0001 | +0.0006 | ✓ (final_no_additive 유지) |
+
+★ **early stopping 모두 epoch 2~16 발생** → 50 epoch budget 도달 X = CPU 의 15 epoch 한계가 binding constraint 아님 입증.
+
+★ **CPU history 박제**: `phase{1_winner,2_results,3_results,4_results}_cpu.json`, `submission{,_anchor_fallback}_cpu.csv`.
+
+★ **paradigm plateau 확정**: GPU spec-faithful re-run 동일 결론 = paradigm 자체 limit, training budget 문제 아님. plan-013 분기 (Candidate C corrector+hybrid 합체) 권장 변함 없음.
+
+## G-gate sequence 요약 (GPU spec-faithful re-run 기준)
+
+| G | spec 합격선 | 측정 (GPU) | 측정 (CPU history) | 상태 |
+|---|---|---|---|---|
+| G0 | preflight 6 essential checks | F0 hit@1cm=0.6320 / oracles 0.74~0.78 / kmeans min cluster 113 | same | PASS |
+| G1 | winner_oof ≥ 0.6450 + DCM ≥ 0.002 | E0a OOF=0.6411 / DCM=0.00041 | 0.6416 / 0.00037 | warn (baseline_below_anchor + dilution sanity, CPU+GPU 동일) |
+| G2 | 5 axis 중 1+ axis ΔOOF ≥ 0.005 | max ΔOOF = +0.0015 (E3 τ=0.0) | +0.0015 (E3 τ=0.01) | **severe-recovered** (phase2_no_positive_lever, option a) |
+| G3 | informational only | max ΔOOF = +0.0005 (E6 bweight_on); ★ E8 r0 prior 는 NEGATIVE | +0.0020 (E8 r=0 +0.5; CPU under-train noise) | PASS (informational) |
+| G4 | best_stack ≥ anchor_5fold + 0.005 | Δ = +0.0006 (anchor 0.6344, best 0.6350) | +0.0001 (0.6339 / 0.6340) | warn (final_no_additive, fallback) |
+| G_final | synthesis + plan-013 후보 + 3 파일 sync | c16 (CPU) + c18~c19 (GPU re-run) | — | PASS (warn-recovered) |
 
 ## Phase 별 핵심 측정
 

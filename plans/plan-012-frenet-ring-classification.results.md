@@ -1,8 +1,8 @@
 ---
 plan_id: 012
 plan_title: Codebook Bake-off Classification + Regression Hybrid (paradigm reframe, 3D)
-status: G_final_complete (warn-recovered)
-date_completed: 2026-05-13 (Asia/Seoul)
+status: G_final_complete (warn-recovered; GPU spec-faithful re-run 동일 결론)
+date_completed: 2026-05-13 (Asia/Seoul; CPU 초회) / 2026-05-14 (Asia/Seoul; GPU spec-faithful re-run)
 date_started: 2026-05-13 (Asia/Seoul, plan-012 v2 spec replacement → c2~c16 + G_final 동일 일자 자율 진행)
 exp_ids:
   - H019_phase0-preflight-codebook
@@ -15,9 +15,9 @@ exp_ids:
   - H027_phase3-scorer-arch
   - H028_phase3-r0-prior
   - H029_phase4-final-5fold
-final_oof_5fold_hit_1cm: 0.6340
-final_oof_5fold_anchor_baseline: 0.6339
-final_submission: runs/baseline/H029_phase4-final-5fold/submission_anchor_fallback.csv
+final_oof_5fold_hit_1cm: 0.6350  # GPU best stack (CPU: 0.6340)
+final_oof_5fold_anchor_baseline: 0.6344  # GPU anchor (CPU: 0.6339)
+final_submission: runs/baseline/H029_phase4-final-5fold/submission_anchor_fallback.csv  # GPU rerun anchor
 lb_score: null  # plan-012.1 carry-over (사용자 manual submit)
 followed_by:
   - 012.1 (LB carry-over)
@@ -28,7 +28,23 @@ followed_by:
 
 ## 한 줄 결론
 
-paradigm reframe (3-way codebook bake-off + classifier+regression hybrid) 은 F0 raw hit 위 +0.002 만 추가 — paradigm 자체의 limit 확인. 5-fold OOF 0.6340, target 0.66 와 -0.026 미달. plan-013 path-pivot 필요.
+paradigm reframe (3-way codebook bake-off + classifier+regression hybrid) 은 F0 raw hit 위 +0.002~0.003 만 추가 — paradigm 자체의 limit 확인. 5-fold OOF 0.6350 (GPU best stack), target 0.66 와 -0.025 미달. plan-013 path-pivot 필요.
+
+## CPU → GPU spec-faithful re-run (2026-05-14)
+
+CPU 초회 (epochs=15/batch=512/patience=3) → GPU 재실행 (spec-default epochs=50/batch=256/patience=5). 결론 정성적 동일 = under-train hypothesis 기각, paradigm 자체 limit.
+
+| metric | CPU (history) | GPU (current) |
+|---|---|---|
+| G1 winner OOF | 0.6416 | 0.6411 |
+| G2 max ΔOOF | +0.0015 (τ=0.01) | +0.0015 (τ=0.0 또는 K=9) |
+| G3 max ΔOOF | +0.0020 (E8 r=0 +0.5) | +0.0005 (E6 bweight_on) ★ E8 r0 prior 는 negative |
+| G4 anchor 5-fold | 0.6339 | 0.6344 |
+| G4 best stack 5-fold | 0.6340 | 0.6350 |
+| G4 Δ | +0.0001 | +0.0006 |
+| early stopping | epoch 4~7 | epoch 2~16 ← 50 epoch budget 도달 X |
+
+CPU 결과는 `_cpu.json` / `_cpu.csv` 으로 history 박제.
 
 ## G-gate sequence
 
@@ -43,10 +59,11 @@ paradigm reframe (3-way codebook bake-off + classifier+regression hybrid) 은 F0
 
 ## 주요 산출 (full detail = `analysis/plan-012/results.md`)
 
-- Phase 1 winner: E0a (Absolute-7Way, tie-break with E0c per priority "Absolute > Frenet > K-Means")
-- Phase 2 best lever: E3 τ=0.01 (+0.0015), Phase 3 best lever: E8 r=0 +0.5 (+0.0020)
-- best stack 5-fold OOF: 0.6340 vs anchor 5-fold OOF: 0.6339 → Δ=+0.0001 < +0.005
-- LB submission: `submission_anchor_fallback.csv` (G4 fallback, manual submit pending)
+- Phase 1 winner: E0a (Absolute-7Way, tie-break with E0c per priority "Absolute > Frenet > K-Means") — CPU+GPU 동일
+- Phase 2 best lever (GPU): E3 τ=0.0 또는 E2 K=9 (+0.0015 tied); CPU 는 E3 τ=0.01
+- Phase 3 best lever (GPU): E6 bweight_on (+0.0005); CPU 의 E8 r=0 +0.5 (+0.0020) 은 under-train noise
+- best stack 5-fold OOF: 0.6350 (GPU) / 0.6340 (CPU); anchor 5-fold OOF: 0.6344 (GPU) / 0.6339 (CPU); Δ=+0.0006 (GPU) / +0.0001 (CPU) → 둘 다 < +0.005
+- LB submission: `submission_anchor_fallback.csv` (GPU rerun anchor, G4 fallback, manual submit pending)
 
 ## plan-013 후보 (full detail = `analysis/plan-012/next_plan_candidates.md`)
 
