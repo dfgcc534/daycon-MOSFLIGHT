@@ -2,7 +2,7 @@
 plan_id: 012
 version: 2
 date: 2026-05-13 (Asia/Seoul)
-status: written (v2 spec replacement — codebook bake-off + 3D fix per user direction)
+status: G_final_complete (warn-recovered — G1 warn + G2 severe-recovered + G4 warn; LB carry-over plan-012.1)
 based_on:
   - 004
   - 005
