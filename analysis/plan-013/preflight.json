@@ -1,0 +1,61 @@
+{
+  "exp_id": "H030_phase0-preflight-relived",
+  "plan_004_reproduce": {
+    "description": "plan-004 framework 5-fold OOF (selector soft proxy)",
+    "p001_checkpoint_dir": "runs/baseline/P001_pb-0-6822-fullrun",
+    "oof_5fold_hit_1cm_measured": 0.6511,
+    "oof_5fold_hit_1cm_expected": 0.6491,
+    "drift": 0.0020000000000000018,
+    "drift_threshold": 0.005,
+    "reproduce_ok": true,
+    "proxy_note": "P001 corrector 는 fold 0 단일 — selector 5-fold soft 를 proxy 로 사용"
+  },
+  "in_ic_infra": {
+    "ckpt_path": "runs/baseline/R001_baseline-residual-gru/ckpt/fold0.pt",
+    "exists": true,
+    "gru_arch": "2-layer GRU(3, 64) → layer-0 발췌 single-layer GRU(3, 64)",
+    "state_dict_keys_match": true,
+    "load_ok": true
+  },
+  "step4_infra": {
+    "module": "analysis/plan-007/mlp_coeff.py",
+    "import_ok": true,
+    "best_basis_vars_measured": [
+      "d1",
+      "acc_par",
+      "acc_perp",
+      "d2",
+      "jerk",
+      "ts_term",
+      "speed_slope_d1",
+      "rotation_term"
+    ],
+    "best_basis_vars_expected": [
+      "d1",
+      "acc_par",
+      "acc_perp",
+      "d2",
+      "jerk",
+      "ts_term",
+      "speed_slope_d1",
+      "rotation_term"
+    ],
+    "basis_match": true
+  },
+  "cand_25_infra": {
+    "source": "runs/baseline/G001_candidate-redefine",
+    "exists": false,
+    "n_candidates": 0,
+    "n_candidates_expected": 25,
+    "coord_drift_max": null,
+    "coord_drift_threshold": 1e-06,
+    "error": "plan-008 G1 cand_set 미존재 (tried ['cand_set.json', 'cand_set.npy']); Phase 2.E3 fallback 진행 (G2 합격은 E1/E2 의 1+ axis ≥ 0.005 만 충족하면 OK)."
+  },
+  "g0_pass": false,
+  "g0_pass_partial": {
+    "plan_004_reproduce": true,
+    "in_ic_infra": true,
+    "step4_infra": true,
+    "cand_25_infra": false
+  }
+}
