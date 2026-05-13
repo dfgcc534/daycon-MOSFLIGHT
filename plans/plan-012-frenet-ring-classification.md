@@ -101,8 +101,8 @@ lb_score: null
 | c13 | exp | Phase 3.E7 — Scorer arch (full Attn-GRU vs last-step MLP, 2 sub-exp) ★ 시계열 input 가치 | [DONE] (294148e — last_step_mlp ΔOOF=-0.0025, GRU 약간 유용) |
 | c14 | exp | Phase 3.E8 — r=0 logit prior 강도 (0 / +0.5 / +1.0, 3 sub-exp) | [DONE] (294148e — r=+0.5/+1.0 둘 다 ΔOOF=+0.0020 ★ overall best lever) |
 | G3 | gate | aux ablation 완료 (informational) | [DONE] (294148e — informational complete; overall best = E8 r=0 +0.5 ΔOOF=+0.0020) |
-| c15 | code+exp | `analysis/plan-012/phase4_final.py` — best stack 5-fold + submission. spec @ §9 | [TODO] |
-| G4 | gate | 5-fold OOF ≥ G1 winner + 0.005 + submission.csv 박제 | [TODO] |
+| c15 | code+exp | `analysis/plan-012/phase4_final.py` — best stack 5-fold + submission. spec @ §9 | [DONE] (d22e6a7 — anchor 5-fold 0.6339, best 0.6340) |
+| G4 | gate | 5-fold OOF ≥ G1 winner + 0.005 + submission.csv 박제 | [DONE+warn] (d22e6a7 — Δ=+0.0001 < 0.005 → final_no_additive warn, fallback submission_anchor_fallback.csv 사용) |
 | c16 | analysis | `analysis/plan-012/results.md` + `next_plan_candidates.md` (≥ 3 후보) + 3 파일 frontmatter sync + plan-012.1 instruction. spec @ §10 | [TODO] |
 | G_final | gate | synthesis + plan-013 후보 + 3 파일 sync + plan-012.1 instruction | [TODO] |
 
