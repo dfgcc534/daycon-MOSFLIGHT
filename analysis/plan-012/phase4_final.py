@@ -227,10 +227,10 @@ def main() -> int:
         "r0_logit_prior": 0.0,
     }
     config_best = {
-        "name": "best_stack_E0a+tau0.01+r0_0.5",
-        "temperature": 0.01,       # E3 best lever
+        "name": "best_stack_E0a+tau0.0+r0_0.0",
+        "temperature": 0.0,        # E3 best lever (GPU rerun: tau=0.0 +0.0015 vs CPU tau=0.01 +0.0015 — argmax preferred)
         "use_reg_head": True, "use_hinge": True,
-        "r0_logit_prior": 0.5,     # E8 best lever
+        "r0_logit_prior": 0.0,     # E8 GPU rerun: all r0>0 negative → keep 0
     }
 
     # 5-fold loop
