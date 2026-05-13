@@ -1,0 +1,15 @@
+{
+  "exp_id": "H033_phase2-step4-27ext",
+  "status": "deferred",
+  "config_intended": {
+    "use_in_ic": true,
+    "use_step4": "27ext",
+    "use_25_cand": false
+  },
+  "delta_oof": null,
+  "delta_oof_threshold_positive_lever": 0.005,
+  "positive_lever": false,
+  "defer_reason": "c5 와 동일 — plan-007 basis_terms framework architectural gap. 27ext 는 추가로 candidate-conditional one-hot (13+27=40 dim) MLP 학습 필요.",
+  "carry_over_to_plan_013_1": "plan-007 basis_terms framework + 27 candidate-conditional MLP 통합 후 재측정. step4_27ext_overfit warn (train-val gap > 0.05) check 도 함께.",
+  "fallback_path": "§0.5 L95 phase2_no_positive_lever autonomous recovery — Phase 3 fallback."
+}

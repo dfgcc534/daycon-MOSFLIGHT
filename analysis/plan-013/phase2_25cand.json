@@ -1,0 +1,15 @@
+{
+  "exp_id": "H034_phase2-25cand-redesign",
+  "status": "deferred",
+  "config_intended": {
+    "use_in_ic": true,
+    "use_step4": "off",
+    "use_25_cand": true
+  },
+  "delta_oof": null,
+  "delta_oof_threshold_positive_lever": 0.005,
+  "positive_lever": false,
+  "defer_reason": "G0 preflight cand_25_infra MISS — plan-008 G1 cand_set.{json,npy} 미존재. G001_candidate-redefine 디렉토리에 selector/boundary 산출만 있고 candidate descriptor list 별도 박제 X.",
+  "carry_over_to_plan_013_1": "plan-008 G1 의 25 candidate descriptor 를 cand_set.json (or .npy) 으로 별도 박제 후 selector head dim 27→25 swap + 5-fold 재측정. retain risk note (§7.3) 도 함께 검증.",
+  "fallback_path": "§0.5 L95 phase2_no_positive_lever + cand_25_infra MISS → Phase 3 fallback."
+}
