@@ -66,7 +66,7 @@ lb_score: null
 ### G-gates
 
 - G0: preflight + 4 infra 검증 [PARTIAL] (3/4 PASS, cand_25 MISS — Phase 2.E3 fallback)
-- G1: plan-004 + In/IC 5-fold OOF ≥ 0.65 [TODO]
+- G1: plan-004 + In/IC 5-fold OOF ≥ 0.65 [WARN] (0.6381, simplified pipeline penalty)
 - G2: Phase 2 3-sub-exp 완료 + 1+ axis ΔOOF ≥ 0.005 [TODO]
 - G3: best stack 5-fold OOF ≥ G1 + 0.005 + submission 박제 [TODO]
 - G_final: synthesis + plan-014 후보 + 3 파일 sync + plan-013.1 instruction [TODO]
@@ -80,8 +80,8 @@ lb_score: null
 | c2 | code | `src/pb_0_6822/integrated_v3.py` — plan-004 framework wrapper (selector + corrector entry) + In/IC hook (frozen R001 GRU embedding) + Step 4 hook (per-sample 8 vars MLP coeff, F0 only and 27-extension modes) + 25 cand hook (plan-008 G1 candidate set swap). spec @ §4 | [DONE] (9a424fb, smoke 11/12 pass) |
 | c3 | code+exp | `analysis/plan-013/preflight.py` — 4 infra 검증 + reproduce. spec @ §5 | [DONE] (66148a7, 3/4 PASS) |
 | G0 | gate | `preflight.json` + 4 infra OK + reproduce drift ≤ 0.005 | [PARTIAL] (3/4: plan_004 ✓ / in_ic ✓ / step4 ✓ / cand_25 MISS — E3 fallback) |
-| c4 | code+exp | `analysis/plan-013/phase1_baseline.py` — plan-004 + In/IC 5-fold (★ baseline lock). spec @ §6 | [TODO] |
-| G1 | gate | 5-fold concat OOF ≥ 0.65 | [TODO] |
+| c4 | code+exp | `analysis/plan-013/phase1_baseline.py` — plan-004 + In/IC 5-fold (★ baseline lock). spec @ §6 | [DONE] (6f32237, 5-fold OOF 0.6381) |
+| G1 | gate | 5-fold concat OOF ≥ 0.65 | [WARN] baseline_below_expected (0.6381 < 0.65, simplified pipeline penalty; Phase 2 informational 진행) |
 | c5 | code+exp | Phase 2.E1 — + Step 4 on F0 only (`analysis/plan-013/phase2_step4_F0.py`, 5-fold). spec @ §7.1 | [TODO] |
 | c6 | code+exp | Phase 2.E2 — + Step 4 27 후보 확장 (`phase2_step4_27ext.py`, 5-fold). spec @ §7.2 | [TODO] |
 | c7 | code+exp | Phase 2.E3 — + 25 cand redesign (`phase2_25cand.py`, 5-fold). spec @ §7.3 | [TODO] |
