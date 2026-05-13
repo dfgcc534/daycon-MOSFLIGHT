@@ -252,11 +252,212 @@ def run_integrated_v3(
     c4 (phase1_baseline) 에서 본 함수를 호출하며 검증. 본 함수 자체는 다음 단계
     에서 incrementally 확장.
     """
-    raise NotImplementedError(
-        "run_integrated_v3: c2 스켈레톤 commit. "
-        "full wiring 은 c3 preflight + c4 phase1_baseline 단계에서 incrementally 박제 — "
-        "spec @ plan-013 §4.1 docstring (= 본 함수의 docstring 참조)."
+    # c4 implementation: 간소화 standalone residual corrector. P001 frozen selector scores 위에
+    # InICCorrectorWrapper (use_in_ic=True) 또는 base TinyCorrectionNet (use_in_ic=False) 학습.
+    # plan-004 의 regime/env/pretrain/finetune complexity 제외 — Δ measurement 위한 minimal pipeline.
+    return _run_phase1_simplified(
+        config=config,
+        fold=fold,
+        train_x=train_x,
+        train_y=train_y,
+        sample_ids=sample_ids,
+        test_x=test_x,
+        test_sample_ids=test_sample_ids,
     )
+
+
+def _run_phase1_simplified(
+    config: dict,
+    fold: int,
+    train_x: np.ndarray,
+    train_y: np.ndarray,
+    sample_ids: np.ndarray,
+    test_x: np.ndarray | None = None,
+    test_sample_ids: np.ndarray | None = None,
+) -> dict:
+    """Phase 1 baseline simplified training (decision-note: c4 minimal pipeline).
+
+    Pipeline:
+        1. fold split: stable_fold_id(sid, 5) == fold → val_idx; else train_idx
+        2. base predictions: P001 OOF selector scores 의 argmax-soft-weighted candidate average
+        3. residual target: true_y - base_pred (per sample)
+        4. corrector (InICCorrectorWrapper or TinyCorrectionNet) 학습:
+           input = (cf_base, trajectory_x); output = residual delta
+        5. corrected_pred = base_pred + corrector_delta (clipped)
+        6. val_scores = P001 OOF selector scores 의 val_idx subset (frozen reuse)
+    """
+    if config.get("use_25_cand", False):
+        raise NotImplementedError("Phase 2.E3 25 cand swap: c4 scope 외 (cand_25_infra MISS)")
+    if config.get("use_step4", "off") != "off":
+        raise NotImplementedError(f"Phase 2 Step 4 ({config['use_step4']}): c4 scope 외")
+
+    device = torch.device(config.get("device", "cuda:0" if torch.cuda.is_available() else "cpu"))
+    seed = int(config.get("seed", 42))
+    epochs = int(config.get("epochs", 50))
+    patience = int(config.get("patience", 5))
+    batch_size = int(config.get("batch_size", 256))
+    lr = float(config.get("lr", 3e-4))
+    cap = float(config.get("cap", 0.006))
+    p001_dir = config.get("p001_dir", "runs/baseline/P001_pb-0-6822-fullrun")
+
+    base_sel.set_torch_seed(seed)
+
+    # 1. fold split (stable_fold_id, §3.1 / §4.1 step 1)
+    fold_ids = np.array([base_sel.stable_fold_id(sid, 5) for sid in sample_ids])
+    val_mask = fold_ids == fold
+    train_mask = ~val_mask
+    val_idx = np.where(val_mask)[0]
+    train_idx = np.where(train_mask)[0]
+
+    # 2. base predictions per sample (P001 frozen reuse)
+    p001 = load_p001_selector_scores(p001_dir, which="oof")
+    # oof_selector_scores.npz keys: typically "ens_scores" (N, 27) or model-specific
+    score_key = next((k for k in ("ens_scores", "scores", "attn_gru_scores") if k in p001), None)
+    if score_key is None:
+        raise KeyError(f"P001 score bank keys: {list(p001.keys())} — no recognizable score key")
+    selector_scores = np.asarray(p001[score_key], dtype=np.float32)  # (N, 27)
+    if selector_scores.shape[0] != len(train_x):
+        raise ValueError(
+            f"P001 score shape {selector_scores.shape} mismatch train_x {train_x.shape[0]}"
+        )
+
+    end_idx = train_x.shape[1] - 1
+    horizon = 2
+    cands_all = base_sel.make_candidates(train_x, end_idx, horizon=horizon)  # (N, 27, 3)
+    cf_base_all = base_sel.make_candidate_features(train_x, end_idx, cands_all, horizon=horizon)  # (N, 27, 32)
+
+    # soft-weighted base prediction
+    soft = torch.softmax(torch.from_numpy(selector_scores), dim=-1).numpy()
+    base_pred_all = np.sum(soft[:, :, None] * cands_all, axis=1)  # (N, 3)
+    residual_target = train_y - base_pred_all  # (N, 3)
+
+    # 3. corrector instantiate
+    if config.get("use_in_ic", True):
+        wrapper = InICCorrectorWrapper(dim_cf=96, hidden=64).to(device)
+    else:
+        # Phase 1 default = use_in_ic True, fallback base corrector path
+        wrapper = base_bnd.TinyCorrectionNet(dim=32, hidden=64).to(device)
+
+    optimizer = torch.optim.AdamW(wrapper.parameters(), lr=lr)
+
+    # 4. train loop
+    cf_tensor = torch.from_numpy(cf_base_all).to(device)
+    traj_tensor = torch.from_numpy(train_x).to(device)
+    target_tensor = torch.from_numpy(residual_target).to(device)
+    cands_tensor = torch.from_numpy(cands_all).to(device)
+    soft_tensor = torch.softmax(torch.from_numpy(selector_scores), dim=-1).to(device)
+
+    n_train = len(train_idx)
+    best_val_hit = -1.0
+    best_state = None
+    patience_count = 0
+
+    for epoch in range(epochs):
+        wrapper.train()
+        # shuffle train indices
+        rng = np.random.default_rng(seed + epoch)
+        perm = rng.permutation(train_idx)
+        epoch_loss = 0.0
+        n_batches = 0
+        for start in range(0, n_train, batch_size):
+            batch_idx = perm[start : start + batch_size]
+            batch_idx_t = torch.from_numpy(batch_idx).to(device)
+            cf_b = cf_tensor[batch_idx_t]                 # (B, K, 32)
+            traj_b = traj_tensor[batch_idx_t]             # (B, T, 3)
+            target_b = target_tensor[batch_idx_t]         # (B, 3)
+            soft_b = soft_tensor[batch_idx_t]             # (B, K)
+
+            if isinstance(wrapper, InICCorrectorWrapper):
+                wrapper._cached_trajectory = traj_b
+                delta_per_cand, _env = wrapper(cf_b)       # (B, K, 3), (B, K, 4)
+            else:
+                # base TinyCorrectionNet expects (B*K, 32) flat
+                cf_flat = cf_b.reshape(-1, cf_b.shape[-1])
+                delta_flat, _env = wrapper(cf_flat)
+                delta_per_cand = delta_flat.reshape(cf_b.shape[0], cf_b.shape[1], 3)
+            # apply cap
+            delta_per_cand = torch.tanh(delta_per_cand / cap) * cap
+            # aggregate: residual = soft-weighted delta over candidates
+            delta_agg = (soft_b[:, :, None] * delta_per_cand).sum(dim=1)  # (B, 3)
+            loss = torch.nn.functional.huber_loss(delta_agg, target_b, delta=0.01)
+
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            epoch_loss += loss.item()
+            n_batches += 1
+
+        # 5. eval on val
+        wrapper.eval()
+        with torch.no_grad():
+            val_idx_t = torch.from_numpy(val_idx).to(device)
+            cf_v = cf_tensor[val_idx_t]
+            traj_v = traj_tensor[val_idx_t]
+            soft_v = soft_tensor[val_idx_t]
+            if isinstance(wrapper, InICCorrectorWrapper):
+                wrapper._cached_trajectory = traj_v
+                delta_v, _env = wrapper(cf_v)
+            else:
+                cf_flat = cf_v.reshape(-1, cf_v.shape[-1])
+                delta_flat, _env = wrapper(cf_flat)
+                delta_v = delta_flat.reshape(cf_v.shape[0], cf_v.shape[1], 3)
+            delta_v = torch.tanh(delta_v / cap) * cap
+            delta_v_agg = (soft_v[:, :, None] * delta_v).sum(dim=1).cpu().numpy()  # (N_val, 3)
+            corrected_v = base_pred_all[val_idx] + delta_v_agg
+            val_y = train_y[val_idx]
+            val_hit = float(np.mean(np.linalg.norm(corrected_v - val_y, axis=1) <= 0.01))
+
+        if val_hit > best_val_hit:
+            best_val_hit = val_hit
+            best_state = {k: v.detach().cpu().clone() for k, v in wrapper.state_dict().items()}
+            patience_count = 0
+        else:
+            patience_count += 1
+            if patience_count >= patience:
+                break
+
+    # restore best state
+    if best_state is not None:
+        wrapper.load_state_dict(best_state)
+
+    # 6. final inference
+    wrapper.eval()
+    with torch.no_grad():
+        val_idx_t = torch.from_numpy(val_idx).to(device)
+        cf_v = cf_tensor[val_idx_t]
+        traj_v = traj_tensor[val_idx_t]
+        soft_v = soft_tensor[val_idx_t]
+        if isinstance(wrapper, InICCorrectorWrapper):
+            wrapper._cached_trajectory = traj_v
+            delta_v, _env = wrapper(cf_v)
+        else:
+            cf_flat = cf_v.reshape(-1, cf_v.shape[-1])
+            delta_flat, _env = wrapper(cf_flat)
+            delta_v = delta_flat.reshape(cf_v.shape[0], cf_v.shape[1], 3)
+        delta_v = torch.tanh(delta_v / cap) * cap
+        delta_v_agg = (soft_v[:, :, None] * delta_v).sum(dim=1).cpu().numpy()
+        val_preds = base_pred_all[val_idx] + delta_v_agg
+
+    # in_ic frozen check
+    if isinstance(wrapper, InICCorrectorWrapper):
+        in_ic_init_hash = wrapper.embedder._init_state_hash
+        in_ic_final_hash = wrapper.embedder._compute_state_hash()
+    else:
+        in_ic_init_hash = 0
+        in_ic_final_hash = 0
+
+    return {
+        "val_preds": val_preds.astype(np.float32),
+        "val_scores": selector_scores[val_idx],
+        "test_preds": None,
+        "test_scores": None,
+        "oof_metric": {"hit": best_val_hit},
+        "corrector_state": best_state,
+        "in_ic_init_hash": in_ic_init_hash,
+        "in_ic_final_hash": in_ic_final_hash,
+        "val_idx": val_idx,
+        "n_epochs_trained": epoch + 1,
+    }
 
 
 # ── Helpers (frozen invariant check, score bank IO) ──
