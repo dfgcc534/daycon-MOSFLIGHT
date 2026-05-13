@@ -446,11 +446,48 @@ def _run_phase1_simplified(
         in_ic_init_hash = 0
         in_ic_final_hash = 0
 
+    # 7. test inference (optional)
+    test_preds = None
+    test_scores_out = None
+    if test_x is not None:
+        p001_test = load_p001_selector_scores(p001_dir, which="test")
+        test_score_key = next(
+            (k for k in ("ens_scores", "scores", "attn_gru_scores") if k in p001_test), None
+        )
+        if test_score_key is None:
+            raise KeyError(f"P001 test score bank keys: {list(p001_test.keys())}")
+        test_selector_scores = np.asarray(p001_test[test_score_key], dtype=np.float32)
+        test_scores_out = test_selector_scores
+        if test_selector_scores.shape[0] != len(test_x):
+            raise ValueError(
+                f"P001 test score {test_selector_scores.shape} vs test_x {test_x.shape[0]}"
+            )
+        test_end_idx = test_x.shape[1] - 1
+        test_cands = base_sel.make_candidates(test_x, test_end_idx, horizon=horizon)
+        test_cf_base = base_sel.make_candidate_features(test_x, test_end_idx, test_cands, horizon=horizon)
+        test_soft = torch.softmax(torch.from_numpy(test_selector_scores), dim=-1).numpy()
+        test_base_pred = np.sum(test_soft[:, :, None] * test_cands, axis=1)
+
+        with torch.no_grad():
+            cf_t = torch.from_numpy(test_cf_base).to(device)
+            traj_t = torch.from_numpy(test_x).to(device)
+            soft_t = torch.from_numpy(test_soft).to(device)
+            if isinstance(wrapper, InICCorrectorWrapper):
+                wrapper._cached_trajectory = traj_t
+                delta_t, _env = wrapper(cf_t)
+            else:
+                cf_flat = cf_t.reshape(-1, cf_t.shape[-1])
+                delta_flat, _env = wrapper(cf_flat)
+                delta_t = delta_flat.reshape(cf_t.shape[0], cf_t.shape[1], 3)
+            delta_t = torch.tanh(delta_t / cap) * cap
+            delta_t_agg = (soft_t[:, :, None] * delta_t).sum(dim=1).cpu().numpy()
+            test_preds = (test_base_pred + delta_t_agg).astype(np.float32)
+
     return {
         "val_preds": val_preds.astype(np.float32),
         "val_scores": selector_scores[val_idx],
-        "test_preds": None,
-        "test_scores": None,
+        "test_preds": test_preds,
+        "test_scores": test_scores_out,
         "oof_metric": {"hit": best_val_hit},
         "corrector_state": best_state,
         "in_ic_init_hash": in_ic_init_hash,
