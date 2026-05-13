@@ -67,7 +67,7 @@ lb_score: null
 - **G2** (Phase 2 core ablation on winner, 5 axis × ~14 sub-exp 총합): (a) 5 axis 모두 informational 완료. (b) 5 axis 중 *최소 1 axis* 에서 `max(ΔOOF) ≥ 0.005`. 위반 시 `phase2_no_positive_lever` severe — autonomous recovery (a) Phase 3 진행 후 G_final path-pivot 또는 (b) G1 winner 단독으로 G4 직진.
 - **G3** (Phase 3 aux ablation, 3 axis × ~7 sub-exp): 3 axis informational 완료. positive lever 권장 (hard fail 없음).
 - **G4** (Phase 4 final 5-fold): best stack (G1 winner + G2 best lever + G3 best lever) 의 5-fold concat OOF ≥ G1 winner + 0.005. submission.csv 생성. 위반 시 `final_no_additive` warn → fallback = G1 winner 단독 5-fold submission.
-- **G_final**: synthesis + plan-013 후보 ≥ 3 + 3 파일 frontmatter sync (`lb_score: null` carry-over) + best Phase submission 박제 + plan-012.1 carry-over instruction.
+- **G_final**: synthesis + plan-013 후보 ≥ 3 + 3 파일 frontmatter sync (`lb_score: null` carry-over) + Phase 4 산출 submission (= G4 best stack `runs/baseline/H029_phase4-final-5fold/submission.csv`; `final_no_additive` warn 시 G1 winner 단독 5-fold submission 으로 fallback) 박제 + plan-012.1 carry-over instruction.
 
 ### G-gates
 
@@ -210,6 +210,35 @@ lb_score: null
 | GRU pretrained weight | `runs/baseline/P001_pb-0-6822-fullrun/**` | E7 sub-exp B (frozen GRU) 에서 load + frozen forward |
 | single formula F0 | `frenet_par120_perp_neg020` (CANDIDATES[17]) | plan-006 그대로 |
 
+#### §1.4.1 F0 단일공식 + trajectory shape + end_idx self-contained spec
+
+★ plan-012 self-containment 위해 plan-006 §5.5 CANDIDATES[17] 의 식을 inline 박제:
+
+- **trajectory shape**: `trajectory_x.shape == (N, T, 3)` (T = 7, world frame coords). `train_y.shape == (N, 3)` (target position).
+- **end_idx**: `end_idx = T - 1 = 6` (= trajectory 의 마지막 관측 step; F0 prediction point). 본 plan 의 모든 helper (`build_frenet_basis_3d`, `selector.make_seq_features`) 가 동일 값 사용.
+- **F0_pred_world 산출식** (`frenet_par120_perp_neg020`, naming convention = `frenet_par<PAR×100>_perp_neg<|PERP|×100>` with PAR > 0, PERP < 0):
+
+  ```python
+  # 입력: x (N, T, 3), end_idx = T-1
+  # last-step velocity 의 Frenet basis 분해
+  v          = x[:, end_idx] - x[:, end_idx-1]                # (N, 3) world velocity
+  R_wfn      = build_frenet_basis_3d(x, end_idx)              # (N, 3, 3), columns = (t̂, n̂, b̂)
+  v_frenet   = (R_wfn.transpose(0, 2, 1) @ v[..., None]).squeeze(-1)   # (N, 3) = (v_par, v_perp, v_binorm)
+
+  PAR_COEF   = 1.20                                            # par120
+  PERP_COEF  = -0.20                                           # perp_neg020
+  BINORM_COEF = 0.00                                           # binormal 미사용 (= plan-006 single formula 정의)
+
+  # 다음 step 의 frenet-frame 변위 = (PAR × v_par, PERP × v_perp, BINORM × v_binorm)
+  delta_frenet = np.stack([PAR_COEF * v_frenet[:, 0],
+                           PERP_COEF * v_frenet[:, 1],
+                           BINORM_COEF * v_frenet[:, 2]], axis=-1)        # (N, 3)
+  delta_world  = (R_wfn @ delta_frenet[..., None]).squeeze(-1)             # (N, 3)
+  F0_pred_world = x[:, end_idx] + delta_world                              # (N, 3)
+  ```
+
+  본 식은 plan-006 §5.5 의 CANDIDATES list 정의와 동일 의미. 본 plan 의 모든 `F0_pred_world` 산출이 위 procedure 의 단일 source — preflight, Phase 1~4 모두 일관.
+
 ### §1.5 v1 → v2 변경 요약 (audit trail)
 
 | 영역 | v1 (e1f08eb) | **v2 (본 commit c1.1)** | 사유 |
@@ -265,10 +294,11 @@ lb_score: null
 ### §3.2 평가 metric
 
 - main: **5-fold concat OOF soft hit @ 1cm** (Phase 4) 또는 **1-fold OOF soft hit** (Phase 1~3)
-- soft hit = `‖hybrid_pred_pos − true_pos‖₂ ≤ 0.01m`. hybrid_pred_pos 산출:
-  - mode_k = argmax(classifier_logits, dim=-1)  # hard mode 선택
-  - hybrid_pred_pos = F0_pred + anchor[mode_k] + reg_head(mode_k)  # cluster 내 offset 가산
-  - τ=0 case (E3 argmax) 와 동일 식; soft-mean case (reg head off, E5 sub-exp A) 에서는 `softmax × anchor` 합 사용
+- soft hit = `‖hybrid_pred_pos − true_pos‖₂ ≤ 0.01m`. hybrid_pred_pos 산출 — **단일 source of truth = `hybrid_predict` (§4.1 컴포넌트 7)**:
+  - τ ≤ 1e-8 (= E3 argmax sub-exp): `mode_k = argmax(logits + r0_prior); hybrid_pred_pos = F0_pred + anchor[mode_k] + reg_offset[mode_k]`  (★ hard mode)
+  - τ > 0 (= anchor τ=0.03 포함 그 외 모든 sub-exp): `prob = softmax((logits + r0_prior) / τ); hybrid_pred_pos = F0_pred + Σ_k prob[k] × (anchor[k] + reg_offset[k])`  (★ soft blend)
+  - reg head off (E5 sub-exp A): 위 식에서 `reg_offset` 항 = 0.
+  - anchor (§3.3) τ=0.03 → 모든 sub-exp 의 default 가 soft blend; hard argmax 는 E3 ablation 전용. metric 산출식이 sub-exp 별 일관 (§4.1 `hybrid_predict` 호출).
 - ΔOOF (axis attribution) = `OOF_with_lever − OOF_anchor` per sub-exp
 - `directional_commit_magnitude` = `mean(‖hybrid_pred_pos − F0_pred‖₂)` (= origin 으로부터 평균 이탈 크기, dilution_collapse warn 의 척도)
 
@@ -350,8 +380,19 @@ def compute_anchors_frenet_orthogonal(radius_m: float = 0.005) -> np.ndarray:
     """
 
 
+def clip_norm(vecs: np.ndarray, max_norm: float) -> np.ndarray:
+    """Per-row L2-norm clip helper. (M, 3) → (M, 3). 각 행의 ‖·‖₂ > max_norm 시 max_norm 으로 축소.
+
+    procedure:
+        norms = np.linalg.norm(vecs, axis=-1, keepdims=True)    # (M, 1)
+        scale = np.minimum(1.0, max_norm / np.maximum(norms, 1e-12))
+        return vecs * scale
+    """
+
+
 def compute_anchors_kmeans(
     train_residuals_world: np.ndarray,    # (N_train, 3) = true_y - F0_pred (world frame)
+    R_world_from_frenet: np.ndarray,      # (N_train, 3, 3) = build_frenet_basis_3d(...) (컴포넌트 2)
     fold_id: np.ndarray,                  # (N_train,) — fold-aware fit 용
     K: int = 7,
     radius_clip_m: float = 0.020,        # K-Means cluster center ‖·‖ clip threshold (= 2cm)
@@ -372,7 +413,11 @@ def compute_anchors_kmeans(
     Procedure:
         for k in range(5):  # 5-fold
             train_mask = (fold_id != k)
-            residuals_frenet_train = R_world_from_frenet[train_mask].transpose(0, 2, 1) @ residuals_world[train_mask, :, None]
+            # (N_tr, 3, 3) @ (N_tr, 3, 1) → (N_tr, 3, 1) → (N_tr, 3) via squeeze(-1)
+            residuals_frenet_train = (
+                R_world_from_frenet[train_mask].transpose(0, 2, 1)
+                @ residuals_world[train_mask, :, None]
+            ).squeeze(-1)                                          # (N_tr, 3) for sklearn KMeans
             km = KMeans(n_clusters=K-1, n_init=n_init, random_state=random_state).fit(residuals_frenet_train)
             centers_per_fold[k, 0] = (0, 0, 0)          # explicit center anchor
             centers_per_fold[k, 1:K] = km.cluster_centers_
@@ -421,21 +466,24 @@ def build_frenet_basis_3d(
 def anchors_to_world(
     anchors_local: np.ndarray,    # (K, 3) in codebook-native frame (world for E0a; Frenet for E0b/E0c)
     R_world_from_frenet: np.ndarray | None,  # (N, 3, 3) — None for E0a (frame = world); set for E0b/E0c
-    F0_pred_world: np.ndarray,    # (N, 3) — single formula prediction in world
+    N: int,                       # batch size (E0a broadcast 용; E0b/E0c 는 R_world_from_frenet.shape[0])
 ) -> np.ndarray:
-    """Returns: (N, K, 3) — anchor positions in world frame.
+    """Returns: (N, K, 3) — anchor *deltas* in world frame (★ F0_pred 미포함).
+
+    Caller 측이 `cand_pos = F0_pred_world[:, None, :] + anchors_world` 로 합산 (B/L540 / L574 / L611 일관).
+    본 fn 의 출력은 *delta only* — name 의 `_to_world` 는 frame 변환 의미.
 
     E0a (Absolute): R_world_from_frenet=None → anchors_world = anchors_local broadcast.
-        cand_pos[i, k] = F0_pred_world[i] + anchors_local[k]
+        anchors_world[i, k] = anchors_local[k]                       # ∀ i
     E0b/E0c (Frenet-based): R_world_from_frenet ≠ None.
-        cand_pos[i, k] = F0_pred_world[i] + R_world_from_frenet[i] @ anchors_local[k]
+        anchors_world[i, k] = R_world_from_frenet[i] @ anchors_local[k]
     """
 
 
 # ── 컴포넌트 4: candidate feature builder (cand_dim = 11) ──
 
 def make_codebook_candidate_features(
-    cand_pos_world: np.ndarray,           # (N, K, 3)
+    cand_pos_world: np.ndarray,           # (N, K, 3) — anchors_to_world + F0 의 결과 (sample-별 candidate world 좌표). 미사용 시 None 전달 가능.
     anchors_local: np.ndarray,             # (K, 3)
     codebook_id: str,                      # "absolute" / "frenet_orthogonal" / "kmeans"
     R_world_from_frenet: np.ndarray | None,
@@ -443,14 +491,20 @@ def make_codebook_candidate_features(
 ) -> np.ndarray:
     """Build candidate feature tensor for hybrid scorer head. Returns (N, K, 11) float32.
 
-    Per-candidate features (11 dim):
-        [0:3]  anchors_local (par, perp/n, b/z)         — codebook-native coords
+    Per-candidate features (11 dim) — *codebook-level constants only* (sample-invariant):
+        [0:3]  anchors_local (par, perp/n, b/z)         — codebook-native coords (m)
         [3]    radius_local  = ‖anchors_local[k]‖        — meters
         [4]    is_origin     = 1 if radius_local < 1e-6 else 0
         [5:8]  anchor offset 정규화 (anchors_local / 0.005)  # unit-scaled
         [8]    codebook_id_absolute  = 1 if codebook == absolute else 0
         [9]    codebook_id_frenet_ortho = 1 if codebook == frenet_orthogonal else 0
         [10]   codebook_id_kmeans       = 1 if codebook == kmeans else 0
+
+    NOTE: 본 11-dim feature 는 의도적으로 sample-invariant 만 포함 — sample-wise variation 은
+    HybridScorerHead.forward 안의 `_extract_seq_hidden` (= GRU 의 sample-별 last-step hidden) 으로 주입됨.
+    `cand_pos_world` / `R_world_from_frenet` / `F0_pred_world` 인자는 *호출 통일 + 향후 확장* (예: cand
+    world 좌표를 raw 12th-dim 으로 추가하는 plan-013 후보) 을 위해 시그너처에 유지하나, 본 v2 spec
+    에서는 위 11-dim 산출에 미사용 — caller 측 일관 호출 형식 보존을 위해서만 인자 받음.
     """
 
 
@@ -459,10 +513,47 @@ def make_codebook_candidate_features(
 class HybridScorerHead(nn.Module):
     """plan-004 CandidateAttentionGRUSelector + classifier (K logit) + regression head (3D offset).
 
+    `base.CandidateAttentionGRUSelector` self-contained spec (plan-review 외부 source 자가 해석 금지 정책 준수):
+        signature:
+            __init__(self, seq_dim: int = 9, cand_dim: int, hidden: int = 64, cand_count: int = 7)
+            forward(self, seq: torch.Tensor (B, 6, 9), cand_feat: torch.Tensor (B, cand_count, cand_dim)) -> torch.Tensor (B, cand_count)
+        반환 = candidate 별 logit (= score) scalar (B, K). softmax 전 raw logit.
+        내부 구조 (plan-004 cell 4 기반, 본 plan invariant):
+            self.gru        = nn.GRU(input_size=seq_dim, hidden_size=hidden, batch_first=True)
+            self.cand_proj  = nn.Linear(cand_dim, hidden)
+            self.cand_attn  = (cand 별 attention pooling — plan-004 spec)
+            self.score_head = nn.Linear(hidden, 1)             # cand-axis 별 logit 산출
+        본 모듈 (HybridScorerHead) 은 위 attribute 명을 invariant 으로 가정. mismatch 시 c2 smoke test catch.
+
     encoder + cand_attn = base.CandidateAttentionGRUSelector reuse (cand_count=K, cand_dim=11).
     head = 2 path:
         classifier_head: (B, hidden) → (B, K) logits
-        regression_head: (B, hidden, K) → (B, K, 3) per-mode offset (cluster 내 미세조정, scale prior ~0.5cm)
+        regression_head: (B, K, hidden + cand_dim) → (B, K, 3) per-mode offset (sample-별 미세조정, scale prior ~0.5cm)
+
+    ★ regression head 의 입력 = `concat(seq_hidden_broadcast (B, K, hidden), cand_feat (B, K, cand_dim))`.
+      → sample-wise variation 이 GRU encoder 의 hidden (= 6-step kinematic context 의 sample-별 encoding) 으로 reg_offset 에 주입됨.
+      cand_feat 만 입력하면 (구 spec) sample-invariant 한 11-dim 상수 → 모든 sample 에 동일한 reg_offset → §1.3 "샘플별 0.1~0.5cm 미세조정" 의도 발현 불가.
+
+    `_load_encoder_weights` key mapping (plan-004 checkpoint → 본 모듈):
+        checkpoint = torch.load(encoder_pretrained_path, map_location="cpu")
+        state = checkpoint.get("model_state_dict", checkpoint)
+        # plan-004 CandidateAttentionGRUSelector key 가 본 모듈의 self.scorer.* 와 1:1 일치.
+        # cand_count 변경 (27 → K=7) 으로 cand-axis dependent weight 만 mismatch — partial-load.
+        load_keys = {
+            # encoder (1:1 reuse)
+            "gru.*":         "scorer.gru.*",          # GRU encoder weight + bias
+            "seq_proj.*":    "scorer.seq_proj.*",     # 9-dim → hidden projection (있을 시)
+            "cand_proj.*":   "scorer.cand_proj.*",    # cand_dim → hidden projection
+            "cand_attn.*":   "scorer.cand_attn.*",    # candidate attention parameters
+        }
+        skip_keys = {
+            # cand_count-dependent head (27 → 7) — random re-init
+            "score_head.*",        # classifier head (logit linear, cand_count-dependent)
+            "*.bias[27, ...]",     # cand-axis bias 가 있을 시
+        }
+        result = self.scorer.load_state_dict(filtered_state, strict=False)
+        # invariant: missing/unexpected key 모두 위 skip_keys 와 일치 (assert in c2 smoke test)
+        # reg_head 는 본 모듈 신규 attr → load 대상 아님 (random init).
     """
 
     def __init__(
@@ -475,19 +566,34 @@ class HybridScorerHead(nn.Module):
     ):
         super().__init__()
         self.K = K
+        self.hidden = hidden
+        self.cand_dim = cand_dim
         self.reg_head_scale_m = reg_head_scale_m
-        # encoder
+        # encoder + classifier head = base.CandidateAttentionGRUSelector 그대로
         self.scorer = base.CandidateAttentionGRUSelector(
             seq_dim=9, cand_dim=cand_dim, hidden=hidden, cand_count=K,
         )
-        # classifier head = scorer 의 기존 head 그대로 (logit per candidate)
-        # regression head = 새 mlp (cand_dim → 3 offset per mode)
+        # regression head: per-(sample, candidate) MLP. 입력 = (hidden + cand_dim).
         self.reg_head = nn.Sequential(
-            nn.Linear(cand_dim, hidden), nn.GELU(),
+            nn.Linear(hidden + cand_dim, hidden), nn.GELU(),
             nn.Linear(hidden, 3),
         )
         if encoder_pretrained_path is not None:
             self._load_encoder_weights(encoder_pretrained_path)
+
+    def _extract_seq_hidden(self, seq: torch.Tensor) -> torch.Tensor:
+        """seq (B, 6, 9) → (B, hidden) sample-wise representation.
+
+        ★ self-contained spec (plan-review 외부 source 자가 해석 금지 정책 준수):
+            base.CandidateAttentionGRUSelector 의 sequence encoder = `nn.GRU(input_size=9, hidden_size=hidden, batch_first=True)`
+            attribute alias 박제 (위 `_load_encoder_weights` key mapping table 의 `"gru.*"` 와 동일):
+                self.scorer.gru: nn.GRU                       # encoder
+            구현:
+                gru_out, _ = self.scorer.gru(seq)             # (B, 6, hidden)
+                return gru_out[:, -1, :]                       # (B, hidden) last-step hidden
+            (만약 base scorer 의 attribute 명이 `gru` 가 아니면 본 plan 의 invariant 위반 → c2 smoke test 의
+             `test_hybrid_extract_seq_hidden_shape` 에서 catch.)
+        """
 
     def forward(
         self, seq: torch.Tensor, cand_feat: torch.Tensor
@@ -497,16 +603,27 @@ class HybridScorerHead(nn.Module):
         cand_feat: (B, K, 11)
         returns:
             logits: (B, K)
-            reg_offset: (B, K, 3) — per-mode regression offset (scaled by reg_head_scale_m via tanh)
+            reg_offset: (B, K, 3) — per-(sample, mode) regression offset (scaled by reg_head_scale_m via tanh)
         """
-        logits = self.scorer(seq, cand_feat)                         # (B, K)
-        # reg_head applied per-candidate: tanh-bounded offset
-        reg_raw = self.reg_head(cand_feat)                            # (B, K, 3)
-        reg_offset = torch.tanh(reg_raw) * self.reg_head_scale_m * 2  # bounded to ±1cm
+        logits = self.scorer(seq, cand_feat)                          # (B, K)
+        seq_hidden = self._extract_seq_hidden(seq)                    # (B, hidden) — sample-wise
+        seq_hidden_b = seq_hidden[:, None, :].expand(-1, self.K, -1)  # (B, K, hidden)
+        reg_in = torch.cat([seq_hidden_b, cand_feat], dim=-1)         # (B, K, hidden + cand_dim)
+        reg_raw = self.reg_head(reg_in)                               # (B, K, 3)
+        reg_offset = torch.tanh(reg_raw) * self.reg_head_scale_m       # bounded to ±reg_head_scale_m (= ±0.5cm at default)
         return logits, reg_offset
 
     def freeze_encoder(self):
-        """E7 sub-exp B (frozen GRU) 용. encoder GRU + cand_attn 만 freeze, head 는 trainable."""
+        """E7 sub-exp B (frozen GRU) 용. encoder GRU + cand_attn 만 freeze, head (classifier + reg_head) 는 trainable.
+
+        대상 attribute (in self.scorer):
+            - gru (또는 alias) — encoder
+            - cand_attn (또는 alias) — candidate attention pooling
+        trainable:
+            - self.scorer 의 classifier head (logit linear)
+            - self.reg_head (regression head MLP)
+        구현: 위 attribute 의 `parameters()` 에 `requires_grad = False` 설정 + state_dict diff = 0 invariant 박제 (G0.frozen_gru_drift severe).
+        """
 
 
 # ── 컴포넌트 6: L7 hit-aware hinge loss (3D 확장) ──
@@ -641,16 +758,25 @@ def test_hybrid_forward_shape():
     logits, reg_offset = head(seq, cand_feat)
     assert logits.shape == (4, 7)
     assert reg_offset.shape == (4, 7, 3)
-    assert reg_offset.abs().max() < 0.011  # tanh-bounded to ±1cm
+    assert reg_offset.abs().max() < 0.0051  # tanh-bounded to ±reg_head_scale_m (= ±0.5cm)
 
 def test_kmeans_fold_aware():
     # synthetic 1000 sample 5-fold, K=7
     residuals = np.random.randn(1000, 3) * 0.005
+    R_world_from_frenet = np.broadcast_to(np.eye(3), (1000, 3, 3)).copy()  # identity → world == frenet
     fold_id = np.arange(1000) % 5
-    centers, sizes, meta = compute_anchors_kmeans(residuals, fold_id, K=7)
+    centers, sizes, meta = compute_anchors_kmeans(residuals, R_world_from_frenet, fold_id, K=7)
     assert centers.shape == (5, 7, 3)
     assert all(np.linalg.norm(centers[k, 0]) < 1e-6 for k in range(5))
     assert sizes[:, 1:].min() > 50  # synthetic small data, relaxed
+
+def test_hybrid_extract_seq_hidden_shape():
+    """`_extract_seq_hidden` invariant: base.CandidateAttentionGRUSelector 의 attribute `gru` 존재 + (B, 6, 9) → (B, hidden) 산출 일관."""
+    head = HybridScorerHead(K=7, hidden=64, cand_dim=11)
+    assert hasattr(head.scorer, "gru"), "base scorer 의 GRU attribute 명이 'gru' 가 아님 — plan-012 §4.1 invariant 위반"
+    seq = torch.randn(4, 6, 9)
+    out = head._extract_seq_hidden(seq)
+    assert out.shape == (4, 64)
 ```
 
 ---
@@ -678,7 +804,14 @@ def test_kmeans_fold_aware():
     "n_train": 10000,
     "absolute_7way": {"oracle_hit_1cm": <float>, "anchors": [[...]]},
     "frenet_orthogonal_7way": {"oracle_hit_1cm": <float>, "anchors": [[...]]},
-    "kmeans_7way": {"oracle_hit_1cm": <float>, "anchors_per_fold": [[[...]], ...]}
+    "kmeans_7way": {"oracle_hit_1cm": <float>, "anchors_per_fold": [[[...]], ...]},
+    "per_axis_marginal_hit_1cm": {
+      "description": "§7.1 E2 K density swap 의 dominant/second axis 결정 source. 각 ±axis 를 center 와 함께 2-anchor codebook 으로 쓸 때의 oracle hit@1cm.",
+      "absolute": {"+x": <float>, "-x": <float>, "+y": <float>, "-y": <float>, "+z": <float>, "-z": <float>},
+      "frenet_orthogonal": {"+t": <float>, "-t": <float>, "+n": <float>, "-n": <float>, "+b": <float>, "-b": <float>},
+      "axis_family_ranking_absolute": ["<x|y|z>", "<x|y|z>", "<x|y|z>"],
+      "axis_family_ranking_frenet": ["<t|n|b>", "<t|n|b>", "<t|n|b>"]
+    }
   },
   "kmeans_fit_meta": {
     "K": 7,
@@ -704,11 +837,14 @@ def test_kmeans_fold_aware():
 ### §5.2 실행
 
 ```bash
-python -m analysis.plan-012.preflight \
+# 디렉토리명에 하이픈이 포함되어 -m 으로 import 불가 → 직접 script 실행
+python analysis/plan-012/preflight.py \
   --root data \
   --plan-006-checkpoint runs/baseline/F001_variant-e/checkpoint_best.pt \
   --out                 analysis/plan-012/preflight.json
 ```
+
+(스크립트 내부에서 `sys.path.insert(0, "src")` 또는 `from pathlib import Path; ...` 로 `src/pb_0_6822` 패키지를 import 한다. 다른 Phase 1~4 wrapper 도 동일하게 `python analysis/plan-012/<script>.py` 형식.)
 
 ### §5.3 G0 합격
 
@@ -814,12 +950,23 @@ if gap < 0.005:
 | P2.E2c | 9 | slight dense |
 | P2.E2d | 13 | dense — over-parametrization risk |
 
-K-Means 의 경우 K=5/9/13 으로 K-Means 재fit (per-fold, G0 preflight 의 K=7 fit 과는 별도 산출). Absolute/Frenet-ortho 의 경우 K 변경 시 anchor 정의도 변경:
-- K=5: center + ±dominant 1 axis (= winner 의 가장 informative axis, G0 oracle ceiling 기준) + ±second
-- K=9: 7 + 2 (= dominant diagonal 2개, 예: +t+n / -t-n)
-- K=13: 7 + 6 (= 모든 diagonal)
+K-Means 의 경우 K=5/9/13 으로 K-Means 재fit (per-fold, G0 preflight 의 K=7 fit 과는 별도 산출 — radius_clip_m 는 K 무관 0.020m 동일). Absolute/Frenet-ortho 의 경우 K 변경 시 anchor 정의도 변경 — **dominant axis 결정은 G0 의 per-axis marginal oracle 측정 산출 (= fold-0 partition 위 한 번 fit, 모든 K=5/9/13 sub-exp 가 G0 산출 ranking 을 freeze 하여 reuse)** (§5.1 산출물 `codebook_oracle_ceilings.per_axis_marginal_hit_1cm` 표):
 
-자율 결정 박제: `decision-note: spec-default — K density 의 추가 anchor 는 G0 oracle ceiling 의 marginal gain 기준 ordering`
+- per-axis marginal oracle 산출 (G0 preflight 추가):
+  - 각 ±axis (예: `+x`) 에 대해 *2-anchor codebook* `[center, +axis_vector_0.005m]` 구성.
+  - 각 train sample 에 대해 oracle scorer = `argmin_k ‖F0_pred + anchor[k] − true_y‖₂` (k ∈ {center=0, axis=1}) 적용.
+  - hit@1cm = `mean(‖F0_pred + anchor[oracle_k] − true_y‖₂ ≤ 0.01m)`.
+  - 6 anchor × 2 codebook (Absolute, Frenet-ortho) = 12 값 박제. K-Means 의 경우 cluster center 좌표가 axis-aligned 아니므로 본 metric 정의되지 않음 → K-Means winner 시 §E2 의 K=5/9/13 anchor 산출은 K-Means *재fit only* (Absolute/Frenet-ortho rule 미적용).
+- **dominant axis** = per-axis marginal hit 의 *내림차순 ordering* 의 top-1 (= +axis 와 -axis 중 더 큰 값 기준의 *축 family*; ex: `+x` marginal > `-x` marginal → x 축 family). second = top-2 family. third = top-3. 동률 (gap < 0.003) 시 priority = `x > y > z` (Absolute), `t > n > b` (Frenet-ortho).
+- K=5 anchor: `[center, +dom, -dom, +second, -second]` — 5 × 3 ndarray, ‖non-center‖ = 0.005m.
+- K=9 anchor: K=7 (full ±) + 2 dominant diagonal — `[..., +(dom + second)/√2, -(dom + second)/√2]`. 각 diagonal 의 ‖·‖ = √(0.005² + 0.005²)/√2 = 0.005m (직교 단위 0.005m vector 의 합 / √2 = norm 보존). 추가 normalization 곱 불필요.
+- K=13 anchor: K=7 + 6 (= 3 axis-쌍 × ± sign 의 직교축 합 정규화 unit vectors) — 명시적으로 (각 anchor 의 `‖·‖ = 0.005m`):
+  - `±(dom + second) / √2`              (2 vector)  ‖·‖ = √(0.005²+0.005²)/√2 = 0.005m
+  - `±(dom + third)  / √2`              (2 vector)  ‖·‖ = 0.005m
+  - `±(second + third) / √2`            (2 vector)  ‖·‖ = 0.005m
+  → 합 6 vector. 위 식 자체가 이미 0.005m 정규화 (= dom/second/third 가 각각 0.005m unit 이므로 `/√2` 만으로 합벡터의 norm 보존). 추가 normalization 곱 불필요. `±dom±second` 의 4가지 sign 조합 (++/+-/-+/--) 중 동일축 sign-쌍 (++ vs --) 만 사용, mixed-sign (+-, -+) 은 K=13 에서 제외 (= 첫 두 축 pair 의 unique 직교축 합 방향만; nonzero linearly independent 6 vectors).
+
+자율 결정 박제: `decision-note: spec-default — K density 의 추가 anchor 는 G0 per-axis marginal oracle ordering 기준 (dom > second > third; diagonal = 정규화된 직교축 sum)`
 
 ΔOOF(E2) = `max(OOF over K∈{5,9,13}) − OOF(K=7)`.
 
@@ -883,6 +1030,41 @@ K-Means 의 경우 K=5/9/13 으로 K-Means 재fit (per-fold, G0 preflight 의 K=
 | **P3.E7a** | full `CandidateAttentionGRUSelector` (anchor) | E0 — 6-step kinematic context |
 | P3.E7b | last-step MLP (= `make_seq_features[:, -1, :]` 만, GRU 우회) | 시계열 input 의 부가가치 측정 |
 
+E7 sub-exp B controlled comparison 의 last-step MLP 구조 (★ E7a 와 parameter budget 가깝게 align — fairness):
+
+```python
+class LastStepMLPScorer(nn.Module):
+    """Drop-in replacement for base.CandidateAttentionGRUSelector — GRU 우회, last-step features only.
+
+    encoder_path:
+        seq_last = seq[:, -1, :]                              # (B, 9) — make_seq_features 의 마지막 step
+        h = self.seq_mlp(seq_last)                            # (B, hidden) — sample-wise representation
+    cand_attn_path:
+        cand_h = self.cand_proj(cand_feat)                    # (B, K, hidden)
+        # attention-free dot scoring (cand_attn 우회 — 시계열 input 가치를 isolate 하기 위해 dot-product 만)
+        logits = (cand_h * h[:, None, :]).sum(dim=-1)         # (B, K)
+    """
+    def __init__(self, seq_dim: int = 9, cand_dim: int = 11, hidden: int = 64, cand_count: int = 7):
+        super().__init__()
+        self.seq_mlp = nn.Sequential(
+            nn.Linear(seq_dim, hidden), nn.GELU(),
+            nn.Linear(hidden, hidden), nn.GELU(),
+        )
+        self.cand_proj = nn.Sequential(
+            nn.Linear(cand_dim, hidden), nn.GELU(),
+            nn.Linear(hidden, hidden),
+        )
+
+    def forward(self, seq: torch.Tensor, cand_feat: torch.Tensor) -> torch.Tensor:
+        seq_last = seq[:, -1, :]                              # (B, 9)
+        h = self.seq_mlp(seq_last)                            # (B, hidden)
+        cand_h = self.cand_proj(cand_feat)                    # (B, K, hidden)
+        logits = (cand_h * h[:, None, :]).sum(dim=-1)         # (B, K)
+        return logits
+```
+
+E7 sub-exp B 의 `HybridScorerHead` 는 `self.scorer = LastStepMLPScorer(...)` 로 swap. `_extract_seq_hidden` 도 LastStepMLPScorer 의 `seq_mlp(seq[:, -1, :])` 결과 reuse — reg_head 입력의 sample-wise variation 은 유지. classifier head + reg_head 구조는 E7a 동일 (= 단일변수: encoder arch).
+
 #### E8 — r=0 anchor logit prior (c14, 3 sub-exp)
 
 | sub-exp | prior on mode 0 (= center) | 직관 |
@@ -920,17 +1102,21 @@ for fold in range(5):
 
 oof_soft_hit_5fold = compute_hit(oof_preds, train_y, R_HIT=0.01)
 
-# test inference (5-fold ensemble: mean of hybrid predictions)
-test_preds_ensemble = mean over folds of hybrid_predict(model_fold, test_x)
+# test inference (5-fold ensemble: 좌표 평균 — mode-vote 아님)
+# 각 fold model 의 `hybrid_predict` 출력 (B, 3) 좌표를 5-fold 평균 (단순 산술 mean over fold axis).
+# argmax (τ=0) 으로 산출된 이산 위치도 좌표 공간에서 mean (→ smoothing 효과); soft (τ>0) 인 경우엔 이미 좌표 blend 이므로 직접 mean.
+fold_preds = np.stack([hybrid_predict_fn(model_fold[k], test_x) for k in range(5)], axis=0)  # (5, N_test, 3)
+test_preds_ensemble = fold_preds.mean(axis=0)                                                  # (N_test, 3)
 write_submission_csv(test_preds_ensemble, sample_ids_test, "submission.csv")
 ```
 
 ### §9.3 G4 합격
 
-- `5-fold concat OOF ≥ G1 winner_oof + 0.005`
+- `5-fold concat OOF (best stack) ≥ G1 winner_5fold_oof + 0.005` — 두 OOF 모두 **5-fold concat** scale 에서 비교 (★ G1 winner 의 1-fold OOF 와 직접 비교 금지 — fold variance 만큼의 inflation/deflation 회피).
+- `G1 winner_5fold_oof` 산출: Phase 4 안에서 G1 winner config 으로 5-fold 한 번 더 재학습 (= "anchor 5-fold" baseline). best stack 5-fold 와 동일 코드 path / 동일 seed / 동일 epoch budget 으로 산출하여 비교 fairness 확보.
 - `submission.csv` shape == `data/sample_submission.csv` shape, 좌표 finite
 
-위반 시 `final_no_additive` warn → fallback = G1 winner 단독 5-fold submission.
+위반 시 `final_no_additive` warn → fallback = G1 winner 단독 5-fold submission (= 위 anchor 5-fold 의 산출물 그대로 사용).
 
 ---
 
@@ -944,7 +1130,7 @@ write_submission_csv(test_preds_ensemble, sample_ids_test, "submission.csv")
   - `plans/plan-012-frenet-ring-classification.md` (`status: G_final_complete`)
   - `plans/plan-012-frenet-ring-classification.results.md`
   - registry (있을 경우)
-- best Phase submission 박제: `runs/baseline/H029_phase4-final-5fold/submission.csv`
+- Phase 4 산출 submission 박제: `runs/baseline/H029_phase4-final-5fold/submission.csv` (= G4 best stack 의 5-fold ensemble 결과; `final_no_additive` warn 시 같은 path 에 G1 winner-only 5-fold ensemble 의 fallback submission 으로 대체).
 
 ### §10.2 plan-013 후보 (조건부 framework)
 
