@@ -67,7 +67,7 @@ lb_score: null
 
 - G0: preflight + 4 infra 검증 [PARTIAL] (3/4 PASS, cand_25 MISS — Phase 2.E3 fallback)
 - G1: plan-004 + In/IC 5-fold OOF ≥ 0.65 [WARN] (0.6381, simplified pipeline penalty)
-- G2: Phase 2 3-sub-exp 완료 + 1+ axis ΔOOF ≥ 0.005 [TODO]
+- G2: Phase 2 3-sub-exp 완료 + 1+ axis ΔOOF ≥ 0.005 [FAIL] (3 deferred, framework gap → autonomous Phase 3 fallback)
 - G3: best stack 5-fold OOF ≥ G1 + 0.005 + submission 박제 [TODO]
 - G_final: synthesis + plan-014 후보 + 3 파일 sync + plan-013.1 instruction [TODO]
 
@@ -82,10 +82,10 @@ lb_score: null
 | G0 | gate | `preflight.json` + 4 infra OK + reproduce drift ≤ 0.005 | [PARTIAL] (3/4: plan_004 ✓ / in_ic ✓ / step4 ✓ / cand_25 MISS — E3 fallback) |
 | c4 | code+exp | `analysis/plan-013/phase1_baseline.py` — plan-004 + In/IC 5-fold (★ baseline lock). spec @ §6 | [DONE] (6f32237, 5-fold OOF 0.6381) |
 | G1 | gate | 5-fold concat OOF ≥ 0.65 | [WARN] baseline_below_expected (0.6381 < 0.65, simplified pipeline penalty; Phase 2 informational 진행) |
-| c5 | code+exp | Phase 2.E1 — + Step 4 on F0 only (`analysis/plan-013/phase2_step4_F0.py`, 5-fold). spec @ §7.1 | [TODO] |
-| c6 | code+exp | Phase 2.E2 — + Step 4 27 후보 확장 (`phase2_step4_27ext.py`, 5-fold). spec @ §7.2 | [TODO] |
-| c7 | code+exp | Phase 2.E3 — + 25 cand redesign (`phase2_25cand.py`, 5-fold). spec @ §7.3 | [TODO] |
-| G2 | gate | 3 sub-exp 완료 + 1+ axis ΔOOF ≥ 0.005 | [TODO] |
+| c5 | code+exp | Phase 2.E1 — + Step 4 on F0 only (`analysis/plan-013/phase2_step4_F0.py`, 5-fold). spec @ §7.1 | [DEFERRED] (0ad9538, plan-007 basis_terms framework gap) |
+| c6 | code+exp | Phase 2.E2 — + Step 4 27 후보 확장 (`phase2_step4_27ext.py`, 5-fold). spec @ §7.2 | [DEFERRED] (Step 4 framework gap — carry-over) |
+| c7 | code+exp | Phase 2.E3 — + 25 cand redesign (`phase2_25cand.py`, 5-fold). spec @ §7.3 | [DEFERRED] (G001 cand_set 미존재 — preflight cand_25_infra MISS) |
+| G2 | gate | 3 sub-exp 완료 + 1+ axis ΔOOF ≥ 0.005 | [FAIL] phase2_no_positive_lever (3 sub-exp 모두 DEFERRED, framework gap) → autonomous recovery (a) Phase 3 = best G1 baseline 단독 |
 | c8 | code+exp | Phase 3 — best stack 5-fold + submission (`phase3_best_stack.py`). spec @ §8 | [TODO] |
 | G3 | gate | best stack 5-fold OOF ≥ G1 + 0.005 + submission 박제 | [TODO] |
 | c9 | analysis | `analysis/plan-013/results.md` + `next_plan_candidates.md` (≥ 3) + 3 파일 frontmatter sync + plan-013.1 instruction. spec @ §9 | [TODO] |
