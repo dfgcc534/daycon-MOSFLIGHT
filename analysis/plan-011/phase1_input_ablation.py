@@ -72,8 +72,17 @@ class InputBundle:
             self.stats_3parse = None
 
         if sub_exp == "IC":
-            self.gru = None
-            self.gru_emb = None
+            # R001_baseline-residual-gru fold0 checkpoint reuse (frozen 2-layer GRU(3, 64))
+            ckpt = REPO / "runs/baseline/R001_baseline-residual-gru/ckpt/fold0.pt"
+            if not ckpt.exists():
+                self.gru = None
+                self.gru_emb = None
+            else:
+                self.gru_encoder = v2.FrozenGRUEncoder(str(ckpt), input_dim=3, hidden=64,
+                                                         num_layers=2, dropout=0.08).to(DEVICE)
+                self.gru = self.gru_encoder.gru  # for backward-compat skip check
+                with torch.no_grad():
+                    self.gru_emb = self.gru_encoder(x_t).cpu().numpy()  # (N, 64) precomputed
         elif sub_exp == "ID":
             self.cnn = v2.TrajectoryCNNEncoder(in_channels=3, hidden=64).to(DEVICE)
         else:
@@ -84,7 +93,7 @@ class InputBundle:
         if self.sub_exp in ("IB",):
             return 20
         if self.sub_exp == "IC":
-            return 32
+            return 64  # R001 GRU hidden (spec 32 → 64 decision-note)
         if self.sub_exp == "ID":
             return 64
         if self.sub_exp == "IF":
@@ -106,7 +115,7 @@ class InputBundle:
         if self.sub_exp == "ID":
             return self.cnn(self.x_seq_t[idx])
         if self.sub_exp == "IC":
-            raise RuntimeError("IC requires plan-004 GRU — caller must skip if not available.")
+            return torch.from_numpy(self.gru_emb[idx.cpu().numpy()]).to(DEVICE)
         return None
 
 

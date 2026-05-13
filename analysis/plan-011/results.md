@@ -20,10 +20,10 @@ plan_011_1_carry_over: true
 
 | metric | 값 | 비교 |
 |--------|----|------|
-| best Phase | Phase 1 In axis ID (CNN 64-dim encoder + cf 32-dim) | — |
-| best fold-0 OOF | **0.6450** | vs P1.IA anchor 0.6401 = +0.00495 (strict 미달) |
+| best Phase | Phase 1 In axis **IC** (R001 frozen GRU 64-dim + cf 32-dim) — *v1.2 post-fix update* | — |
+| best fold-0 OOF | **0.6446** | vs P1.IA anchor 0.6431 = +0.0015 (v1.2 re-run; v1.0 ID=0.6450 tied within variance) |
 | L axis best lever | L3 (asym, gate=1) | -0.0114 vs L0 (NEGATIVE) |
-| In axis best lever | **ID (CNN encoder)** | +0.00495 vs IA (★ 가장 근접 positive) |
+| In axis best lever | **IC (R001 frozen GRU 64-dim, v1.2)** | +0.0015 vs IA (v1.2 re-run); abs 0.6446 = v1.0 ID 0.6450 tied |
 | M axis best lever | M1 (GateHead, tied with M0) | 0 vs M0 |
 | F axis best lever | **F4 (LearnableSingleCandidate ★ v1.1 post-fix)** | **+0.0030** (positive direction, strict 0.005 미달) |
 | LB | TBD | submission @ `runs/baseline/H012_phase1-input-ablation/sub_ID/submission.csv` |
@@ -68,7 +68,8 @@ plan_011_1_carry_over: true
 
 | sub-exp | submission path | OOF (fold-0) | LB |
 |---------|-----------------|--------------|-----|
-| best (In axis ID) | `runs/baseline/H012_phase1-input-ablation/sub_ID/submission.csv` | 0.6450 (fold-0 val, n=2020) | TBD (plan-011.1 carry-over) |
+| best (In axis IC ★ v1.2) | `runs/baseline/H012_phase1-input-ablation/sub_IC/submission.csv` | 0.6446 (fold-0 val, n=2020) | TBD (plan-011.1 carry-over) |
+| v1.0 (In axis ID) | `runs/baseline/H012_phase1-input-ablation/sub_ID/submission.csv` | 0.6450 (fold-0 val) | TBD |
 
 submission 생성 = `analysis/plan-011/generate_submission.py` — full train (10000) ID train + test (10000) inference.
 
@@ -106,6 +107,14 @@ submission 생성 = `analysis/plan-011/generate_submission.py` — full train (1
 - 2026-05-13 v1: 초안 — Phase 1 G1 complete (autonomous Phase 3+ skip).
   - 24 sub-exp 실험 완료 (L=8, In=4 IC skip, M=7, F=5 F1/F2 fallback + F3/F4 broken).
   - autonomous option a → G_final 직접 진입, plan-012 carry-over.
+- 2026-05-13 v1.2 amendment (post-G_final spot-fix #2): IC (frozen GRU) 활성화.
+  - **R001_baseline-residual-gru fold0.pt** (2-layer GRU(3, 64) same dataset) frozen reuse — plan-004 selector
+    checkpoint *부재* 의 proxy 로 채택 (decision-note).
+  - `FrozenGRUEncoder` 구현 갱신: torch.nn.GRU(3, 64, num_layers=2, dropout=0.08) + state_dict 부분 load + freeze.
+  - spec 32-dim → 64-dim deviation 박제.
+  - IC OOF 0.6446 (+0.0015 vs IA new anchor 0.6431; abs 0.6446 = v1.0 ID 0.6450 와 variance tied).
+  - In̂ 결정 갱신: ID → **IC** (R001 frozen GRU). submission `runs/baseline/H012_phase1-input-ablation/sub_IC/submission.csv` 추가.
+
 - 2026-05-13 v1.1 amendment (post-G_final spot-fix): F3/F4 cand formula parity fix 적용 후 재실행.
   - **bug fix**: `LearnableSingleCandidate.forward` 식이 selector.make_candidates 와 numerical 일치 (v_scale=h/2·time_scale, acc_scale=(h/2)²·time_scale², d2 multiplies v_prev not a_last, par/perp 는 acc_par_vec/acc_perp_vec 직접 곱).
   - init_coef = (1.98, 0.0, 1.20, -0.20, 0.0, 1.0) — CANDIDATES[17].d1=1.98 정정 (이전 1.94 → 0.04 magnitude offset 해소).

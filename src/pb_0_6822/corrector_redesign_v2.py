@@ -412,26 +412,37 @@ class TrajectoryStatsFeature(nn.Module):
 
 
 class FrozenGRUEncoder(nn.Module):
-    """In-C: plan-004 selector.AttnGRUCandidateSelector 의 GRU encoder reuse (frozen)."""
+    """In-C: frozen pretrained GRU encoder (R001 baseline-residual-gru reuse).
 
-    def __init__(self, plan_004_ckpt_path: str, hidden: int = 32):
+    decision-note: spec-default — plan-004 selector.AttnGRUCandidateSelector checkpoint *부재* →
+      R001_baseline-residual-gru (2-layer GRU(3, 64), 같은 dataset xyz 학습) 를 frozen encoder proxy 로 사용.
+      hidden 64-dim (spec 32-dim 과 deviation; decision-note 박제).
+      fold-aware ckpt load: val_fold=k 시 fold_k.pt checkpoint 사용 (해당 fold 의 train data 만 본 model).
+    """
+
+    def __init__(
+        self, ckpt_path: str, input_dim: int = 3, hidden: int = 64, num_layers: int = 2,
+        dropout: float = 0.08,
+    ):
         super().__init__()
-        # decision-note: spec-default — plan-004 selector.AttnGRUCandidateSelector 의 `self.gru` attribute
-        # reuse. checkpoint state_dict load → gru param freeze. 본 모듈 forward 는 last-timestep hidden.
-        # 실제 ckpt 로딩은 caller (analysis/plan-011/phase1_input_ablation.py) 의 wire-in 책임.
-        # 본 모듈 = signature stub (구현은 wire-in 시점에 plan-004 정의 import 후 inject).
-        self.ckpt_path = plan_004_ckpt_path
         self.hidden = hidden
-        # plan-004 reuse — c4 wire-in 시점에 setattr(self, 'gru', plan004_gru) 수행
-        self.gru = None  # placeholder; injected by trainer
+        self.gru = nn.GRU(
+            input_dim, hidden, num_layers=num_layers, batch_first=True, dropout=dropout,
+        )
+        # load state_dict (gru.* keys; fc.* 는 무시)
+        sd = torch.load(ckpt_path, map_location="cpu", weights_only=False)
+        gru_sd = {k.replace("gru.", ""): v for k, v in sd.items() if k.startswith("gru.")}
+        self.gru.load_state_dict(gru_sd)
+        # freeze
+        for p in self.gru.parameters():
+            p.requires_grad_(False)
+        self.gru.eval()
 
     @torch.no_grad()
     def forward(self, x_seq: torch.Tensor) -> torch.Tensor:
-        """x_seq: (B, T, 9) SEQ_FEATURE_NAMES. Returns (B, hidden) last-timestep hidden."""
-        if self.gru is None:
-            raise RuntimeError("FrozenGRUEncoder.gru not injected — caller must wire plan-004 GRU.")
-        _, h = self.gru(x_seq)   # h: (1, B, hidden)
-        return h.squeeze(0)
+        """x_seq: (B, T, 3) trajectory xyz. Returns (B, hidden) last-timestep last-layer hidden."""
+        _, h = self.gru(x_seq)   # h: (num_layers, B, hidden)
+        return h[-1]              # last layer hidden
 
 
 class TrajectoryCNNEncoder(nn.Module):

@@ -3,15 +3,15 @@
   "n_folds": 1,
   "fold": 0,
   "anchor": "P1.IA",
-  "anchor_oof_soft_hit": 0.6400990099009901,
+  "anchor_oof_soft_hit": 0.6430693069306931,
   "sub_exps": {
     "P1.IA": {
       "sub_exp": "P1.IA",
       "n_val": 2020,
       "fold": 0,
-      "oof_soft_hit": 0.6400990099009901,
+      "oof_soft_hit": 0.6430693069306931,
       "oof_raw_hit": 0.6400990099009901,
-      "corrector_gain": 0.0,
+      "corrector_gain": 0.002970297029702973,
       "per_band_hit_after": {
         "[0,0.5cm)": {
           "n": 692,
@@ -22,53 +22,8 @@
         "[0.5,1cm)": {
           "n": 601,
           "hit_before": 1.0,
-          "hit_after": 0.9500831946755408,
-          "delta": -0.04991680532445919
-        },
-        "[1,1.5cm)": {
-          "n": 349,
-          "hit_before": 0.0,
-          "hit_after": 0.08595988538681948,
-          "delta": 0.08595988538681948
-        },
-        "[1.5,2cm)": {
-          "n": 97,
-          "hit_before": 0.0,
-          "hit_after": 0.0,
-          "delta": 0.0
-        },
-        "[2cm,inf)": {
-          "n": 281,
-          "hit_before": 0.0,
-          "hit_after": 0.0,
-          "delta": 0.0
-        }
-      },
-      "elapsed_sec": 2.0809693336486816,
-      "best_val_hit": 0.640099048614502,
-      "device": "cuda",
-      "dim_encoder": 0,
-      "delta_vs_anchor": 0.0
-    },
-    "P1.IB": {
-      "sub_exp": "P1.IB",
-      "n_val": 2020,
-      "fold": 0,
-      "oof_soft_hit": 0.6435643564356436,
-      "oof_raw_hit": 0.6400990099009901,
-      "corrector_gain": 0.0034653465346534684,
-      "per_band_hit_after": {
-        "[0,0.5cm)": {
-          "n": 692,
-          "hit_before": 1.0,
-          "hit_after": 1.0,
-          "delta": 0.0
-        },
-        "[0.5,1cm)": {
-          "n": 601,
-          "hit_before": 1.0,
-          "hit_after": 0.9584026622296173,
-          "delta": -0.04159733777038266
+          "hit_after": 0.956738768718802,
+          "delta": -0.043261231281197965
         },
         "[1,1.5cm)": {
           "n": 349,
@@ -89,24 +44,109 @@
           "delta": 0.0
         }
       },
-      "elapsed_sec": 2.3112375736236572,
-      "best_val_hit": 0.6435644030570984,
-      "device": "cuda",
+      "elapsed_sec": 3.685375928878784,
+      "best_val_hit": 0.643069326877594,
+      "device": "cpu",
+      "dim_encoder": 0,
+      "delta_vs_anchor": 0.0
+    },
+    "P1.IB": {
+      "sub_exp": "P1.IB",
+      "n_val": 2020,
+      "fold": 0,
+      "oof_soft_hit": 0.6435643564356436,
+      "oof_raw_hit": 0.6400990099009901,
+      "corrector_gain": 0.0034653465346534684,
+      "per_band_hit_after": {
+        "[0,0.5cm)": {
+          "n": 692,
+          "hit_before": 1.0,
+          "hit_after": 1.0,
+          "delta": 0.0
+        },
+        "[0.5,1cm)": {
+          "n": 601,
+          "hit_before": 1.0,
+          "hit_after": 0.9900166389351082,
+          "delta": -0.009983361064891838
+        },
+        "[1,1.5cm)": {
+          "n": 349,
+          "hit_before": 0.0,
+          "hit_after": 0.03724928366762178,
+          "delta": 0.03724928366762178
+        },
+        "[1.5,2cm)": {
+          "n": 97,
+          "hit_before": 0.0,
+          "hit_after": 0.0,
+          "delta": 0.0
+        },
+        "[2cm,inf)": {
+          "n": 281,
+          "hit_before": 0.0,
+          "hit_after": 0.0,
+          "delta": 0.0
+        }
+      },
+      "elapsed_sec": 3.357224225997925,
+      "best_val_hit": 0.6435643434524536,
+      "device": "cpu",
       "dim_encoder": 20,
-      "delta_vs_anchor": 0.0034653465346534684
+      "delta_vs_anchor": 0.0004950495049504955
     },
     "P1.IC": {
       "sub_exp": "P1.IC",
-      "skip": true,
-      "reason": "plan-004 selector.AttnGRUCandidateSelector checkpoint 부재"
+      "n_val": 2020,
+      "fold": 0,
+      "oof_soft_hit": 0.6445544554455446,
+      "oof_raw_hit": 0.6400990099009901,
+      "corrector_gain": 0.004455445544554459,
+      "per_band_hit_after": {
+        "[0,0.5cm)": {
+          "n": 692,
+          "hit_before": 1.0,
+          "hit_after": 1.0,
+          "delta": 0.0
+        },
+        "[0.5,1cm)": {
+          "n": 601,
+          "hit_before": 1.0,
+          "hit_after": 0.9916805324459235,
+          "delta": -0.008319467554076532
+        },
+        "[1,1.5cm)": {
+          "n": 349,
+          "hit_before": 0.0,
+          "hit_after": 0.04011461318051576,
+          "delta": 0.04011461318051576
+        },
+        "[1.5,2cm)": {
+          "n": 97,
+          "hit_before": 0.0,
+          "hit_after": 0.0,
+          "delta": 0.0
+        },
+        "[2cm,inf)": {
+          "n": 281,
+          "hit_before": 0.0,
+          "hit_after": 0.0,
+          "delta": 0.0
+        }
+      },
+      "elapsed_sec": 1.3943390846252441,
+      "best_val_hit": 0.6445544362068176,
+      "device": "cpu",
+      "dim_encoder": 64,
+      "delta_vs_anchor": 0.0014851485148514865
     },
     "P1.ID": {
       "sub_exp": "P1.ID",
       "n_val": 2020,
       "fold": 0,
-      "oof_soft_hit": 0.6450495049504951,
+      "oof_soft_hit": 0.6435643564356436,
       "oof_raw_hit": 0.6400990099009901,
-      "corrector_gain": 0.004950495049504955,
+      "corrector_gain": 0.0034653465346534684,
       "per_band_hit_after": {
         "[0,0.5cm)": {
           "n": 692,
@@ -117,14 +157,14 @@
         "[0.5,1cm)": {
           "n": 601,
           "hit_before": 1.0,
-          "hit_after": 0.940099833610649,
-          "delta": -0.05990016638935103
+          "hit_after": 0.9500831946755408,
+          "delta": -0.04991680532445919
         },
         "[1,1.5cm)": {
           "n": 349,
           "hit_before": 0.0,
-          "hit_after": 0.1318051575931232,
-          "delta": 0.1318051575931232
+          "hit_after": 0.10601719197707736,
+          "delta": 0.10601719197707736
         },
         "[1.5,2cm)": {
           "n": 97,
@@ -139,19 +179,19 @@
           "delta": 0.0
         }
       },
-      "elapsed_sec": 2.4236373901367188,
-      "best_val_hit": 0.645049512386322,
-      "device": "cuda",
+      "elapsed_sec": 1.9809739589691162,
+      "best_val_hit": 0.6435643434524536,
+      "device": "cpu",
       "dim_encoder": 64,
-      "delta_vs_anchor": 0.004950495049504955
+      "delta_vs_anchor": 0.0004950495049504955
     },
     "P1.IF": {
       "sub_exp": "P1.IF",
       "n_val": 2020,
       "fold": 0,
-      "oof_soft_hit": 0.6415841584158416,
+      "oof_soft_hit": 0.6425742574257426,
       "oof_raw_hit": 0.6400990099009901,
-      "corrector_gain": 0.0014851485148514865,
+      "corrector_gain": 0.0024752475247524774,
       "per_band_hit_after": {
         "[0,0.5cm)": {
           "n": 692,
@@ -162,14 +202,14 @@
         "[0.5,1cm)": {
           "n": 601,
           "hit_before": 1.0,
-          "hit_after": 0.9733777038269551,
-          "delta": -0.0266222961730449
+          "hit_after": 0.9900166389351082,
+          "delta": -0.009983361064891838
         },
         "[1,1.5cm)": {
           "n": 349,
           "hit_before": 0.0,
-          "hit_after": 0.054441260744985676,
-          "delta": 0.054441260744985676
+          "hit_after": 0.03151862464183381,
+          "delta": 0.03151862464183381
         },
         "[1.5,2cm)": {
           "n": 97,
@@ -184,15 +224,15 @@
           "delta": 0.0
         }
       },
-      "elapsed_sec": 3.394467353820801,
-      "best_val_hit": 0.6415841579437256,
-      "device": "cuda",
+      "elapsed_sec": 2.58964467048645,
+      "best_val_hit": 0.6425742506980896,
+      "device": "cpu",
       "dim_encoder": 20,
-      "delta_vs_anchor": 0.0014851485148514865
+      "delta_vs_anchor": -0.0004950495049504955
     }
   },
   "axis_positive_threshold_0p005": false,
-  "max_delta_vs_anchor": 0.004950495049504955,
-  "best_lever": "P1.ID",
-  "generated_at": "2026-05-13T05:27:14.316509+09:00"
+  "max_delta_vs_anchor": 0.0014851485148514865,
+  "best_lever": "P1.IC",
+  "generated_at": "2026-05-13T18:25:41.244544+09:00"
 }

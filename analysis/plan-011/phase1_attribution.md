@@ -41,17 +41,19 @@ Phase 1 24 sub-exp (L0~L7 + IA,IB,ID,IF (IC skip) + M0~M6 + F0~F4) 모두 fold-0
 
 L̂ = L3 (delta_vs_z1 +0.0010, tied with L7). L axis 전체 NEGATIVE vs L0 anchor — Z1 minimum 자체가 fold-0 에서 plan-004 default 보다 낮음.
 
-## §3. In axis 표 (4 sub-exp; IC skip)
+## §3. In axis 표 (5 sub-exp) — ★ v1.2 IC 활성화 후 재실행
 
-| sub-exp | oof_soft_hit | delta_vs_anchor (IA=0.6401) | encoder_dim |
-|---------|--------------|------------------------------|-------------|
-| IA (anchor) | 0.6401 | 0       | 0 (cf only) |
-| IB (+stats 20-dim) | 0.6436 | +0.0035 | 20 |
-| IC (+frozen GRU 32-dim) | SKIP | — | (plan-004 GRU 부재) |
-| **ID (+CNN 64-dim)** | **0.6450** | **+0.00495** ★ | 64 |
-| IF (+stats × multi-parse) | 0.6416 | +0.0015 | 20 |
+| sub-exp | oof_soft_hit | delta_vs_anchor (IA=0.6431, v1.2 re-run) | encoder_dim |
+|---------|--------------|-------------------------------------------|-------------|
+| IA (anchor) | 0.6431 | 0       | 0 (cf only) |
+| IB (+stats 20-dim) | 0.6436 | +0.0005 | 20 |
+| **IC (+R001 frozen GRU 64-dim)** | **0.6446** | **+0.0015** ★ NEW BEST | 64 |
+| ID (+CNN 64-dim learnable) | 0.6436 | +0.0005 | 64 |
+| IF (+stats × multi-parse) | 0.6426 | -0.0005 | 20 |
 
-In̂ = ID. delta_vs_anchor +0.00495 — *strict* 0.005 threshold 에 0.5e-3 부족. 그러나 4 axis 중 *유일하게 positive* 방향.
+In̂ = **IC** (R001_baseline-residual-gru fold0.pt frozen reuse). v1.0 의 ID +0.00495 vs v1.2 의 IC +0.0015 — IA anchor 의 fold-0 seed variance (0.6401 → 0.6431) 가 일부 흡수. *absolute* OOF 로는 IC=0.6446 vs v1.0 ID=0.6450 ≈ tied (variance 0.0005 m).
+
+> v1.2 amendment: plan-004 selector checkpoint *부재* → R001_baseline-residual-gru (2-layer GRU(3, 64) same dataset) frozen reuse. spec 32-dim → 64-dim deviation 박제 (decision-note).
 
 ## §4. M axis 표 (7 sub-exp)
 
@@ -93,7 +95,7 @@ F̂ = **F4** (post-fix) — positive direction, strict 0.005 threshold 미달이
 | lever | 채택 | 사유 |
 |-------|------|------|
 | L̂ | **L3** (asym, gate=1) | delta_vs_z1 +0.0010 (tied with L7); spec 의 C009 motivation 명시 |
-| In̂ | **ID** (CNN encoder 64-dim) | 유일 positive 방향 (+0.00495); 4 axis 중 best |
+| In̂ | **IC** (R001 frozen GRU 64-dim, v1.2 post-fix) | absolute OOF 0.6446 (best within In axis); v1.0 ID=0.6450 와 tied (seed variance) |
 | M̂ | **M1** (GateHead) | tied with M0; gate infrastructure 보존 |
 | F̂ | **F4** (LearnableSingleCandidate, v1.1 post-fix) | +0.0030 vs F0 anchor — formula parity 보강 후 진정한 측정 |
 

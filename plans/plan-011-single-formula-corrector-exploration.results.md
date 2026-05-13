@@ -35,6 +35,8 @@ Phase 1 24 sub-exp 완료. 0/4 axes strict +0.005 통과 (In axis ID 가장 근�
 
 **v1.1 post-G_final amendment**: F3/F4 cand formula parity fix 적용. F4 = 0.6431 (+0.0030 vs F0), F axis 진정한 측정 회복. *2 axes (In ID, F F4) sub-threshold positive direction* — P3.1/P3.3 informational 진행 가능성 plan-011.1 carry-over 박제.
 
+**v1.2 post-G_final amendment**: IC (frozen GRU) 활성화 — R001_baseline-residual-gru fold0.pt (2-layer GRU(3,64) same dataset) frozen reuse. spec 32-dim → 64-dim deviation. IC OOF = 0.6446, In̂ = IC (이전 ID 대체). best Phase 갱신 → IC submission.
+
 ## 주요 산출
 
 - `analysis/plan-011/preflight.json` — G0 결과 (D001=0.6570 < 0.66, c008 disabled).

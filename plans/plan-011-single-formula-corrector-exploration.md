@@ -2,11 +2,12 @@
 plan_id: 011
 version: 1
 date: 2026-05-13 (Asia/Seoul)
-status: partial (G1 complete + v1.1 post-fix amendment, Phase 3+ autonomous skip)
-best_phase: Phase 1 In axis ID
-best_oof_fold0: 0.6450
-best_submission: runs/baseline/H012_phase1-input-ablation/sub_ID/submission.csv
+status: partial (G1 complete + v1.1/v1.2 post-fix amendments, Phase 3+ autonomous skip)
+best_phase: Phase 1 In axis IC (R001 frozen GRU, v1.2)
+best_oof_fold0: 0.6446
+best_submission: runs/baseline/H012_phase1-input-ablation/sub_IC/submission.csv
 v1_1_amendment: F3/F4 formula parity fix (F4 post-fix = 0.6431, +0.0030 vs F0 — F axis 진정한 측정 회복)
+v1_2_amendment: IC frozen GRU 활성화 (R001 fold0 reuse, 64-dim). IC OOF 0.6446, In̂ = IC (이전 ID 대체)
 based_on:
   - 004
   - 005
