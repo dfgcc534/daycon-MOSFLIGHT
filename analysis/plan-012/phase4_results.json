@@ -1,0 +1,123 @@
+{
+  "exp_id": "H029_phase4-final-5fold",
+  "config_anchor": {
+    "name": "anchor_E0a",
+    "temperature": 0.03,
+    "use_reg_head": true,
+    "use_hinge": true,
+    "r0_logit_prior": 0.0
+  },
+  "config_best": {
+    "name": "best_stack_E0a+tau0.01+r0_0.5",
+    "temperature": 0.01,
+    "use_reg_head": true,
+    "use_hinge": true,
+    "r0_logit_prior": 0.5
+  },
+  "n_train": 10000,
+  "n_test": 10000,
+  "n_folds": 5,
+  "anchor_5fold_oof_hit_1cm": 0.6339,
+  "best_5fold_oof_hit_1cm": 0.634,
+  "delta_oof": 9.999999999998899e-05,
+  "G4_threshold_delta": 0.005,
+  "G4_passed": false,
+  "G4_warn": "final_no_additive",
+  "fold_results": {
+    "anchor": [
+      {
+        "val_fold": 0,
+        "best_val_hit": 0.6415841584158416,
+        "best_epoch": 4,
+        "n_train": 7980,
+        "n_val": 2020,
+        "elapsed_seconds": 6.3
+      },
+      {
+        "val_fold": 1,
+        "best_val_hit": 0.633610161211529,
+        "best_epoch": 4,
+        "n_train": 7953,
+        "n_val": 2047,
+        "elapsed_seconds": 5.3
+      },
+      {
+        "val_fold": 2,
+        "best_val_hit": 0.6382092660072879,
+        "best_epoch": 3,
+        "n_train": 8079,
+        "n_val": 1921,
+        "elapsed_seconds": 4.7
+      },
+      {
+        "val_fold": 3,
+        "best_val_hit": 0.6321782178217822,
+        "best_epoch": 1,
+        "n_train": 7980,
+        "n_val": 2020,
+        "elapsed_seconds": 3.3
+      },
+      {
+        "val_fold": 4,
+        "best_val_hit": 0.623995983935743,
+        "best_epoch": 7,
+        "n_train": 8008,
+        "n_val": 1992,
+        "elapsed_seconds": 7.4
+      }
+    ],
+    "best": [
+      {
+        "val_fold": 0,
+        "best_val_hit": 0.6420792079207921,
+        "best_epoch": 4,
+        "n_train": 7980,
+        "n_val": 2020,
+        "elapsed_seconds": 5.3
+      },
+      {
+        "val_fold": 1,
+        "best_val_hit": 0.6306790425012213,
+        "best_epoch": 5,
+        "n_train": 7953,
+        "n_val": 2047,
+        "elapsed_seconds": 6.1
+      },
+      {
+        "val_fold": 2,
+        "best_val_hit": 0.6371681415929203,
+        "best_epoch": 1,
+        "n_train": 8079,
+        "n_val": 1921,
+        "elapsed_seconds": 3.1
+      },
+      {
+        "val_fold": 3,
+        "best_val_hit": 0.6356435643564357,
+        "best_epoch": 2,
+        "n_train": 7980,
+        "n_val": 2020,
+        "elapsed_seconds": 3.7
+      },
+      {
+        "val_fold": 4,
+        "best_val_hit": 0.6244979919678715,
+        "best_epoch": 1,
+        "n_train": 8008,
+        "n_val": 1992,
+        "elapsed_seconds": 3.0
+      }
+    ]
+  },
+  "submission_best": "runs/baseline/H029_phase4-final-5fold/submission.csv",
+  "submission_anchor_fallback": "runs/baseline/H029_phase4-final-5fold/submission_anchor_fallback.csv",
+  "submission_used_for_LB": "runs/baseline/H029_phase4-final-5fold/submission_anchor_fallback.csv",
+  "elapsed_total_seconds": 48.3,
+  "training_config": {
+    "epochs": 15,
+    "batch_size": 512,
+    "patience": 3,
+    "lr": 0.0003,
+    "weight_decay": 0.0001
+  }
+}

@@ -1,0 +1,25 @@
+inline selector loaded: 27 candidates
+[phase4] loading train ...
+[phase4] loading test ...
+[phase4] train: N=10000 T=11, test: N=10000 T=11
+
+[phase4] === config: anchor_E0a ===
+[phase4 anchor fold 0] val_hit=0.6416 @ epoch 4 (6.3s)
+[phase4 anchor fold 1] val_hit=0.6336 @ epoch 4 (5.3s)
+[phase4 anchor fold 2] val_hit=0.6382 @ epoch 3 (4.7s)
+[phase4 anchor fold 3] val_hit=0.6322 @ epoch 1 (3.3s)
+[phase4 anchor fold 4] val_hit=0.6240 @ epoch 7 (7.4s)
+
+[phase4] === config: best_stack_E0a+tau0.01+r0_0.5 ===
+[phase4 best fold 0] val_hit=0.6421 @ epoch 4 (5.3s)
+[phase4 best fold 1] val_hit=0.6307 @ epoch 5 (6.1s)
+[phase4 best fold 2] val_hit=0.6372 @ epoch 1 (3.1s)
+[phase4 best fold 3] val_hit=0.6356 @ epoch 2 (3.7s)
+[phase4 best fold 4] val_hit=0.6245 @ epoch 1 (3.0s)
+
+[phase4] anchor 5-fold OOF hit@1cm = 0.6339
+[phase4] best   5-fold OOF hit@1cm = 0.6340  (Δ = +0.0001)
+[phase4] wrote best   submission → runs/baseline/H029_phase4-final-5fold/submission.csv
+[phase4] wrote anchor submission → runs/baseline/H029_phase4-final-5fold/submission_anchor_fallback.csv
+[phase4] wrote analysis/plan-012/phase4_results.json
+[phase4] G4 passed: False (delta=+0.0001, threshold=+0.005)
