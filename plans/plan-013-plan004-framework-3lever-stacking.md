@@ -2,7 +2,7 @@
 plan_id: 013
 version: 1
 date: 2026-05-14 (Asia/Seoul)
-status: written
+status: G_final_complete (warn-recovered — G0 partial + G1 warn + G2 severe-recovered + G3 warn; LB carry-over plan-013.1)
 based_on:
   - 004
   - 006
@@ -69,7 +69,7 @@ lb_score: null
 - G1: plan-004 + In/IC 5-fold OOF ≥ 0.65 [WARN] (0.6381, simplified pipeline penalty)
 - G2: Phase 2 3-sub-exp 완료 + 1+ axis ΔOOF ≥ 0.005 [FAIL] (3 deferred, framework gap → autonomous Phase 3 fallback)
 - G3: best stack 5-fold OOF ≥ G1 + 0.005 + submission 박제 [WARN] (fallback: 0.6381=G1, submission ✓)
-- G_final: synthesis + plan-014 후보 + 3 파일 sync + plan-013.1 instruction [TODO]
+- G_final: synthesis + plan-014 후보 + 3 파일 sync + plan-013.1 instruction [DONE]
 
 ### Commit chain (next-up)
 
@@ -88,8 +88,8 @@ lb_score: null
 | G2 | gate | 3 sub-exp 완료 + 1+ axis ΔOOF ≥ 0.005 | [FAIL] phase2_no_positive_lever (3 sub-exp 모두 DEFERRED, framework gap) → autonomous recovery (a) Phase 3 = best G1 baseline 단독 |
 | c8 | code+exp | Phase 3 — best stack 5-fold + submission (`phase3_best_stack.py`). spec @ §8 | [DONE] (ccf6f72, fallback mode: 5-fold OOF 0.6381 = G1, submission 10000 rows 박제) |
 | G3 | gate | best stack 5-fold OOF ≥ G1 + 0.005 + submission 박제 | [WARN] final_no_additive (0.6381 < 0.6431, fallback path — lever 0 stack 으로 super-additive 불가) |
-| c9 | analysis | `analysis/plan-013/results.md` + `next_plan_candidates.md` (≥ 3) + 3 파일 frontmatter sync + plan-013.1 instruction. spec @ §9 | [TODO] |
-| G_final | gate | synthesis + plan-014 후보 + 3 파일 sync + plan-013.1 instruction | [TODO] |
+| c9 | analysis | `analysis/plan-013/results.md` + `next_plan_candidates.md` (≥ 3) + 3 파일 frontmatter sync + plan-013.1 instruction. spec @ §9 | [DONE] (본 commit) |
+| G_final | gate | synthesis + plan-014 후보 + 3 파일 sync + plan-013.1 instruction | [DONE] (본 commit) |
 
 ### Plan-specific severe (WORKFLOW.md §12.3 default 위 추가분)
 
