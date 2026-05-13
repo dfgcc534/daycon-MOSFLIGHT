@@ -1,0 +1,88 @@
+inline selector loaded: 27 candidates
+[phase2] winner anchor OOF = 0.6416, axis ranking = ['x', 'y', 'z']
+[phase2] loading data ...
+[E2.K5] n_train=7980, n_val=2020, K=5
+[E2.K5] epoch 01/15 loss=1.6180 val_hit=0.6406 DCM=0.00084
+[E2.K5] epoch 02/15 loss=1.6158 val_hit=0.6391 DCM=0.00068
+[E2.K5] epoch 03/15 loss=1.6163 val_hit=0.6396 DCM=0.00029
+[E2.K5] epoch 04/15 loss=1.6150 val_hit=0.6401 DCM=0.00035
+[E2.K5] early stop @ epoch 4
+[E2.K5] best=0.6406 ΔOOF=-0.0010 DCM=0.00084 (3.8s)
+[E2.K9] n_train=7980, n_val=2020, K=9
+[E2.K9] epoch 01/15 loss=2.2052 val_hit=0.6406 DCM=0.00078
+[E2.K9] epoch 02/15 loss=2.2031 val_hit=0.6396 DCM=0.00068
+[E2.K9] epoch 03/15 loss=2.2011 val_hit=0.6406 DCM=0.00044
+[E2.K9] epoch 04/15 loss=2.2004 val_hit=0.6401 DCM=0.00027
+[E2.K9] early stop @ epoch 4
+[E2.K9] best=0.6406 ΔOOF=-0.0010 DCM=0.00078 (2.8s)
+[E2.K13] n_train=7980, n_val=2020, K=13
+[E2.K13] epoch 01/15 loss=2.5720 val_hit=0.6406 DCM=0.00065
+[E2.K13] epoch 02/15 loss=2.5693 val_hit=0.6426 DCM=0.00088
+[E2.K13] epoch 03/15 loss=2.5671 val_hit=0.6401 DCM=0.00043
+[E2.K13] epoch 04/15 loss=2.5659 val_hit=0.6406 DCM=0.00019
+[E2.K13] epoch 05/15 loss=2.5644 val_hit=0.6416 DCM=0.00047
+[E2.K13] early stop @ epoch 5
+[E2.K13] best=0.6426 ΔOOF=+0.0010 DCM=0.00088 (3.8s)
+[E3.tau0.00] n_train=7980, n_val=2020, K=7
+[E3.tau0.00] epoch 01/15 loss=1.9549 val_hit=0.6371 DCM=0.00140
+[E3.tau0.00] epoch 02/15 loss=1.9533 val_hit=0.6406 DCM=0.00093
+[E3.tau0.00] epoch 03/15 loss=1.9528 val_hit=0.6391 DCM=0.00059
+[E3.tau0.00] epoch 04/15 loss=1.9529 val_hit=0.6421 DCM=0.00037
+[E3.tau0.00] epoch 05/15 loss=1.9520 val_hit=0.6381 DCM=0.00042
+[E3.tau0.00] epoch 06/15 loss=1.9517 val_hit=0.6371 DCM=0.00037
+[E3.tau0.00] epoch 07/15 loss=1.9507 val_hit=0.6421 DCM=0.00030
+[E3.tau0.00] early stop @ epoch 7
+[E3.tau0.00] best=0.6421 ΔOOF=+0.0005 DCM=0.00037 (5.2s)
+[E3.tau0.01] n_train=7980, n_val=2020, K=7
+[E3.tau0.01] epoch 01/15 loss=1.9547 val_hit=0.6391 DCM=0.00109
+[E3.tau0.01] epoch 02/15 loss=1.9531 val_hit=0.6431 DCM=0.00079
+[E3.tau0.01] epoch 03/15 loss=1.9526 val_hit=0.6396 DCM=0.00052
+[E3.tau0.01] epoch 04/15 loss=1.9526 val_hit=0.6421 DCM=0.00034
+[E3.tau0.01] epoch 05/15 loss=1.9518 val_hit=0.6386 DCM=0.00039
+[E3.tau0.01] early stop @ epoch 5
+[E3.tau0.01] best=0.6431 ΔOOF=+0.0015 DCM=0.00079 (3.5s)
+[E3.tau0.10] n_train=7980, n_val=2020, K=7
+[E3.tau0.10] epoch 01/15 loss=1.9543 val_hit=0.6401 DCM=0.00086
+[E3.tau0.10] epoch 02/15 loss=1.9529 val_hit=0.6396 DCM=0.00027
+[E3.tau0.10] epoch 03/15 loss=1.9525 val_hit=0.6406 DCM=0.00042
+[E3.tau0.10] epoch 04/15 loss=1.9526 val_hit=0.6421 DCM=0.00031
+[E3.tau0.10] epoch 05/15 loss=1.9518 val_hit=0.6401 DCM=0.00039
+[E3.tau0.10] epoch 06/15 loss=1.9516 val_hit=0.6391 DCM=0.00019
+[E3.tau0.10] epoch 07/15 loss=1.9506 val_hit=0.6416 DCM=0.00045
+[E3.tau0.10] early stop @ epoch 7
+[E3.tau0.10] best=0.6421 ΔOOF=+0.0005 DCM=0.00031 (4.9s)
+[E3.tau0.30] n_train=7980, n_val=2020, K=7
+[E3.tau0.30] epoch 01/15 loss=1.9543 val_hit=0.6416 DCM=0.00077
+[E3.tau0.30] epoch 02/15 loss=1.9529 val_hit=0.6391 DCM=0.00023
+[E3.tau0.30] epoch 03/15 loss=1.9524 val_hit=0.6411 DCM=0.00043
+[E3.tau0.30] epoch 04/15 loss=1.9526 val_hit=0.6411 DCM=0.00026
+[E3.tau0.30] early stop @ epoch 4
+[E3.tau0.30] best=0.6416 ΔOOF=+0.0000 DCM=0.00077 (3.0s)
+[E3.tau1.00] n_train=7980, n_val=2020, K=7
+[E3.tau1.00] epoch 01/15 loss=1.9543 val_hit=0.6411 DCM=0.00072
+[E3.tau1.00] epoch 02/15 loss=1.9529 val_hit=0.6391 DCM=0.00023
+[E3.tau1.00] epoch 03/15 loss=1.9524 val_hit=0.6411 DCM=0.00043
+[E3.tau1.00] epoch 04/15 loss=1.9526 val_hit=0.6411 DCM=0.00025
+[E3.tau1.00] early stop @ epoch 4
+[E3.tau1.00] best=0.6411 ΔOOF=-0.0005 DCM=0.00072 (2.8s)
+[E4.no_hinge] n_train=7980, n_val=2020, K=7
+[E4.no_hinge] epoch 01/15 loss=1.9616 val_hit=0.6391 DCM=0.00089
+[E4.no_hinge] epoch 02/15 loss=1.9599 val_hit=0.6411 DCM=0.00041
+[E4.no_hinge] epoch 03/15 loss=1.9595 val_hit=0.6406 DCM=0.00040
+[E4.no_hinge] epoch 04/15 loss=1.9595 val_hit=0.6421 DCM=0.00035
+[E4.no_hinge] epoch 05/15 loss=1.9587 val_hit=0.6391 DCM=0.00037
+[E4.no_hinge] epoch 06/15 loss=1.9585 val_hit=0.6386 DCM=0.00012
+[E4.no_hinge] epoch 07/15 loss=1.9575 val_hit=0.6421 DCM=0.00037
+[E4.no_hinge] early stop @ epoch 7
+[E4.no_hinge] best=0.6421 ΔOOF=+0.0005 DCM=0.00035 (4.8s)
+[E5.reg_head_off] n_train=7980, n_val=2020, K=7
+[E5.reg_head_off] epoch 01/15 loss=1.9545 val_hit=0.6366 DCM=0.00064
+[E5.reg_head_off] epoch 02/15 loss=1.9529 val_hit=0.6381 DCM=0.00050
+[E5.reg_head_off] epoch 03/15 loss=1.9525 val_hit=0.6386 DCM=0.00044
+[E5.reg_head_off] epoch 04/15 loss=1.9526 val_hit=0.6386 DCM=0.00041
+[E5.reg_head_off] epoch 05/15 loss=1.9518 val_hit=0.6361 DCM=0.00057
+[E5.reg_head_off] epoch 06/15 loss=1.9516 val_hit=0.6386 DCM=0.00049
+[E5.reg_head_off] early stop @ epoch 6
+[E5.reg_head_off] best=0.6386 ΔOOF=-0.0030 DCM=0.00044 (3.7s)
+[phase2] wrote analysis/plan-012/phase2_results.json
+[phase2] G2 passed: False (positive axes: [])
