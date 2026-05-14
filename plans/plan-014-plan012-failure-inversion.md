@@ -2,13 +2,22 @@
 plan_id: 014
 version: 4.5 (spec patch — plan-review-master iter 5 (max) fix 4건 → loop 종료. (1) §3.4 G5 best_stack 정의 wording sync to §9.1: "Phase 2 best 1 + Phase 3 best 1, ΔOOF > 0 인 경우 채택, max 3 elements stack". (2) §3.4 G1 (a) val_hit threshold sync to §5.4: strict `>` → `≥ initial − 0.05` margin (random-init variance 흡수). (3) §3.4 G1 (b)(ii) F0 range 4-digit 통일 `[0.6270, 0.6370]`. (4) §2.1.B.1 E6 boundary weight `weighted_mean = Σ(w·loss)/Σw` 분모 = Σw (plan-012 convention carry). plan-review-master loop max iter 도달, BLOCKER 0. v4.4 → v4.5.)
 date: 2026-05-14 (Asia/Seoul)
-status: spec
+status: G_final_complete
 based_on:
   - 012
-followed_by: []
+followed_by:
+  - 015 (negative branch — deep path-pivot per plan-013 join row 4)
 scope: plan-012 (codebook bake-off + hybrid) 의 5-fold OOF plateau 의 root cause = *plan-004 selector + plan-012 corrector 코드의 재사용 강박* — premise 채택 (검증 안 함). 그 premise 위에서 plan-012 의 5-Phase 실험 프로세스 (preflight → bake-off → axis ablation → aux ablation → final 5-fold) 를 **F0 (plan-006 frenet_par120_perp_neg020) frozen prior + corrector from-scratch 재구현 위에서 그대로 재실행**. baseline = (C1 from-scratch BiGRU corrector + C2 frozen plan-006 F0 + C3 anchor 0.01m + C4 Gaussian soft σ=0.01m) fixed, 그 위에서 plan-012 의 8 ablation lever + 3 codebook bake-off 진행. baseline reproduce 없음 + plan-012 measured 값 reference 없음 (plan-012 result.md = INVALID_REFERENCE 박제 fd64f6c 후 §Target band absolute ≥0.66 / 0.65~0.66 / <0.65).
-exp_ids: []
+exp_ids:
+  - H036_g0_preflight
+  - H037_g1_module_smoke
+  - H038_g2_phase1_bakeoff
+  - H039_g3_phase2_axis5
+  - H040_g4_phase3_aux3
+  - H041_g5_phase4_final
 lb_score: null
+band: negative
+best_stack_5fold_oof: 0.6425
 ---
 
 # plan-014 v4 — F0 (plan-006) frozen prior + corrector from-scratch 정밀화
