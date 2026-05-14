@@ -145,8 +145,15 @@ def train_one_fold_v2(
         epoch_log.append({"epoch": epoch + 1, "train_loss": train_loss,
                           "val_loss": val_loss_f, "val_hit": val_hit, "dcm": dcm})
 
-        # monitor = val_hit (ascending)
-        if val_hit > best_val_hit:
+        # monitor = cfg.monitor ("val_hit" ascending / "val_loss" descending) — plan-016 Path B
+        monitor = getattr(cfg, "monitor", "val_hit")
+        if monitor == "val_hit":
+            improved = val_hit > best_val_hit
+        elif monitor == "val_loss":
+            improved = val_loss_f < best_val_loss
+        else:
+            raise ValueError(f"Unknown monitor: {monitor!r} (expected 'val_hit' or 'val_loss')")
+        if improved:
             best_val_loss = val_loss_f
             best_val_hit = val_hit
             best_state = {k: v.detach().clone() for k, v in model.state_dict().items()}

@@ -1,0 +1,69 @@
+{
+  "exp_id": "H049_g0_preflight",
+  "plan_version": "v1.5",
+  "reproduce_5fold_oof": 0.6425,
+  "baseline_target": 0.6425,
+  "baseline_tolerance": 0.0005,
+  "in_range": true,
+  "path_a_seeds": [
+    20260514,
+    20260515,
+    20260516,
+    20260517,
+    20260518
+  ],
+  "seed_ok": true,
+  "monitor_results": {
+    "val_hit": {
+      "ok": true,
+      "err": null
+    },
+    "val_loss": {
+      "ok": true,
+      "err": null
+    },
+    "invalid_signature_accepts": true
+  },
+  "monitor_ok": true,
+  "feature_single_apply_sanity": {
+    "B": {
+      "shape": [
+        100,
+        6,
+        10
+      ],
+      "expected_dim": 10,
+      "shape_ok": true,
+      "nan_inf_ok": true
+    },
+    "C": {
+      "shape": [
+        100,
+        6,
+        18
+      ],
+      "expected_dim": 18,
+      "shape_ok": true,
+      "nan_inf_ok": true
+    },
+    "D": {
+      "shape": [
+        100,
+        6,
+        15
+      ],
+      "expected_dim": 15,
+      "shape_ok": true,
+      "nan_inf_ok": true
+    }
+  },
+  "feature_dim_ok": true,
+  "g0_checks": {
+    "reproduce_in_range": true,
+    "seed_list_ok": true,
+    "monitor_options_ok": true,
+    "feature_dim_sanity": true
+  },
+  "g0_passed": true,
+  "elapsed_seconds": 15.921632289886475
+}

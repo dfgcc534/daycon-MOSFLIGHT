@@ -487,6 +487,7 @@ class TrainConfig:
     seed: int = DEFAULT_SEED
     device: str = "cuda" if torch.cuda.is_available() else "cpu"
     end_idx: int = 10
+    monitor: str = "val_hit"               # plan-016 Path B: "val_hit" | "val_loss"
 
 
 def _hit_rate_torch(pred: torch.Tensor, true: torch.Tensor, threshold_m: float = 0.01) -> float:
@@ -653,8 +654,13 @@ def train_one_fold(
             "dcm": dcm,
         })
 
-        # monitor = val_hit (ascending)
-        improved = val_hit > best_val_hit
+        # monitor = cfg.monitor ("val_hit" ascending / "val_loss" descending)
+        if cfg.monitor == "val_hit":
+            improved = val_hit > best_val_hit
+        elif cfg.monitor == "val_loss":
+            improved = val_loss_f < best_val_loss
+        else:
+            raise ValueError(f"Unknown monitor: {cfg.monitor!r} (expected 'val_hit' or 'val_loss')")
         if improved:
             best_val_loss = val_loss_f
             best_val_hit = val_hit
