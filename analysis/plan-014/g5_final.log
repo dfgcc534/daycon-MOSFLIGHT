@@ -1,0 +1,32 @@
+[plan-014 G5 v4] loading data ...
+[plan-014 G5] N_train=10000, N_test=10000
+
+[plan-014 G5] === anchor 5-fold ===
+  fold 0: val_hit=0.6573 dcm=0.0027 epoch=6/20 elapsed=7.2s
+  fold 1: val_hit=0.6283 dcm=0.0026 epoch=2/20 elapsed=5.2s
+  fold 2: val_hit=0.6452 dcm=0.0025 epoch=11/20 elapsed=5.7s
+  fold 3: val_hit=0.6239 dcm=0.0029 epoch=12/20 elapsed=5.4s
+  fold 4: val_hit=0.6251 dcm=0.0023 epoch=2/20 elapsed=3.8s
+  anchor 5-fold concat OOF hit@1cm = 0.6359
+
+[plan-014 G5] === best 5-fold ===
+  fold 0: val_hit=0.6658 dcm=0.0027 epoch=11/20 elapsed=6.3s
+  fold 1: val_hit=0.6412 dcm=0.0032 epoch=16/20 elapsed=7.6s
+  fold 2: val_hit=0.6507 dcm=0.0024 epoch=11/20 elapsed=6.3s
+  fold 3: val_hit=0.6318 dcm=0.0022 epoch=5/20 elapsed=5.0s
+  fold 4: val_hit=0.6230 dcm=0.0024 epoch=4/20 elapsed=4.7s
+  best 5-fold concat OOF hit@1cm = 0.6425
+
+[plan-014 G5] === G5 final ===
+  anchor_5fold_oof = 0.6359
+  best_5fold_oof   = 0.6425
+  delta_oof        = +0.0066 (threshold +0.005)
+  G5_passed        = True, warn=None
+  band             = **negative** (band_oof=0.6425)
+
+  submission_best        -> runs/baseline/plan014_g5_phase4/submission_best.csv
+  submission_anchor_fallback -> runs/baseline/plan014_g5_phase4/submission_anchor_fallback.csv
+  submission_used_for_LB -> runs/baseline/plan014_g5_phase4/submission_best.csv (best)
+
+[plan-014 G5] elapsed_total=59.0s (0.98 min)
+[plan-014 G5] artifact -> analysis/plan-014/g5_phase4.json

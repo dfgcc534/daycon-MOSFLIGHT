@@ -1,0 +1,135 @@
+{
+  "exp_id": "H041_g5_phase4_final",
+  "config_anchor": {
+    "name": "anchor",
+    "K": 7,
+    "encoder_name": "bigru",
+    "codebook": "kmeans",
+    "frame": "world",
+    "use_reg_head": true,
+    "use_hinge": false,
+    "temperature": 0.03,
+    "r0_logit_prior": 0.0,
+    "boundary_weight_on": false,
+    "lr": 0.001,
+    "batch_size": 256,
+    "epochs": 20,
+    "patience": 5,
+    "seed": 20260514,
+    "device": "cuda",
+    "end_idx": 10
+  },
+  "config_best": {
+    "name": "best",
+    "K": 9,
+    "encoder_name": "bigru",
+    "codebook": "kmeans",
+    "frame": "world",
+    "use_reg_head": true,
+    "use_hinge": false,
+    "temperature": 0.03,
+    "r0_logit_prior": 0.0,
+    "boundary_weight_on": true,
+    "lr": 0.001,
+    "batch_size": 256,
+    "epochs": 20,
+    "patience": 5,
+    "seed": 20260514,
+    "device": "cuda",
+    "end_idx": 10
+  },
+  "n_train": 10000,
+  "n_test": 10000,
+  "n_folds": 5,
+  "anchor_5fold_oof_hit_1cm": 0.6359,
+  "best_5fold_oof_hit_1cm": 0.6425,
+  "delta_oof": 0.006599999999999939,
+  "G5_threshold_delta": 0.005,
+  "G5_passed": true,
+  "G5_warn": null,
+  "band": "negative",
+  "band_oof": 0.6425,
+  "fold_results": {
+    "anchor": [
+      {
+        "fold": 0,
+        "val_hit": 0.6572580337524414,
+        "dcm": 0.002741595497354865,
+        "best_epoch": 6,
+        "elapsed_seconds": 7.192266941070557
+      },
+      {
+        "fold": 1,
+        "val_hit": 0.62833172082901,
+        "dcm": 0.0026393691077828407,
+        "best_epoch": 2,
+        "elapsed_seconds": 5.213273525238037
+      },
+      {
+        "fold": 2,
+        "val_hit": 0.64517742395401,
+        "dcm": 0.002485654316842556,
+        "best_epoch": 11,
+        "elapsed_seconds": 5.658762216567993
+      },
+      {
+        "fold": 3,
+        "val_hit": 0.6238938570022583,
+        "dcm": 0.002888848539441824,
+        "best_epoch": 12,
+        "elapsed_seconds": 5.370335578918457
+      },
+      {
+        "fold": 4,
+        "val_hit": 0.625063955783844,
+        "dcm": 0.002325617941096425,
+        "best_epoch": 2,
+        "elapsed_seconds": 3.790233850479126
+      }
+    ],
+    "best": [
+      {
+        "fold": 0,
+        "val_hit": 0.6658266186714172,
+        "dcm": 0.002749498700723052,
+        "best_epoch": 11,
+        "elapsed_seconds": 6.277784109115601
+      },
+      {
+        "fold": 1,
+        "val_hit": 0.6411648988723755,
+        "dcm": 0.0032117750961333513,
+        "best_epoch": 16,
+        "elapsed_seconds": 7.589929819107056
+      },
+      {
+        "fold": 2,
+        "val_hit": 0.6506747007369995,
+        "dcm": 0.0023761147167533636,
+        "best_epoch": 11,
+        "elapsed_seconds": 6.302256345748901
+      },
+      {
+        "fold": 3,
+        "val_hit": 0.6317601203918457,
+        "dcm": 0.002202921314164996,
+        "best_epoch": 5,
+        "elapsed_seconds": 4.980241775512695
+      },
+      {
+        "fold": 4,
+        "val_hit": 0.6230179071426392,
+        "dcm": 0.002448603045195341,
+        "best_epoch": 4,
+        "elapsed_seconds": 4.695202589035034
+      }
+    ]
+  },
+  "submission_best_path": "runs/baseline/plan014_g5_phase4/submission_best.csv",
+  "submission_anchor_fallback_path": "runs/baseline/plan014_g5_phase4/submission_anchor_fallback.csv",
+  "submission_used_for_LB": "runs/baseline/plan014_g5_phase4/submission_best.csv",
+  "submission_n_rows": 10000,
+  "elapsed_total_seconds": 58.97668790817261,
+  "plan_version": "v4.5",
+  "f0_frozen_baseline": "plan-006_frenet_par120_perp_neg020"
+}
