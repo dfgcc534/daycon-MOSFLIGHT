@@ -1,0 +1,29 @@
+{
+  "exp_id": "H058_g1_ensemble",
+  "plan_version": "v1.4",
+  "sources": [
+    "/workspace/daycon-muflight/analysis/plan-013/submission.csv",
+    "/workspace/daycon-muflight/runs/baseline/plan014_g5_phase4/submission_best.csv",
+    "/workspace/daycon-muflight/runs/baseline/plan016_g1_path_a/submission.csv"
+  ],
+  "n_samples": 10000,
+  "per_source_l2_to_mean": {
+    "plan_013": {
+      "mean_dist_m": 0.0017532086113620558,
+      "p95_dist_m": 0.006342972725582011
+    },
+    "plan_014_15": {
+      "mean_dist_m": 0.001216304174053247,
+      "p95_dist_m": 0.005247288631769213
+    },
+    "plan_016_g1": {
+      "mean_dist_m": 0.0008860346431517474,
+      "p95_dist_m": 0.0036766297658706562
+    }
+  },
+  "baseline_lb_plan016_g1": 0.6638,
+  "submission_path": "runs/baseline/plan017_g1_ensemble/submission.csv",
+  "lb_score": null,
+  "lb_pass": null,
+  "elapsed_seconds": 0.05138754844665527
+}
