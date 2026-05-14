@@ -81,7 +81,7 @@ baseline (plan-014/015 best_stack, LB 0.6628)
 
 | # | type | spec section | status |
 |---|---|---|---|
-| c1 | docs | v1 draft — 3 limitation 진단 + 3-path sequential ablation spec | [TODO] |
+| c1 | docs | v1 draft — 3 limitation 진단 + 3-path sequential ablation spec | [DONE] a3d5269 |
 | c2 | code+exp | STAGE 0 (G0) — preflight: baseline reproduce + 3 path config sanity | [TODO] |
 | c3 | code+exp | STAGE 1 (G1, Path A) — multi-seed × multi-fold ensemble | [TODO] |
 | c4 | code+exp | STAGE 2 (G2, Path B) — monitor=val_loss cumulative | [TODO] |
