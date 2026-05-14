@@ -53,8 +53,8 @@
   "delta_oof": 0.0027000000000000357,
   "delta_threshold": 0.005,
   "oof_pass": false,
-  "lb_pass": null,
-  "status": null,
+  "lb_pass": false,
+  "status": "marginal_under_threshold",
   "fold_results": [
     {
       "seed": 20260514,
@@ -283,5 +283,7 @@
     }
   ],
   "submission_path": "runs/baseline/plan016_g1_path_a/submission.csv",
-  "elapsed_total_seconds": 71.3631317615509
+  "elapsed_total_seconds": 71.3631317615509,
+  "lb_score": 0.6638,
+  "delta_lb": 0.001
 }
