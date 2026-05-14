@@ -55,11 +55,11 @@ lb_score: null
 ### G-gates (정량 spec @ §3.3)
 
 - **G0** preflight: baseline (plan-014 best_stack) 5-fold reproduce ± 0.005 + feature dim sanity [DONE c8529e7: OOF=0.6425 정확 reproduce + 4 feature dim 모두 일치]
-- **G1** E1 (A): A feature added, ΔOOF vs G0 anchor [TODO]
-- **G2** E2 (A+B): + B feature, ΔOOF vs G1 [TODO]
-- **G3** E3 (A+B+C): + C feature, ΔOOF vs G2 [TODO]
-- **G4** E4 (A+B+C+D): + D feature, ΔOOF vs G3 [TODO]
-- **G5** best stack 5-fold + submission: 4 step 중 *cumulative ΔOOF 가 가장 큰 sub-exp* 채택. submission 박제 [TODO]
+- **G1** E1 (A): A feature added, ΔOOF vs G0 anchor [DONE 0bd5f2c: OOF=0.6415 Δ=−0.0010 **negative** → drop rule 발동]
+- **G2** E2 (A+B): + B feature, ΔOOF vs G1 [SKIPPED — drop rule]
+- **G3** E3 (A+B+C): + C feature, ΔOOF vs G2 [SKIPPED — drop rule]
+- **G4** E4 (A+B+C+D): + D feature, ΔOOF vs G3 [SKIPPED — drop rule]
+- **G5** best stack 5-fold + submission: best = G0 baseline (= plan-014 best_stack OOF=0.6425) [TODO — submission carry]
 - **G_final** synthesis: results.md + frontmatter sync + plan-016 후보 (LB carry-over 포함) [TODO]
 
 ### 합격 기준 (Q2 결정 — Δ + band)
@@ -93,11 +93,11 @@ lb_score: null
 | c2.3 | docs | **v2.3 spec patch — plan-review-master iter 3 fix 7건.** (1) §1 Feature B acc_normal/binormal = raw acc · n̂/b̂ sign 보존 (정보 손실 해결). (2) §5~§8 marginal anchor inheritance 명기. (3) Feature C τ=2 alignment 단일화. (4) §3.3 G0(b) C 단독 18D base 9D 명시. (5) §9.1 candidates baseline = G0 재현 OOF. (6) §5.1 plan015_features.py signature 박제. (7) §7.2 weight 재초기화 spec. v2.2 → v2.3 | [DONE] d4cb908 |
 | c2.4 | docs | **v2.4 spec patch — plan-review-master iter 4 fix 6건.** (1+2) §5.1 plan015_features 의 A→B→C→D 적용 순서 + 단독/cumulative 분기 로직 박제. (3) §5/§6/§8 spec 본문 weight 재초기화 carry 명기. (4) §9.1 argmax + tie-break + drop rule 코드 spec 박제. (5) §9.2 test 5-fold ensemble = per-fold checkpoint coord mean 명시. (6) §3.1 test sample reduction cross-ref. v2.3 → v2.4 | [DONE] c2fc3e5 |
 | c3 | code+exp | STAGE 0 (G0) — preflight: plan-014 baseline 5-fold reproduce + feature dim sanity. PASS: reproduce OOF=0.6425 (정확 일치, target ±0.005). 4 feature single+cumulative dim all ok (A/B/C/D 단독 = 12/10/18/15D, cumulative = 12/13/26/32D) | [DONE] c8529e7 |
-| c4 | code+exp | STAGE 1 (G1, E1) — feature A only (F0 residual direct), 5-fold OOF | [TODO] |
-| c5 | exp | STAGE 2 (G2, E2) — A+B (F0 residual + binormal split), 5-fold OOF | [TODO] |
-| c6 | exp | STAGE 3 (G3, E3) — A+B+C (+ multi-scale stride), 5-fold OOF | [TODO] |
-| c7 | exp | STAGE 4 (G4, E4) — A+B+C+D (+ pairwise), 5-fold OOF | [TODO] |
-| c8 | code+exp | STAGE 5 (G5) — best cumulative + 5-fold concat + submission (Δ + band 판정) | [TODO] |
+| c4 | code+exp | STAGE 1 (G1, E1) — feature A only (F0 residual direct), 5-fold OOF. **NEGATIVE** (OOF=0.6415, Δ=−0.0010) — drop rule 발동, A feature 가설 falsified | [DONE] 0bd5f2c |
+| c5 | exp | STAGE 2 (G2, E2) — A+B (F0 residual + binormal split), 5-fold OOF | [SKIPPED — G1 negative drop rule §3.2 v2.2] |
+| c6 | exp | STAGE 3 (G3, E3) — A+B+C (+ multi-scale stride), 5-fold OOF | [SKIPPED — G1 negative drop rule] |
+| c7 | exp | STAGE 4 (G4, E4) — A+B+C+D (+ pairwise), 5-fold OOF | [SKIPPED — G1 negative drop rule] |
+| c8 | code+exp | STAGE 5 (G5) — best cumulative + 5-fold concat + submission (Δ + band 판정) | [TODO — best = G0 baseline carry, plan-014 best_stack submission 재사용] |
 | c9 | docs+sync | STAGE 6 (G_final) — results.md + frontmatter sync + plan-016 후보 + LB carry-over (plan-014 + plan-015 best 둘 다 dacon-submit 1회) | [TODO] |
 
 ---
