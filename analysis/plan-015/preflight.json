@@ -1,0 +1,95 @@
+{
+  "exp_id": "H042_g0_preflight",
+  "reproduce_5fold_oof": 0.6425,
+  "baseline_target": 0.6425,
+  "baseline_tolerance": 0.005,
+  "in_range": true,
+  "feature_single_apply_sanity": {
+    "A": {
+      "shape": [
+        100,
+        6,
+        12
+      ],
+      "expected_dim": 12,
+      "shape_ok": true,
+      "nan_inf_ok": true
+    },
+    "B": {
+      "shape": [
+        100,
+        6,
+        10
+      ],
+      "expected_dim": 10,
+      "shape_ok": true,
+      "nan_inf_ok": true
+    },
+    "C": {
+      "shape": [
+        100,
+        6,
+        18
+      ],
+      "expected_dim": 18,
+      "shape_ok": true,
+      "nan_inf_ok": true
+    },
+    "D": {
+      "shape": [
+        100,
+        6,
+        15
+      ],
+      "expected_dim": 15,
+      "shape_ok": true,
+      "nan_inf_ok": true
+    }
+  },
+  "feature_cumulative_sanity": {
+    "A": {
+      "shape": [
+        100,
+        6,
+        12
+      ],
+      "expected": 12,
+      "ok": true
+    },
+    "A+B": {
+      "shape": [
+        100,
+        6,
+        13
+      ],
+      "expected": 13,
+      "ok": true
+    },
+    "A+B+C": {
+      "shape": [
+        100,
+        6,
+        26
+      ],
+      "expected": 26,
+      "ok": true
+    },
+    "A+B+C+D": {
+      "shape": [
+        100,
+        6,
+        32
+      ],
+      "expected": 32,
+      "ok": true
+    }
+  },
+  "all_sanity_ok": true,
+  "g0_checks": {
+    "reproduce_in_range": true,
+    "feature_dim_sanity": true
+  },
+  "g0_passed": true,
+  "elapsed_seconds": 15.953884601593018,
+  "plan_version": "v2.4"
+}
