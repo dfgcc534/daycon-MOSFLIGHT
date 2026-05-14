@@ -111,7 +111,7 @@ G0 preflight  →  G1 module + smoke  →  G2 Phase 1 bake-off  →  G3 Phase 2 
 | # | type | spec section | status |
 |---|---|---|---|
 | c1 ~ c2.3 | docs | v0~v2.3 narrative + spec drop + sync (git log authoritative) | [DONE] 4657ff7~b6bf927 (c1: 4657ff7+2a0f755 / c1.1: c7cf5c8 / c1.2: 5e98d6d / c1.3: c7fa9c8 / c1.4: 3a7a26c / c1.5: ab50cce / c2: ad051e2 / c2.1: 0a3c317 / c2.2: 90d9e0d / c2.3: b6bf927) |
-| **c3** | docs | **v3 spec replacement — plan-012 5-Phase frame import.** v2.x single-path 폐기, 4 컴포넌트 baseline (fixed) + plan-012 5-Phase ablation frame 으로 재작성. frontmatter version 2.3→3 / title v1→v3 / §0.5 multi-path / §1.1 evolution 표 / §1.5 정직성 reframe / §2.1 baseline+ablation / §3.3 The Configs multi / §3.4 7-stage G-gate / §4~§10 stub | [TODO] |
+| **c3** | docs | **v3 spec replacement — plan-012 5-Phase frame import.** v2.x single-path 폐기, 4 컴포넌트 baseline (fixed) + plan-012 5-Phase ablation frame 으로 재작성. frontmatter version 2.3→3 / title v1→v3 / §0.5 multi-path / §1.1 evolution 표 / §1.5 정직성 reframe / §2.1 baseline+ablation / §3.3 The Configs multi / §3.4 7-stage G-gate / §4~§10 stub | [DONE] 5f6750b |
 | c4 | code+exp | STAGE 0 (G0) — preflight artifact. spec @ §4 | [TODO] |
 | c5 | code | STAGE 1 (G1) — `src/pb_0_6822/plan014_paradigm.py` 새 module + smoke + 재사용 끊김. spec @ §5 | [TODO] |
 | c6 | code+exp | STAGE 2 (G2) — Phase 1 codebook bake-off (E0a/E0b/E0c 3 sub-exp → winner). spec @ §6 | [TODO] |
