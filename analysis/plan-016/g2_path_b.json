@@ -49,8 +49,8 @@
   "delta_oof_vs_g1": -0.0038000000000000256,
   "delta_threshold": 0.005,
   "oof_pass": false,
-  "lb_pass": null,
-  "status": null,
+  "lb_pass": false,
+  "status": "negative_drop",
   "best_epoch_std": 2.2141364004956876,
   "l3_closure_target_3": true,
   "fold_results": [
@@ -281,5 +281,7 @@
     }
   ],
   "submission_path": "runs/baseline/plan016_g2_path_b/submission.csv",
-  "elapsed_total_seconds": 94.18611264228821
+  "elapsed_total_seconds": 94.18611264228821,
+  "lb_score": 0.6634,
+  "delta_lb_vs_g1": -0.0004
 }
