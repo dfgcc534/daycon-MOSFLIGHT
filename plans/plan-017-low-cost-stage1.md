@@ -1,6 +1,6 @@
 ---
 plan_id: 017
-version: 1.1 (plan-review-master iter 1 fix 10건 — voxel window ±2cm BLOCKER fix + 9 AMBIGUITY 정합/명시화)
+version: 1.2 (plan-review-master iter 2 fix 7건 — 잔재 청소 (±2.5cm 2곳) + voxel_idx_to_offset_torch 함수명 통일 + Target G2 threshold + coverage 3단계 rule + mixed case 4분기 + numeric anchor 박제)
 date: 2026-05-15 (Asia/Seoul)
 status: spec
 based_on:
@@ -41,7 +41,7 @@ baseline_oof: 0.6452 # plan-016 G1
 
 - baseline LB = **0.6638** (plan-016 G1 carry).
 - G1 ensemble pass = LB Δ ≥ 0 (non-strict, tie 도 fail 아님; §3.1 와 단어 통일).
-- G2 voxel CE pass = OOF Δ > 0 vs G1 baseline 0.6452 (positive). LB submission 사용자 confirm.
+- G2 voxel CE pass = OOF Δ ≥ +0.003 vs G1 baseline 0.6452 AND LB Δ ≥ +0.003 vs 0.6638 (§3.1 / §6.3 일치). LB submission 사용자 confirm.
 - G_final = 두 stage 결과 summary + 사용자 paradigm-shift 결정 anchor 박제.
 
 ### Commit chain
@@ -50,6 +50,7 @@ baseline_oof: 0.6452 # plan-016 G1
 |---|---|---|---|
 | c1 | docs | v1 draft — plan-017 spec (low-cost stage 1) | [DONE] 0566934 |
 | c1.1 | docs | **v1.1 spec patch — plan-review-master iter 1 fix 10건.** (1) §1.2 voxel window ±2.5cm → ±2cm BLOCKER fix. (2) §2.1 G2 변경/보존 명세 정합 (anchor codebook 무력화 명시 + confound caveat). (3) §0.5 G1 pass criterion Δ>0 → Δ≥0 통일. (4) §4.1 (d) 2cm coverage measure 추가. (5) §6.1 voxel_idx_to_offset numpy/torch 양 variant 명시. (6) §6.1 sample_weight dtype/device 명시 (torch.Tensor, requires_grad=False, dtype=float32). (7) §5.2 submission save schema inline. (8) §4.1 (c) smoke input dim (B=16, seq_len=6, feature_dim=9) inline. (9) §7.2 LB band threshold inline (plan-016 외부 의존 제거). (10) §4.3 재사용 module signature inline + cascade 위험 박제. v1 → v1.1 | [DONE] cf874e0 |
+| c1.2 | docs | **v1.2 spec patch — plan-review-master iter 2 fix 7건 (5 AMBIGUITY + 2 recurring 잔재).** (1) §6.2.A 주석 "±2.5cm" → "±2cm" 잔재 청소. (2) §2.2 "±2.5cm" 잔재 → "±2cm". (3) §6.2.D `voxel_idx_to_offset_tensor` → `voxel_idx_to_offset_torch` (§6.1 박제 이름과 통일) + device 인자. (4) §0.5 Target G2 OOF Δ > 0 → Δ ≥ +0.003 (§3.1 / §6.3 일치). (5) §4.1 (d) coverage threshold 3 단계 rule (≥0.95 OK / 0.90-0.95 caveat / <0.90 fail). (6) §3.1 mixed case 4 분기 (G1+G2 pass / G1-only / G2-only / both-fail) paradigm-shift anchor 박제. (7) §1.1 ε~+0.005 variance reduction lemma origin + §1.2 +0.003~0.005 quantitative anchor (plan-006 oracle 회수율 + plan-016 G3-G5 lever multiplier). v1.1 → v1.2 | [TODO] |
 | c2 | code+exp | STAGE 0 (G0) — preflight + Voxel CE module smoke | [TODO] |
 | c3 | exp | STAGE 1 (G1) — 3-plan ensemble + dacon-submit | [TODO] |
 | c4 | code+exp | STAGE 2 (G2) — Voxel CE head 5-seed × 5-fold + dacon-submit | [TODO] |
@@ -87,7 +88,7 @@ plan-014/015/016 의 corrector paradigm (F0=plan-006 frenet_par120_perp_neg020 +
 
 3 submission 의 framework 가 *partially disjoint* — plan-013 = plan-004 framework simplified; plan-014/015/016 = corrector paradigm. 좌표 mean 시 uncorrelated error 부분 reduce 기대.
 
-가설: ensemble LB ≥ 0.6638 (+ ε), where ε ~ +0.005 (uncorrelated error mean의 typical effect).
+가설: ensemble LB ≥ 0.6638 (+ ε), where ε ~ +0.005 (variance reduction lemma — N=3 uncorrelated errors mean σ ↓ by √3, hit@1cm 의 Δ 기대치 +0.005 ~ +0.01 (plan-016 의 single-seed → multi-seed 5-seed 회수량 +0.0010 LB 와 동등 order — sub-threshold but positive direction).
 
 ### §1.2 Voxel CE Head (G2) — hit metric 직접 정렬
 
@@ -99,7 +100,7 @@ plan-016 G2 (Path B monitor=val_loss) 의 measured 결론: train objective (hybr
 - Forward predict: argmax 위 voxel_center → 3D offset → F0_pred + offset.
 - 1cm voxel width = hit@1cm threshold 의 *natural alignment* (1cm 안 prediction = correct voxel argmax).
 
-가설: voxel CE 가 plan-016 G1 BiGRU regression head 대비 +0.003~0.005 OOF 회수 가능.
+가설: voxel CE 가 plan-016 G1 BiGRU regression head 대비 +0.003~0.005 OOF 회수 가능. **+0.003 origin**: plan-016 G3/G4/G5 Path C 의 max OOF Δ 가 +0.0009 (Feature D, sub-threshold) — single-feature lever 보다 head replacement 가 더 큰 lever 라 가정 (×3 ~ ×5 multiplier 추정). **+0.005 origin**: plan-006 oracle (radius=0.01m anchor codebook ceiling = 0.8248) 와 plan-016 G1 measured (0.6452) 의 회수율 5.4% 위 1cm-aligned 추가 회수 가능량 추정 (단 quantitative anchor 약함, G2 실측이 최종 anchor).
 
 ---
 
@@ -121,7 +122,7 @@ plan-016 G2 (Path B monitor=val_loss) 의 measured 결론: train objective (hybr
 |---|---|
 | Ablation 사이 stage (G1 vs G2 vs G1+G2) | 사용자 명시 "ablation 없이 최대한 단순한 버전" |
 | F3/F4 formula parity fix | plan-011 paradigm 전용. plan-006 F0 (frenet_par120_perp_neg020) 사용 시 무관. |
-| Voxel CE 내부 tuning (voxel size / window / depth) | 단일 spec (5×5×5, ±2.5cm) 만. 후속 fine-tune 은 ② 결정 후 |
+| Voxel CE 내부 tuning (voxel size / window / depth) | 단일 spec (5×5×5, ±2cm) 만. 후속 fine-tune 은 ② 결정 후 |
 | paradigm-shift (#1 / #2 / #3) 구현 | G_final 사용자 결정점 후 후속 plan |
 
 ---
@@ -132,8 +133,11 @@ plan-016 G2 (Path B monitor=val_loss) 의 measured 결론: train objective (hybr
 
 - **G1 (ensemble)** pass = LB Δ ≥ 0 vs plan-016 G1 LB 0.6638 (positive direction). OOF 산출 불가 (3 submission 의 OOF 가 동일 train set 위 derived, ensemble OOF = 좌표 mean 위 train sample hit 가능 but 가치 낮음 — *LB 직접 측정만*).
 - **G2 (voxel CE)** pass = OOF Δ ≥ +0.003 vs plan-016 G1 OOF 0.6452. LB Δ pass = +0.003 vs 0.6638.
-- 둘 다 pass → positive direction confirmed
-- 둘 다 fail → paradigm-shift (#1 / #2+#3) 필수성 강화
+- 분기 (mixed case 박제, §7.3 결정 anchor 와 cross-ref):
+  - 둘 다 pass → "positive direction confirmed", paradigm-shift cost 낮춤 — 후속 plan 으로 voxel CE depth/window grid 또는 ensemble 확장 권장.
+  - **G1 pass + G2 fail** → ensemble path 유망, voxel CE head 만 한계 — paradigm-shift #1 (plan-004 2-stage) 권장 (head 자체보다 architecture 변경).
+  - **G1 fail + G2 pass** → voxel CE path 유망, ensemble 무효 — paradigm-shift #2+#3 (CLIP+regime bias) 권장 (loss-metric alignment 유지하면서 input space 확장).
+  - 둘 다 fail → paradigm-shift (#1 / #2+#3) 필수성 강화 — 사용자 직접 선택.
 
 ### §3.2 OOF aggregation (G2)
 
@@ -163,7 +167,10 @@ plan-016 §5.2 carry: 5 seed × 5 fold → per-fold seed-mean → 5-fold concat 
   - (a) 3 submission file 존재 + row count = 10001 (header + 10000 sample) verify.
   - (b) plan-016 G1 baseline reproduce check — 직접 reproduce 안 함 (이미 plan-016 G0/G1 박제). artifact load 만.
   - (c) Plan017VoxelCEHead module smoke — input `seq (B=16, seq_len=6, feature_dim=9)` 위 forward → logits shape `(16, 125)`, voxel_idx range ∈ [0, 125) verify, `voxel_ce_loss(logits, y, f0_pred)` 의 `loss.item()` finite, `loss.backward()` no error. (seq_len=6 = plan-014/016 carry, end_idx=10 의 [5..10] 6 step.)
-  - (d) **Voxel grid 2cm window coverage measure** — 10K train sample 위 `||y - F0||₂` 분포 산출, `frac(||y-F0||₂ ≤ 0.02)` (= voxel grid 안 정확 mapping 비율) + p50/p95/p99 quantile 박제. coverage < 95% 시 clamp 효과 caveat 박제 (§6.2.B clamp behavior).
+  - (d) **Voxel grid 2cm window coverage measure** — 10K train sample 위 `||y - F0||₂` 분포 산출, `frac(||y-F0||₂ ≤ 0.02)` (= voxel grid 안 정확 mapping 비율) + p50/p95/p99 quantile 박제. coverage threshold rule:
+    - coverage ≥ 0.95 → OK, no caveat
+    - 0.90 ≤ coverage < 0.95 → caveat 박제 (clamp 영향 있을 수 있음, G2 결과 해석 시 명시), G0 pass.
+    - coverage < 0.90 → G0 FAIL (voxel grid window 너무 좁음, plan 본문 §6.2 spec 재설계 필요).
 - `analysis/plan-017/preflight.json`
 - registry row `H057_g0_preflight`
 
@@ -172,7 +179,7 @@ plan-016 §5.2 carry: 5 seed × 5 fold → per-fold seed-mean → 5-fold concat 
 - (a) 3 file 존재 (10000 row + header = 10001 line), row count 일치
 - (b) plan-016 G1 artifact 로드 OK (`analysis/plan-016/g1_path_a.json` 의 OOF=0.6452, LB=0.6638 carry)
 - (c) Voxel CE smoke: forward (B=16, seq_len=6, feature_dim=9) → logits shape (16, 125), voxel_idx shape (16,) ∈ [0, 125), loss.item() finite, backward.step() no error
-- (d) Voxel coverage measure: `frac(||y - F0||₂ ≤ 0.02m) ≥ 0.90` (90% 이상 coverage 시 clamp 효과 marginal 판정).
+- (d) Voxel coverage measure: `frac(||y - F0||₂ ≤ 0.02m) ≥ 0.90` (90% G0 pass minimum, ≥ 0.95 caveat-free). §4.1 (d) 의 3 단계 threshold rule 동일.
 
 ### §4.3 Code reuse safety check (§3.4 박제, code 작성 의무)
 
@@ -269,9 +276,9 @@ dacon-submit 1회 (사용자 confirm 후, feedback memory `feedback_dacon_submit
 
 ```python
 VOXEL_WIDTH = 0.01   # 1cm (hit threshold)
-VOXEL_DEPTH = 5      # ±2.5cm per axis (= ±2 voxels + center)
+VOXEL_DEPTH = 5      # ±2 voxels each side + center (5 levels total, axis range ±2cm)
 VOXEL_TOTAL = 125    # 5³
-HALF_RANGE = (VOXEL_DEPTH - 1) / 2  # 2.0
+HALF_RANGE = (VOXEL_DEPTH - 1) / 2  # 2.0 (voxel-index unit; physical range = HALF_RANGE × VOXEL_WIDTH = 0.02m = 2cm)
 # axis grid: [-2, -1, 0, 1, 2] × VOXEL_WIDTH = [-0.02, -0.01, 0, 0.01, 0.02]
 # voxel_idx = (ix + 2) * 25 + (iy + 2) * 5 + (iz + 2)   where ix ∈ {-2..2}
 ```
@@ -316,7 +323,7 @@ def hybrid_predict_voxel(seq, encoder, voxel_head, f0_pred_detached, temperature
     h = encoder(seq)                                    # (B, 256)
     logits = voxel_head(h)                              # (B, 125)
     argmax_idx = logits.argmax(dim=1)                   # (B,)
-    offset = voxel_idx_to_offset_tensor(argmax_idx)     # (B, 3) torch
+    offset = voxel_idx_to_offset_torch(argmax_idx, device=logits.device)   # (B, 3) torch (§6.1 박제 함수)
     return f0_pred_detached + offset
 ```
 
