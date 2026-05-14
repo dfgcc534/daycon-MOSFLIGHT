@@ -109,7 +109,7 @@ baseline (plan-014/015 best_stack, LB 0.6628)
 | c6 | exp | STAGE 4 (G4, Path C-C) — Feature C 단독 (multi-scale stride, 18D base) | [DONE] efe761b (OOF=0.6458 Δ=+0.0006 vs G1, sub-threshold, LB unsubmitted) |
 | c7 | exp | STAGE 5 (G5, Path C-D) — Feature D 단독 (pairwise, 15D base) | [DONE] efe761b (OOF=0.6461 Δ=+0.0009 vs G1, sub-threshold positive, LB unsubmitted) |
 | c8 | code+exp | STAGE 6 (G6) — best stack 5-fold + submission + dacon-submit | [SKIP] G6 = G1 alias (Path C 3/3 sub-threshold + LB 미산출, dacon-submit 보류 사용자 결정). best_c=None case per §10.1 fallback (G6 = G2 alias 가 아니라 G2 drop 으로 G1 alias 명세 확장). |
-| c9 | docs+sync | STAGE 7 (G_final) — results.md + frontmatter sync + plan-017 후보 | [TODO→DONE this commit] |
+| c9 | docs+sync | STAGE 7 (G_final) — results.md + frontmatter sync + plan-017 후보 | [DONE] 50e9881 |
 
 ---
 
