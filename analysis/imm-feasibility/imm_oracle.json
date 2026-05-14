@@ -1,0 +1,72 @@
+{
+  "exp_id": "M002_imm-oracle",
+  "n_samples": 10000,
+  "hit_threshold_m": 0.01,
+  "single_mode_hit_1cm": {
+    "CV": 0.1273,
+    "CA": 0.2123,
+    "CT": 0.1124
+  },
+  "max_single_mode": "CA",
+  "max_single_mode_hit_1cm": 0.2123,
+  "oracle_imm_hit_1cm": 0.2851,
+  "delta_lb_upper_bound_oracle_minus_best_single": 0.07280000000000003,
+  "delta_lb_vs_baseline_plan014_015": -0.3776999999999999,
+  "delta_lb_vs_baseline_plan016_g1": -0.3786999999999999,
+  "best_pred_mode_distribution": {
+    "CV": 0.2777,
+    "CA": 0.5319,
+    "CT": 0.1904
+  },
+  "best_pred_mode_counts": {
+    "CV": 2777,
+    "CA": 5319,
+    "CT": 1904
+  },
+  "bic_vs_pred_agreement": 0.5317,
+  "bic_vs_pred_confusion_matrix_rows_bic_cols_pred": [
+    [
+      246,
+      263,
+      122
+    ],
+    [
+      2366,
+      4803,
+      1514
+    ],
+    [
+      165,
+      253,
+      268
+    ]
+  ],
+  "pred_err_quantiles_per_mode_m": {
+    "CV": {
+      "p5": 0.005768060972979495,
+      "p25": 0.016372177745978513,
+      "p50": 0.032395823436839555,
+      "p75": 0.05704045526022372,
+      "p95": 0.11845835400932093
+    },
+    "CA": {
+      "p5": 0.004222696393031677,
+      "p25": 0.011363038191078466,
+      "p50": 0.02203880389731617,
+      "p75": 0.040899397981486,
+      "p95": 0.1032541352304497
+    },
+    "CT": {
+      "p5": 0.00646203974262694,
+      "p25": 0.017346236906889245,
+      "p50": 0.032863726576810734,
+      "p75": 0.058560200732330044,
+      "p95": 0.12592424878835262
+    }
+  },
+  "comparison_to_baselines": {
+    "plan014_015_LB": 0.6628,
+    "plan016_G1_LB": 0.6638
+  },
+  "elapsed_seconds": 0.8786830902099609
+}
