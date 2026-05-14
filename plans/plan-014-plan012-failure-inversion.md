@@ -1,6 +1,6 @@
 ---
 plan_id: 014
-version: 1.3 (draft — narrative reframe: task essence = "F0 64% cover + 남은 20% 끌어당김"; plan-004 참조 범위 = input 가공 + F0 cover 입증 2가지만)
+version: 1.4 (draft — simplification spot-fix: plan-004 negative blacklist 제거. positive whitelist 2가지 + "그 외 = 전부 새로 build" 한 줄로 압축)
 date: 2026-05-14 (Asia/Seoul)
 status: draft
 based_on:
@@ -25,7 +25,7 @@ lb_score: null
 > - **input feature 가공 방식** (시계열 9-dim × 6-step 같은 input representation 의 *형식·전처리*)
 > - **F0 sample cover 입증** (단일 선형 공식이 64%/84% cover — plan-006 LB 0.6692 의 hard evidence)
 >
-> 그 외 (`CandidateAttentionGRUSelector` 통째 / candidate-attention head / 27-way selector 구조 / pretrained weight 등) = **참조 안 함**. 본 plan 의 encoder + head 는 "**시계열 → 7 방향 점수 + 0.5cm 이동 offset**" task 에 직접 맞춘 from-scratch design (§0.5 C1).
+> **위 2가지 외 = 전부 새로 build** (`selector.py` import 없음). 본 plan 의 encoder + head 는 "**시계열 → 7 방향 점수 + 0.5cm 이동 offset**" task 에 직접 맞춘 새 module (§0.5 C1).
 >
 > 비교 baseline = plan-012.results.md 의 measured 5-fold OOF 0.6350 (외부 reference). 본 plan 의 OOF 가 §Target band 의 어느 위치에 들어가는지가 paradigm 의 진짜 잠재력 측정.
 >
@@ -48,9 +48,7 @@ lb_score: null
 - **(a) input feature 가공 방식** — 시계열 9-dim × 6-step 의 input representation 형식·전처리 (e.g. `selector.make_seq_features`). 검증된 데이터 표현이므로 reuse.
 - **(b) F0 sample cover 입증** — 단일 선형 공식 64%/84% cover 의 *측정 결과* (= plan-006 LB 0.6692). 본 plan 의 task essence 가 정당화되는 hard evidence.
 
-그 외 plan-004 참조 = **금지**:
-- `CandidateAttentionGRUSelector` 통째/부분 import 모두 X — 특히 candidate-attention head (`self.query` / `ctx_norm` / `event_norm` / `head`) 의 27-way selection 구조, pretrained weight init 등 plan-004 의 sample-별 27-후보-비교 task 에 fit 된 모든 부분.
-- *시계열 인코딩 자체* (GRU 또는 equivalent) 는 task-neutral 표준 도구이므로 reuse 가 아니라 본 plan 의 새 encoder 내부에서 `nn.GRU(...)` 를 *직접 생성* (= `selector.py` import 하지 않음, 본 plan 의 새 module 안에서 build).
+**위 2가지 외 = 전부 새로 build** — `selector.py` import 없음, 본 plan 의 새 module 안에서 from-scratch. 시계열 모듈 (GRU 등) 도 새 module 안에서 직접 생성 (`nn.GRU(...)` 등 표준 layer 사용은 OK, 단 plan-004 모듈 import 는 X).
 
 ### 본 plan 의 premise (← task essence 의 implied corollary, 검증 대상 아님)
 
@@ -93,7 +91,7 @@ anchor radius = 0.005m                                   # ← plan-004/006 era 
   - target = plan-012 와 동일 (5-fold OOF ≥ 0.66)
 
 - **재사용 끊기 — 4 컴포넌트 from-scratch** (= 본 plan 이 *교체하는* 것):
-  - **C1 encoder** (★ v1.2 재정정 + v1.3 task-essence link): 본 plan 의 task = "시계열 → 7 방향 점수 + 0.5cm 이동 offset" (§task essence) 에 직접 fit 한 **from-scratch encoder**. plan-004 `CandidateAttentionGRUSelector` 는 import 안 함 — 단 GRU 자체는 task-neutral 시계열 모듈이므로 본 plan 의 새 encoder 내부에서 `nn.GRU(...)` 를 *직접 생성* (= "GRU reuse" 가 아니라 "GRU 를 처음부터 build"). 폐기 대상 = candidate-attention head 부분 (`self.query` / `ctx_norm` / `event_norm` / `head` 의 sample-별 candidate cross-attention 구조 + plan-004 fit weight). encoder 의 task 는 본질적으로 "시계열 → 7 방향 점수" 1개이므로 shared encoder + 2 head (classifier / regression) 가 자연스러운 default — **encoder 개수 (1 vs 2) 는 핵심 아님**. 새 arch 후보: (i) `nn.GRU(seq) → final hidden → 직접 7 logit + 3D offset` (cross-attention 없음), (ii) Transformer encoder over trajectory → 동일 head, 등. arch 후보는 §2 spec 단계에서 결정. ※ v1.0 narrative "별도 encoder vs 별도 projection branch 양자택일" + v1.1 "모듈 통째 폐기" + v1.2 의 "GRU reuse 정당" 표현 중 마지막은 *의미 보존* (GRU 자체는 죄 없음) 하되 본 plan 의 실제 *코드 정책* = "selector.py import 안 함, 새 module 안에서 GRU 직접 생성".
+  - **C1 encoder**: "시계열 → 7 방향 점수 + 0.5cm 이동 offset" task 에 직접 fit 한 from-scratch encoder. shared encoder + 2 head (classifier / regression) 가 자연스러운 default — encoder 개수는 §2 결정. 시계열 모듈은 본 plan 새 module 안에서 직접 build (e.g. `nn.GRU` / Transformer / 1D-CNN 중 §2 결정).
   - **C2 F0**: F0 coefficient 를 learnable parameter 로 (= plan-007 Step 4 통합) — F3/F7 inversion. plan-006 numpy `frenet_par120_perp_neg020` 재사용 폐기.
   - **C3 anchor**: anchor radius 를 task-fit scale 로 재정의 (hit radius 0.01m 동급 또는 학습 가능) — F2 inversion. plan-004/006 era scale 0.005m 답습 폐기.
   - **C4 label**: hard label CE → distance-weighted soft label — F5 inversion.
@@ -128,6 +126,7 @@ baseline reference = plan-012 measured 5-fold OOF **0.6350** (GPU rerun, plan-01
 | c1.2 | docs | v1.1 spot-fix — F4 진단 정확화: "shared encoder bottleneck (두 head 공유)" → "encoder inductive-bias mismatch (plan-004 candidate-attention 모듈을 candidate 없는 task 에 끼움)". §0.5 7-mode 표 / C1 encoder bullet / §1.3 trap chain 동기화 | [DONE] 5e98d6d |
 | c1.3 | docs | v1.2 spot-fix — F4 진단 2차 정확화 (code-grounded): `CandidateAttentionGRUSelector` 가 GRU [task-neutral] + candidate-attention [plan-004 fit] 의 2 부분 구조임을 selector.py:697-726 + ring_classifier.py:309/315 read 로 확인. 폐기 범위 = candidate-attention 부분만, GRU 본체는 reuse 정당. §0.5 7-mode F4 / C1 encoder bullet / §1.3 trap chain 모두 sync | [DONE] c7fa9c8 |
 | c1.4 | docs | v1.3 narrative reframe — task essence ("F0 64% cover + 남은 20% 끌어당김") 를 §0/§0.5 의 narrative anchor 로 박제. plan-004 참조 범위 = (a) input 가공 + (b) F0 sample cover 입증 2가지로 축소 (`selector.py` import 폐기). §0 한 줄 목적 + §0.5 새 sub-section (task essence + plan-004 참조 범위 + premise corollary) + §0.5 7-mode F4 / C1 encoder bullet task-essence link + §1.2 사망 진단 (residual vector regression 어려움) + §1.5 정직성 원칙 (plan-004 참조 2가지만) sync | [DONE] 3a7a26c |
+| c1.5 | docs | **v1.4 simplification — plan-004 negative blacklist 제거.** positive whitelist 2가지만 박제 + "위 2가지 외 = 전부 새로 build" 한 줄. §0 한 줄 목적 / §0.5 plan-004 참조 sub-section / §0.5 C1 encoder bullet 의 v1.x audit 표현 (candidate-attention head 폐기 상세, v1.0~v1.2 변천사) 제거. 7-mode 표 / §1.2~§1.3 trap chain 은 historical reference 로 보존 (사용자 v1.3 선택). | [TODO] |
 
 ---
 
