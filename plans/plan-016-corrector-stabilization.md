@@ -1,6 +1,6 @@
 ---
 plan_id: 016
-version: 1.4 (spec patch — plan-review-master iter 4 fix 3건 (AMBIGUITY). (1) §0.5 per-stage Δ threshold 를 G1/G2 (+0.005) vs G3/G4/G5 (+0.003) 분기 표현 ↔ §3.3 G3/G4/G5 의 +0.003 consistent. (2) §10.1 best_c 선정 시 `status != "negative_drop"` drop filter + 전부 drop 시 `best_c = None` (= G2 alias) 분기. (3) §10.3 G6 합격 식 `g6_lb` 일반화 + §10.4 alias 대상 분기 (best Path C / G2). v1.3 → v1.4.)
+version: 1.5 (spec patch — plan-review-master iter 5 (MAX) fix 5건 (BLOCKER 3, AMB 2). (1) §3.2 sub-exp matrix G6 row 표 안 이동 + L258 stray row 제거. (2) §3.3 G0 (a) ±0.005 → ±0.0005 (§4.1 / §4.3 단어 통일). (3) §10.4 baseline_id `H051_g2_path_b` → `H051_g2_path_b_val_loss` (§3.4 exp_id schema match). (4) §2.1 합격 기준 G1/G2 vs G3/G4/G5 분기. (5) §7.3/§8.3/§9.3 Δ baseline conditional 명시 (G2 positive/marginal → vs G2, G2 drop → vs G1). v1.4 → v1.5.)
 date: 2026-05-14 (Asia/Seoul)
 status: spec
 based_on:
@@ -86,6 +86,7 @@ baseline (plan-014/015 best_stack, LB 0.6628)
 | c1.2 | docs | **v1.2 spec patch — plan-review-master iter 2 fix 8건.** (1) §5.2 OOF aggregation 단일 정의 (concat 10000 sample single hit). (2) §3.2.B/C/D 산식 sub-section inline (Frenet basis + degenerate fallback / stride pad / cosine ε). (3) §4.1 reproduce criterion 해소 (same seed = 4자리 일치). (4) §10.4 H055 alias row 12 column registry schema. (5) §10.1 best_c tie-break (LB primary + OOF 2차). (6) §1.4 stretch goal vs threshold 산술 상한 0.6758 gap 박제. (7) §11.1 closure measurement criterion (fold spread / best_epoch std / Path C positive). (8) §1.3 Mechanism mapping (Path A/B/C → L1/L2/L3 closure) narrative. v1.1 → v1.2 | [DONE] 3ea7b2a |
 | c1.3 | docs | **v1.3 spec patch — plan-review-master iter 3 fix 6건.** (1) §3.2 footnote pass 정의 = positive OR marginal (negative 만 fallback). (2) §5.2 OOF aggregation 표현 §3.3 와 단어 통일. (3) §4.1 ±0.005 → ±0.0005 산수 정정. (4) §3.2.B `t̂_s = world x̂` fallback 명시. (5) §7.2/§9.2 BiGRU weight 재초기화 §8.2 와 동일. (6) §1.4 stretch goal vs G6 alias 단어 통일. v1.2 → v1.3 | [DONE] c699bc6 |
 | c1.4 | docs | **v1.4 spec patch — plan-review-master iter 4 fix 3건 (AMBIGUITY).** (1) §0.5 per-stage Δ threshold 를 G1/G2 (+0.005) vs G3/G4/G5 (+0.003) 분기 표현 ↔ §3.3 G3/G4/G5 의 +0.003 consistent. (2) §10.1 best_c 선정 시 negative_drop 후보 drop filter 추가 (`status != "negative_drop"`) + 전부 drop 시 `best_c = None` (= G2 alias) 분기 명시. (3) §10.3 G6 합격 식을 `g6_lb` (best_c != None → best_c LB, best_c == None → g2_lb) 로 일반화 + §10.4 alias 대상 분기 (best Path C sub-exp / G2). v1.3 → v1.4 | [DONE] d169e7e |
+| c1.5 | docs | **v1.5 spec patch — plan-review-master iter 5 (MAX) fix 5건 (BLOCKER 3, AMB 2).** (1) §3.2 sub-exp matrix 의 G6 row 를 표 안 (G5 다음) 으로 이동, L258 stray row 제거. (2) §3.3 G0 (a) `0.6425 ± 0.005` → `0.6420 ≤ OOF ≤ 0.6430` (§4.1 / §4.3 와 동기). (3) §10.4 baseline_id `H051_g2_path_b` → `H051_g2_path_b_val_loss` (§3.4 exp_id schema 와 string-exact). (4) §2.1 합격 기준 G1/G2 vs G3/G4/G5 분기 표현 ↔ §0.5 와 통일. (5) §7.3/§8.3/§9.3 Δ baseline 의 conditional 명시 (G2 positive/marginal → vs G2, G2 drop → vs G1, base chain 동기). v1.4 → v1.5 | [TODO] |
 | c2 | code+exp | STAGE 0 (G0) — preflight: baseline reproduce + 3 path config sanity | [TODO] |
 | c3 | code+exp | STAGE 1 (G1, Path A) — multi-seed × multi-fold ensemble | [TODO] |
 | c4 | code+exp | STAGE 2 (G2, Path B) — monitor=val_loss cumulative | [TODO] |
@@ -169,7 +170,7 @@ baseline (plan-014/015 best_stack, LB 0.6628)
 | 변경 변수 (Path B) | monitor=val_hit → **val_loss** (continuous, fold-별 noise ↓) |
 | 변경 변수 (Path C-B/C/D) | Feature A 제외, B/C/D 단독 (10D / 18D / 15D 단독 base) |
 | 평가 | 5-fold OOF + LB head-to-head (각 stage dacon-submit 1회) |
-| 합격 기준 | OOF Δ ≥ +0.005 AND LB Δ ≥ +0.005 (둘 다 ≥ → positive) |
+| 합격 기준 | G1/G2: OOF Δ ≥ +0.005 AND LB Δ ≥ +0.005 (둘 다 ≥ → positive). G3/G4/G5 (single-feature): OOF Δ ≥ +0.003 AND LB Δ ≥ +0.003 (§0.5 L52-55 / §3.3 G3/G4/G5 와 통일). |
 
 ### §2.2 Out-of-scope
 
@@ -219,6 +220,7 @@ baseline (plan-014/015 best_stack, LB 0.6628)
 | **G3** | Path C-B | **+ Feature B (binormal split)** — 9D base 의 (5) `perp_norm/speed` 1D 자리에 step-local Frenet basis 위 `(acc_normal/speed, acc_binormal/speed)` 2D sign-aware split (산식은 §3.2.B inline). plan-015 v2.3 §1.B carry. *base 위 단독* | G2 (if pass) else G1 | **10D = 9D − 1D + 2D** |
 | **G4** | Path C-C | **+ Feature C (multi-scale stride τ=1,2 stream concat)** — 9D base 를 stride 1 + stride 2 2 stream 산출 후 axis=-1 concat (pad 산식 §3.2.C inline). plan-015 v2.3 §1.C carry. *base 위 단독* | G2 (if pass) else G1 | **18D = 9D × 2 stream** |
 | **G5** | Path C-D | **+ Feature D (pairwise cross-step)** — 3 pair × 2 stat = 6D 추가 (산식 §3.2.D inline). plan-015 v2.3 §1.D carry. *base 위 단독* | G2 (if pass) else G1 | **15D = 9D + 6D** |
+| **G6** | best stack | G2 + Path C best (max LB among C-B/C-C/C-D); 전부 drop 시 G2 alias (§10.1) | — | varies |
 
 #### §3.2.B Feature B 산식 inline (v1.2 명료화)
 
@@ -255,7 +257,6 @@ per-step `s` 의 velocity `v[s] = X[:, s] − X[:, s−1]`:
   - `Δspeed(s_a, s_b) = ‖v[s_a]‖ − ‖v[s_b]‖` (sign 보존, s_a − s_b 순서)
 - 총 6D = 3 pair × 2 stat
 - edge case (s−4 < 1 시 v[s_b] 미정의): cosine=0, Δspeed=0 fill. baseline `end_idx=10` + step indices `[5..10]` 에서 모든 step `s−4 ≥ 1` valid → 미발생.
-| G6 | best stack | G2 + Path C best (max LB among C-B/C-C/C-D) | — | varies |
 
 **중요**: Path C 는 **B/C/D 의 *단독* 비교** (cumulative 아님). 이전 plan-015 cumulative A→A+B→A+B+C→A+B+C+D 가 A redundancy 로 막힌 교훈. plan-016 C 는 각 single feature 의 LB head-to-head 만, best 1개만 G6 best_stack 채택.
 
@@ -266,7 +267,7 @@ per-step `s` 의 velocity `v[s] = X[:, s] − X[:, s−1]`:
 #### G0 — preflight (baseline reproduce)
 
 - artifact: `analysis/plan-016/preflight.json`
-- (a) plan-014/015 baseline 5-fold OOF reproduce → 0.6425 ± 0.005 일치
+- (a) plan-014/015 baseline 5-fold OOF reproduce → 0.6420 ≤ OOF ≤ 0.6430 (= 0.6425 ± 0.0005, §4.1 / §4.3 와 단어 통일)
 - (b) 3 path config sanity: seed list (5 seed 정의) / monitor=val_loss option 동작 / Feature B/C/D 단독 dim (10/18/15)
 
 #### G1 — Path A (multi-seed ensemble)
@@ -438,11 +439,12 @@ python analysis/plan-016/preflight.py
 
 ### §7.3 G3 합격
 
-- OOF Δ ≥ +0.003 vs G2 OOF (single feature lever, threshold 낮춤)
-- LB Δ ≥ +0.003 vs G2 LB
+- Δ baseline (v1.5 단일화, §3.2 L262 fallback rule chain): G2 가 positive/marginal → vs G2 OOF/LB. G2 가 negative_drop (둘 다 fail) → vs G1 OOF/LB (= G3 base = G1 cumulative 와 동기).
+- OOF Δ ≥ +0.003 vs 위 baseline (single feature lever, threshold 낮춤)
+- LB Δ ≥ +0.003 vs 위 baseline
 - 둘 다 pass → positive lever, G6 best stack 후보
 - 한 쪽 만 pass → marginal, G6 후보 (낮은 priority)
-- 둘 다 fail → drop B
+- 둘 다 fail → drop B (status="negative_drop", §10.1 filter 대상)
 
 ---
 
@@ -464,7 +466,9 @@ python analysis/plan-016/preflight.py
 
 ### §8.3 G4 합격
 
-- OOF Δ ≥ +0.003 / LB Δ ≥ +0.003 vs G2
+- Δ baseline: §7.3 carry (G2 positive/marginal → vs G2; G2 drop → vs G1).
+- OOF Δ ≥ +0.003 / LB Δ ≥ +0.003 vs 위 baseline.
+- positive / marginal / negative_drop 분류 §7.3 carry (§10.1 filter 대상 동일).
 
 ---
 
@@ -486,7 +490,9 @@ python analysis/plan-016/preflight.py
 
 ### §9.3 G5 합격
 
-- OOF Δ ≥ +0.003 / LB Δ ≥ +0.003 vs G2
+- Δ baseline: §7.3 carry (G2 positive/marginal → vs G2; G2 drop → vs G1).
+- OOF Δ ≥ +0.003 / LB Δ ≥ +0.003 vs 위 baseline.
+- positive / marginal / negative_drop 분류 §7.3 carry (§10.1 filter 대상 동일).
 
 ---
 
@@ -538,8 +544,8 @@ else:
   - `type` = `baseline`, `status` = `complete`
   - `run_dir` = alias 대상 run_dir (best_c != None → best sub-exp run_dir, best_c == None → G2 run_dir).
   - `config_path` = `analysis/plan-016/g6_best_stack.py` (선택 logic 산출 script)
-  - `baseline_id` = alias 대상의 직전 row id (best_c != None → `H051_g2_path_b`; best_c == None → `H050_g1_path_a_multiseed`).
-  - `notes` = `"alias of {alias_target_id}, LB={g6_lb}, OOF={g6_oof}, band={band}"` (alias_target_id ∈ {best Path C sub-exp id, `H051_g2_path_b`} per best_c 분기).
+  - `baseline_id` = alias 대상의 직전 row id (best_c != None → `H051_g2_path_b_val_loss`; best_c == None → `H050_g1_path_a_multiseed`). §3.4 exp_id schema 와 string-exact match.
+  - `notes` = `"alias of {alias_target_id}, LB={g6_lb}, OOF={g6_oof}, band={band}"` (alias_target_id ∈ {best Path C sub-exp id, `H051_g2_path_b_val_loss`} per best_c 분기).
 - §3.4 exp_id `H055` = alias row, *new training/submission 없음* 명시.
 
 ---
