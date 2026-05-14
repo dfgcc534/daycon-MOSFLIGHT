@@ -116,7 +116,7 @@ G0 preflight  →  G1 module + smoke  →  G2 Phase 1 bake-off  →  G3 Phase 2 
 - **G3** Phase 2 axis 5: 5 axis 중 1+ ΔOOF ≥ 0.005 (plan-012 G2 spec) [DONE 76a4e52: `g3_marginal_only` warn, positive_axes=[]. max ΔOOF E2 +0.003 (K=9 best, marginal)]
 - **G4** Phase 3 aux 3: informational [DONE 92417dd: E6 +0.0015, E7 -0.0050, E8 -0.0040. positive_axes=['E6']]
 - **G5** Phase 4 final: best_stack ≥ anchor_5fold + 0.005 (plan-012 G4 spec) + band 분류 [DONE d85a999: anchor=0.6359 / best=0.6425 / Δ=+0.0066 PASS / **band=negative** (< 0.65)]
-- **G_final** synthesis: results.md 신규 + registry append + frontmatter sync + plan-015 후보 [TODO]
+- **G_final** synthesis: results.md 신규 + registry append + frontmatter sync + plan-015 후보 [DONE 63415bf: band=negative, plan-013 join row 4 (둘 다 실패 → deep path-pivot 권장)]
 
 ### Commit chain
 
@@ -137,7 +137,7 @@ G0 preflight  →  G1 module + smoke  →  G2 Phase 1 bake-off  →  G3 Phase 2 
 | c7 | exp | STAGE 3 (G3) — Phase 2 axis ablation 5 (E1~E5). spec @ §7. **`g3_marginal_only` warn**: positive_axes=[]. anchor fold-0=0.6573. max ΔOOF: E1=-0.0055 / E2=+0.0030 (E2c K=9 best) / E3=-0.0005 / E4=-0.0050 / E5=-0.0015. paradigm 위 의미 있는 lever 0개 — F0 frozen ceiling 신호 | [DONE] 76a4e52 |
 | c8 | exp | STAGE 4 (G4) — Phase 3 aux ablation 3 (E6~E8). spec @ §8. informational mode (G3 carry). E6 boundary_weight=+0.0015 (marginal positive) / E7 LastStep MLP=-0.0050 (BiGRU 시계열 가치 입증) / E8 prior=-0.0040. positive_axes=['E6'] | [DONE] 92417dd |
 | c9 | exp | STAGE 5 (G5) — Phase 4 final 5-fold + best stack + submission. spec @ §9. **G5_passed=True** (Δ=+0.0066). anchor_5fold=0.6359 / best_5fold=**0.6425** (E0c K=9 + boundary). **band=negative** (< 0.65). plan-013 join row 4 (둘 다 실패) 활성. submission_best.csv 박제 | [DONE] d85a999 |
-| c10 | docs+sync | STAGE 6 (G_final) — results.md + registry + frontmatter sync + plan-015 후보. spec @ §10 | [TODO] |
+| c10 | docs+sync | STAGE 6 (G_final) — results.md + registry + frontmatter sync + plan-015 후보. spec @ §10. **G_final_complete**: results.md 신규 + frontmatter sync (status G_final_complete, band: negative, best_stack_5fold_oof: 0.6425) + registry 6 row (이미 incremental) + plan-015 negative branch 후보 ≥ 3 박제 | [DONE] 63415bf |
 
 ---
 
