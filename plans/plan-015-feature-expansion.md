@@ -1,6 +1,6 @@
 ---
 plan_id: 015
-version: 2 (spec patch — v1 draft → spec complete. §3 v1 의 "후속 사항" 4개 (순차 ablation / baseline 0.6425 / 합격 기준 Δ+band / exp_id naming) 모두 박제. §0.5 G-gates G1~G_final + commit chain c2~c8 추가. §4~§9 STAGE 본문 추가 (G0 preflight / G1~G4 sub-exp 4 / G5 best stack + submission / G_final synthesis + plan-016 후보). 사용자 결정 (Q1) 순차 ablation + (Q2) Δ ≥ +0.005 + band classification + (Q3) LB 제출 plan-015 결과 후 1회. v1 → v2.)
+version: 2.1 (spec patch — plan-review-master iter 1 fix 6건. (1) §1 Feature A residual modal switch 단일화 = `displacement_F0[s] = F0_pred[s] − X[:, s]` (F0 가 향하는 방향, sign convention 명시) + F0_pred 산출식 inline + edge case zero-fill. (2) §1 Feature C dim 모순 제거 = τ=1,2 2 stream 단일화 (26D cumulative), 39D / τ=3 표현 삭제. (3) §3.3 G0 (b) feature dim 도출식 박제 (A 단독 12D / B 단독 10D / C 단독 18D / D 단독 15D, cumulative 12/13/26/32). (4) anchor inheritance 단일화 = immediate prior stage G_(n-1) cumulative OOF (marginal 도 동일 inheritance, negative 시 G_final 직행). (5) §3.1 baseline 0.6425 reduction = 5-fold concat hit@1cm (fold-mean 아님) 명시. (6) §1 Feature B step-local Frenet basis 산출식 + edge case (degenerate motion → world ẑ post-orthogonalize) + acc 정의 (raw acc 사용) 박제. v2 → v2.1.)
 date: 2026-05-14 (Asia/Seoul)
 status: spec
 based_on:
@@ -65,9 +65,11 @@ lb_score: null
 ### 합격 기준 (Q2 결정 — Δ + band)
 
 **per-step Δ threshold** (additive lever 검증):
-- Δ ≥ +0.005 → step `positive` (해당 feature 채택, 다음 step 의 cumulative baseline)
-- 0 ≤ Δ < +0.005 → step `marginal` (채택은 하되 warn flag 박제)
-- Δ < 0 → step `negative` (해당 feature drop, 이전 step 의 best 유지하고 다음 feature 추가는 skip 후 G_final 직행)
+- Δ ≥ +0.005 → step `positive` (해당 feature 채택, 다음 step 의 anchor = 본 step cumulative OOF)
+- 0 ≤ Δ < +0.005 → step `marginal` (해당 feature 채택, warn flag 박제, **다음 step anchor = 본 step cumulative OOF** = positive 와 동일 inheritance)
+- Δ < 0 → step `negative` (해당 feature drop, **이후 stage 모두 skip → G_final 직행**. best = 이전 step 의 cumulative OOF, 그 stage 의 config 가 best_stack)
+
+**Anchor inheritance (v2 단일화)**: 매 stage `G_n` 의 ΔOOF 비교 anchor = **immediate prior stage G_(n-1) 의 cumulative OOF** (positive/marginal 모두 inherited). G5 best 선정 시 cumulative best = max over {G0, G1, ..., G_n_last} (n_last = negative 직전 또는 G4 끝까지 도달 시 G4).
 
 **band classification** (G5 cumulative best 의 5-fold OOF 기준):
 - ≥ 0.66 → **positive** (plan-015 = polish + LB)
@@ -86,6 +88,7 @@ lb_score: null
 |---|---|---|---|
 | c1 | docs | v1 draft — feature spec (A/B/C/D) 박제 | [DONE] de3131b |
 | **c2** | docs | **v2 spec patch — §3 expand: 순차 ablation + Δ+band 합격기준 + exp_id naming + STAGE §4~§9 추가** | [DONE] f195da4 |
+| c2.1 | docs | **v2.1 spec patch — plan-review-master iter 1 fix 6건.** (1) §1 Feature A residual modal switch 단일화 (displacement_F0 sign convention). (2) §1 Feature C dim 모순 제거 (26D cumulative, τ=1,2 2 stream). (3) §3.3 G0 (b) feature dim 도출식 박제. (4) anchor inheritance 단일화 (immediate prior cumulative). (5) §3.1 baseline reduction = 5-fold concat hit. (6) §1 Feature B Frenet basis 산출식 + edge case 박제. v2 → v2.1 | [TODO] |
 | c3 | code+exp | STAGE 0 (G0) — preflight: plan-014 baseline 5-fold reproduce + feature dim sanity | [TODO] |
 | c4 | code+exp | STAGE 1 (G1, E1) — feature A only (F0 residual direct), 5-fold OOF | [TODO] |
 | c5 | exp | STAGE 2 (G2, E2) — A+B (F0 residual + binormal split), 5-fold OOF | [TODO] |
@@ -104,29 +107,42 @@ lb_score: null
 
 #### A. F0 prior residual 직접 input ★
 
-- **정의**: 11-step F0 prediction 좌표를 매 step encoder input 에 concat. per-step `(obs[t] − F0_pred[t])` 3D 추가.
+- **정의 (v2 단일화 spec)**: per-step `displacement_F0[s] = F0_pred[s] − X[:, s]` (= step s 시점에서 F0 가 prediction 하는 위치 − 관측 위치, displacement vector). 3D channel. **부호 convention: F0_pred − X (negative residual 아님)** — "F0 가 향하는 방향" 자체를 encoder 가 보게 함.
 - **dim**: +3D (9D → 12D)
-- **구현**: `make_seq_features` 에서 step `s` 마다 `F0_pred[s] = F0_function(X[:, :s+1])` 산출 후 `obs[s] − F0_pred[s]` 3D 를 8d turn features + direction(1D) 와 concat → 12D.
-- **단**: F0 산식은 horizon=2 미래 위치 예측. step `s` 의 "F0_pred[s]" 는 step `s` 시점 prior 가 아닌 *현재 위치까지의 F0 적용* 으로 의미 명확화 필요. **spec 결정**: step `s` 에서 `F0_pred[s] = X[:, s] + 1.98·(X[:, s] − X[:, s−1]) + ...` (= s-시점 horizon=2 prior). residual = `X[:, s+2] − F0_pred[s]` 가 idealistic 하지만 s+2 가 안 보이는 step (s=10) 도 있음. **간단 spec**: per-step `(F0_pred[s] − X[:, s])` 자체를 3D channel (즉 "현재 F0 가 어디로 prediction 하는지" 의 vector) 로 input. observed vs F0 의 ongoing divergence 신호.
+- **F0_pred[s] 산출** (step-local horizon=2 prior, plan-014 §A.1 finite-diff carry):
+  `F0_pred[s] = X[:, s] + 1.98·v_last_s + 1.20·acc_par_vec_s + (−0.20)·acc_perp_vec_s`
+  where `v_last_s = X[:, s] − X[:, s−1]`, `acc_s = X[:, s] − 2·X[:, s−1] + X[:, s−2]`, t̂_s = v_last_s/‖v_last_s‖, `acc_par_vec_s = (acc_s · t̂_s)·t̂_s`, `acc_perp_vec_s = acc_s − acc_par_vec_s`.
+- **구현**: `make_seq_features` 에서 step `s` 마다 위 산식으로 `F0_pred[s]` 산출 후 `displacement_F0 = F0_pred[s] − X[:, s]` 3D 를 8d turn features + direction(1D) 와 concat → per-step 12D.
+- **edge case** (s ∈ {0, 1, 2}, finite-diff 정의 안 됨): `displacement_F0[s] = (0, 0, 0)` zero-fill. baseline `end_idx=10` + `range(max(3, end_idx-5), end_idx+1)` pad rule 로 사실 step 3~10 만 사용 → edge case 미발생.
 
 #### B. Frenet binormal axis 분리
 
-- **정의**: 현 `perp_norm/speed` (normal + binormal 합 1D) 을 `normal_norm/speed` + `binormal_norm/speed` (2D) 로 분리.
-- **dim**: +1D (12D → 13D when A applied)
-- **구현**: `_turn_features_per_step` 에서 `acc_perp_vec` 를 step-local Frenet basis `(t̂_s, n̂_s, b̂_s)` 로 추가 분해. n̂_s 는 acc_perp 자체 방향, b̂_s = t̂_s × n̂_s. `acc_normal = acc_perp · n̂_s` (= ‖acc_perp‖, 정의상), `acc_binormal = acc · b̂_s` (= acc 의 b̂ 성분 magnitude). 둘 다 abs value 로 normalize.
+- **정의 (v2 명료화 spec)**: 현 `perp_norm/speed` (1D, normal+binormal magnitude 합) 을 `normal_norm/speed` (1D) + `binormal_norm/speed` (1D) 2D 로 split.
+- **dim**: +1D net (split 후 9D 의 (5) 자리 1D → 2D 로 늘어남, 9D − 1D + 2D = 10D 단독 / A+B cumulative = 13D)
+- **step-local Frenet basis 산출 (n̂_s, b̂_s)**:
+  - `v_s = X[:, s] − X[:, s−1]`, `t̂_s = v_s / (‖v_s‖ + ε)` (ε = 1e-12 numeric stability)
+  - `acc_s = X[:, s] − 2·X[:, s−1] + X[:, s−2]` (raw acc)
+  - `acc_perp_vec_s = acc_s − (acc_s · t̂_s)·t̂_s` (= acc 의 perp plane projection)
+  - `n̂_s = acc_perp_vec_s / (‖acc_perp_vec_s‖ + ε)` — normal direction
+  - `b̂_s = t̂_s × n̂_s` — binormal direction (오른손 법칙)
+  - **edge case** (`‖v_s‖ < ε_basis = 1e-6` 또는 `‖acc_perp_vec_s‖ < ε_basis`): degenerate motion → `n̂_s = world ẑ` post-orthogonalize (plan-014 §A.1 carry). 또는 acc_normal/binormal 모두 0 fallback.
+- **feature split 산출**:
+  - `acc_normal = acc_perp_vec_s · n̂_s` (= `‖acc_perp_vec_s‖` 자체, scalar 부호 + magnitude. n̂ 정의상 양수.)
+  - `acc_binormal = acc_s · b̂_s` (raw acc 의 b̂_s 성분 scalar. 부호 sign 보존)
+  - normalize: `acc_normal/speed`, `|acc_binormal|/speed` (binormal 은 abs 만, sign 무시; magnitude scale 만 input)
+- **구현**: `_turn_features_per_step` 의 기존 `perp_norm/speed` 1D 자리에 `(acc_normal/speed, |acc_binormal|/speed)` 2D 로 swap. 단독 = 10D, A+B = 13D.
 
 ### 2순위 — 표현력 보강
 
 #### C. Multi-scale stride features
 
-- **정의**: 9D base feature 를 stride τ ∈ {1, 2, 3} 으로 3 stream 계산 → concat per-step.
-- **dim**: per-step 13D (A+B 적용 후) × 3 stream = 39D
-- **구현**: `make_seq_features` 의 step indices 산출 방식 3 set:
-  - τ=1: 기존 `range(max(3, end_idx-5), end_idx+1)` (6 step, step gap 1)
-  - τ=2: `range(max(3, end_idx-10), end_idx+1, 2)` (≤ 6 step, step gap 2). end_idx=10 에서 [0, 2, 4, 6, 8, 10] 6 step 가능
-  - τ=3: `range(max(3, end_idx-15), end_idx+1, 3)` ([1, 4, 7, 10] 4 step → pad first 2 회) — pad rule §2.1.A 응용
-  - 각 τ 마다 per-step feature 산출 후 *동일 시점 step* 끼리 concat (단순 concat, 시간 alignment 는 step index '직접 비교' 아닌 'BiGRU 가 알아서')
-- **단순화 결정**: τ=1, τ=2 만 (τ=3 step 수 부족) → 2 stream concat = 26D (A+B+C base 13D × 2). **본 spec 의 C** = 2-stride 2 stream.
+- **정의 (v2 단일화 spec)**: A+B 적용 후 13D base feature 를 stride τ ∈ {1, 2} 2 stream 계산 → per-step concat = **26D**. (τ=3 stride 는 11-step trajectory 에서 step 수 부족으로 제외.)
+- **dim**: per-step 13D × 2 stream = **26D** (A+B+C cumulative)
+- **구현**: `make_seq_features` 에서 step indices 산출 2 set:
+  - τ=1 (기존): `range(max(3, end_idx-5), end_idx+1)` → 6 step, step gap 1, end_idx=10 시 [5,6,7,8,9,10]
+  - τ=2: `range(max(3, end_idx-10), end_idx+1, 2)` → 6 step, step gap 2, end_idx=10 시 [0,2,4,6,8,10] (실제 max(3,0)=3 이므로 [3, 4, 6, 8, 10] 5 step, pad first 1 회 → indices[0] 반복 prepend)
+  - 각 τ 마다 per-step 13D feature 산출 후 *동일 step position* (6개) 끼리 axis=-1 concat → per-step 26D. 시간 alignment 는 BiGRU 가 학습.
+- **edge case** (τ=2 의 step 부족): pad rule = 첫 step index 반복 prepend (plan-014 §A.1 pad rule carry).
 
 #### D. Pairwise cross-step interaction
 
@@ -171,7 +187,7 @@ lb_score: null
 |---|---|---|
 | F0 raw hit@1cm | 0.6320 | plan-014 G0 (H036_g0_preflight) |
 | plan-014 G5 anchor 5-fold OOF | 0.6359 | plan-014 G5 (H041) |
-| **plan-014 G5 best_stack 5-fold OOF** ★ | **0.6425** | plan-014 G5 (H041), = plan-015 baseline |
+| **plan-014 G5 best_stack 5-fold OOF** ★ | **0.6425** | plan-014 G5 (H041), = plan-015 baseline. **reduction = 5-fold concat hit@1cm** (= `mean(‖oof_pred − y_true‖₂ ≤ 0.01m)` over all 10000 samples, 각 sample 이 정확히 1번 val 등장; *fold-mean of fold-means* 아님). |
 | oracle ceiling (E0b Frenet-ortho) | 0.8248 | plan-014 G0 |
 | corrector 회수율 | 5.4% | (best − F0) / (oracle − F0) = 0.0105/0.1928 |
 
@@ -195,7 +211,12 @@ lb_score: null
 
 - artifact: `analysis/plan-015/preflight.json`
 - **(a) plan-014 baseline 5-fold reproduce**: 동일 config (E0c K-Means K=9 + boundary_weight_on, F0 frozen) 으로 5-fold OOF 재산출 → 0.6425 ± 0.005 일치 확인.
-- **(b) feature dim sanity**: 4 feature (A/B/C/D) 각각 단독 적용 시 shape verify (12D / 10D / 27D / 15D 단일 적용 dim 사양).
+- **(b) feature dim sanity**: 4 feature (A/B/C/D) 각각 *단독 적용* 시 shape verify. 단독 dim 도출식:
+  - A 단독: 9D base + 3D (displacement_F0) = **12D**
+  - B 단독: 9D base 의 `(5) perp_norm/speed` 1D 를 `(5a) normal_norm/speed + (5b) binormal_norm/speed` 2D 로 split → 9D − 1D + 2D = **10D**
+  - C 단독: 9D base × 2 stream (τ=1, τ=2) = **18D** (※ v1 단락의 "27D" 오기 → 단독 적용 시 18D 가 정확)
+  - D 단독: 9D base + 6D pairwise (3 pair × 2 stat) = **15D**
+  cumulative 적용 시 dim: A=12D, A+B=13D, A+B+C=26D, A+B+C+D=32D (§3.2 표 carry).
 - fail trigger: (a)/(b) 중 1+ 누락 → `preflight_artifact_missing` severe (plan-014 baseline 재현 불가 = 측정 base 부재).
 
 #### G1~G4 — sub-exp 순차 ablation
