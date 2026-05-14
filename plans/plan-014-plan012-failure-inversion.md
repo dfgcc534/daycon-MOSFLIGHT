@@ -1,6 +1,6 @@
 ---
 plan_id: 014
-version: 3.5 (spec patch — Submission output format 박제. §2.1.C Dataset/IO 에 submission row 추가: `runs/baseline/<exp_id>/submission.csv` columns `id/x/y/z`, id order = `data/sample_submission.csv`, 6 decimals (`f"{val:.6f}"`), float64 dtype, NaN/Inf 금지. source = `src/submit.py:204-231` `write_submission` (utility, import OK).)
+version: 3.6 (spec patch — JSON artifact + registry.csv schema 박제. §3.4 각 G-stage (G0/G2/G3/G4/G5/G_final) artifact schema sub-bullet 추가 (plan-012 phase*.json key 명 carry over + plan-014 specific 차이 박제). G_final 의 registry append spec = per G-stage 6 row (plan-012/013 pattern align). registry.csv 12 columns: id/plan_id/type/status/started_at/finished_at/duration_sec/run_dir/config_path/baseline_id/corrects/notes. source = `src/run.py:append_registry` + plan-012 phase*.json + agent 병렬 research.)
 date: 2026-05-14 (Asia/Seoul)
 status: spec
 based_on:
@@ -117,6 +117,7 @@ G0 preflight  →  G1 module + smoke  →  G2 Phase 1 bake-off  →  G3 Phase 2 
 | c3.3 | docs | **v3.3 spec patch — Dataset / IO 상세.** §2.1 에 새 sub-section C Dataset/IO 추가: train/test CSV path (`data/train|test/{sample_id}.csv` shape `(11, 3)`), labels (`data/train_labels.csv` columns id/x/y/z), timestep grid (`[-400..0]` ms step 40), T_TARGET_MS=80, end_idx=10, IO utility = `src/io.py` (plan-001, import OK). frontmatter version 3.2→3.3 | [DONE] b1645b2 |
 | c3.4 | docs | **v3.4 spec patch — Ablation lever source-of-truth.** §2.1.B 다음에 새 sub-section B.1 추가: 11 ablation lever (E0a/E0b/E0c + E1~E8) 의 plan-012 source line reference + plan-014 baseline 위 적용 방식. anchor 함수 (`ring_classifier.py:39-128`) / F0 산식 (:512-565) / hit-aware hinge (:380-389) / hybrid_combined_loss (:410-454) / LastStepMLPScorer (:342-372) / hybrid_predict r0_prior (:464-490) / boundary mask (`phase3_aux.py:57-61`) 다 grep + 박제. decision-note: K-Means random_state=20260606 carry, plan-014 seed=20260514 와 별개. frontmatter version 3.3→3.4 | [DONE] 6c9fe6f |
 | c3.5 | docs | **v3.5 spec patch — Submission output format.** §2.1.C Dataset/IO 에 submission row 추가: `runs/baseline/<exp_id>/submission.csv` (columns id/x/y/z, id order = `data/sample_submission.csv`, 6 decimals `f"{val:.6f}"`, float64 dtype, NaN/Inf 금지). source = `src/submit.py:204-231` `write_submission` (utility, import OK). frontmatter version 3.4→3.5 | [DONE] 31c5883 |
+| c3.6 | docs | **v3.6 spec patch — JSON artifact + registry.csv schema.** §3.4 G0/G2/G3/G4/G5 artifact schema sub-bullet 추가 (plan-012 phase*.json key 명 carry over + plan-014 specific 차이 e.g. `g0_checks` 4 bool, `band` field). §3.4 G_final 에 registry.csv 12 columns schema + per-G-stage 6 row append spec 추가. registry source = `src/run.py:append_registry` + `REGISTRY_COLS` :47-50. agent 병렬 research (Explore × 2). frontmatter version 3.5→3.6 | [TODO] |
 | c4 | code+exp | STAGE 0 (G0) — preflight artifact. spec @ §4 | [TODO] |
 | c5 | code | STAGE 1 (G1) — `src/pb_0_6822/plan014_paradigm.py` 새 module + smoke + 재사용 끊김. spec @ §5 | [TODO] |
 | c6 | code+exp | STAGE 2 (G2) — Phase 1 codebook bake-off (E0a/E0b/E0c 3 sub-exp → winner). spec @ §6 | [TODO] |
@@ -325,6 +326,7 @@ decision-note: E0c K-Means 의 `random_state=20260606` 은 plan-012 그대로 ca
 - (c) soft label entropy: σ=0.01m Gaussian → sample-별 entropy 평균 ≥ 0.5 nat
 - (d) plan-012 disclaimer verify: `INVALID_REFERENCE` status + `disclaimer:` field 박제 grep
 - fail trigger: (a)~(d) 중 1+ 누락 → `preflight_artifact_missing` severe
+- **artifact schema** (`preflight.json`): `exp_id` (str) / `n_train` `trajectory_T` `end_idx` (int) / `f0_raw_hit_measure` (dict: `single_formula`/`hit_at_1cm` `{hit_rate, expected_range, in_range}`/`hit_at_1_5cm`) / `codebook_oracle_ceilings` (dict per E0a/E0b/E0c: `oracle_hit_1cm`, `anchors`) / `kmeans_fit_meta` (dict: K=7, `centers_per_fold`, `cluster_sizes_per_fold`, `inertia_per_fold`, `silhouette_per_fold`, `min_cluster_size_pass` bool) / `g0_checks` (dict: 4 bool — `f0_init_in_range`, `anchor_scale_ok`, `soft_entropy_ge_0_5`, `plan_012_disclaimer_ok`) / `g0_essential_passed` bool. plan-012 reference: `analysis/plan-012/preflight.json`
 
 #### G1 — 새 module 구현 + 재사용 끊김
 
@@ -348,6 +350,7 @@ decision-note: E0c K-Means 의 `random_state=20260606` 은 plan-012 그대로 ca
 - fail trigger:
   - winner_OOF < 0.60 → `g2_severe_underperform` severe
   - winner DCM < 0.002 → `dcm_collapse` warn (Phase 2~4 informational 진행)
+- **artifact schema** (`g2_phase1.json`): `exp_id` (str) / `winner_id` `winner_anchor_source` `winner_frame` `second_id` (str) / `winner_oof` `winner_dcm` `second_oof` `gap` (float) / `winner_K` (int) / `all_sub_exp_oof` (dict E0a/E0b/E0c → float) / `directional_commit_magnitudes` (dict E0a/E0b/E0c → float) / `winner_above_anchor` `winner_dcm_ok` `tie_break_applied` `G1_passed` (bool) / `G1_baseline_anchor` (float, = 0.60) / `elapsed_total_seconds` (float) / `training_config` (dict) / `results_per_sub_exp` (list[dict] per E0a/E0b/E0c: `sub_exp_id`/`codebook_id`/`K`/`n_train`/`n_val`/`epochs_run`/`best_epoch`/`best_val_hit`/`best_dcm`/`epoch_log` list[dict `epoch`/`loss`/`val_hit`/`dcm`]/`elapsed_seconds`). plan-012 reference: `analysis/plan-012/phase1_winner.json`
 
 #### G3 — Phase 2 axis ablation 5
 
@@ -355,12 +358,14 @@ decision-note: E0c K-Means 의 `random_state=20260606` 은 plan-012 그대로 ca
 - spec: 5 axis (E1~E5) winner codebook 위에서, 각 axis 의 sub-exp 5-fold OOF ΔOOF = OOF_variant − OOF_winner
 - criterion: 5 axis 중 1+ axis 의 max(ΔOOF) ≥ **+0.005** → paradigm lever 마진 살아있음
 - fail trigger: 모든 axis ΔOOF < 0.005 → `g3_marginal_only` warn (Phase 3~4 informational, G5 anchor fallback 후보)
+- **artifact schema** (`g3_phase2.json`): `exp_ids` (list[str]) / `winner_id` (str, phase1 winner carry) / `anchor_oof` (float) / `n_sub_exp` (int) / `axis_summary` (dict per E1~E5: `n_sub_exp` int, `deltas` dict (sub_id → ΔOOF float), `max_delta` float, `best_sub_id` str, `best_val_hit` float, `positive_lever` bool) / `G2_passed` (bool) / `G2_warn` (str, e.g., `phase2_no_positive_lever`) / `positive_axes` (list[str], ΔOOF ≥ 0.005 인 axis) / `results_per_sub_exp` (list[dict] per sub_exp: G2 schema 동일 + `axis` field + 해당 hyperparam + `delta_oof_vs_anchor` float) / `elapsed_total_seconds` (float) / `training_config` (dict). plan-012 reference: `analysis/plan-012/phase2_results.json`
 
 #### G4 — Phase 3 aux ablation 3
 
 - artifact: `analysis/plan-014/g4_phase3_aux.py` + `g4_phase3.json` + sub-exp runs
 - spec: 3 axis (E6/E7/E8) winner config 위
 - criterion: informational only (G3 pass 했다면 추가 lever 줍기, G3 warn 이면 fallback evidence)
+- **artifact schema** (`g4_phase3.json`): G3 schema 동일 (axis = E6/E7/E8). `G3_passed` (informational, 항상 true) / `positive_axes` (list[str], ΔOOF > 0). plan-012 reference: `analysis/plan-012/phase3_results.json`
 
 #### G5 — Phase 4 final 5-fold + best stack + submission
 
@@ -370,6 +375,7 @@ decision-note: E0c K-Means 의 `random_state=20260606` 은 plan-012 그대로 ca
 - criterion: **best_stack 5-fold OOF ≥ anchor_5fold + 0.005** (= lever 마진 진짜 살아있음 verify)
 - band 분류 (§3.2): best_stack OOF 기준 ≥0.66 / 0.65~0.66 / <0.65
 - fail trigger: best_stack < anchor + 0.005 → `g5_no_additive` warn (anchor fallback submission)
+- **artifact schema** (`g5_phase4.json`): `exp_id` (str) / `config_anchor` `config_best` (dict: `name`, `temperature`, `use_reg_head`, `use_hinge`, `r0_logit_prior`) / `n_train` `n_test` `n_folds` (int) / `anchor_5fold_oof_hit_1cm` `best_5fold_oof_hit_1cm` `delta_oof` `G4_threshold_delta` (float, = 0.005) / `G4_passed` (bool) / `G4_warn` (str, e.g., `final_no_additive`) / `band` (str: `positive`/`partial`/`negative` — §3.2 분류) / `fold_results` (dict: `anchor`/`best` → list[dict] per fold `val_fold`/`best_val_hit`/`best_epoch`/`n_train`/`n_val`/`elapsed_seconds`) / `submission_best` `submission_anchor_fallback` `submission_used_for_LB` (str paths) / `elapsed_total_seconds` (float) / `training_config` (dict). plan-012 reference: `analysis/plan-012/phase4_results.json`
 
 #### G_final — synthesis
 
@@ -380,6 +386,16 @@ decision-note: E0c K-Means 의 `random_state=20260606` 은 plan-012 그대로 ca
   - plan-013 join interpretation table (§1.4) 의 activated row 박제
   - plan-015 후보 ≥ 3 (band 별 분기)
 - fail trigger: 3 파일 sync 누락 → `final_sync_missing` severe
+- **registry.csv schema** (12 columns, source = `src/run.py:append_registry` + `REGISTRY_COLS` :47-50):
+  - `id` (str, exp_id e.g., `H0NN_plan-014-...`) / `plan_id` (str = `014`) / `type` (str = `baseline`) / `status` (str: `complete` / `deferred`) / `started_at` `finished_at` (str ISO 8601 KST, e.g., `2026-05-14T01:48:00+09:00`) / `duration_sec` (float) / `run_dir` (str, e.g., `analysis/plan-014` 또는 `runs/baseline/<exp_id>`) / `config_path` (str, e.g., `analysis/plan-014/g2_phase1_bakeoff.py`) / `baseline_id` (str, dependency ref) / `corrects` (str, 보통 공란) / `notes` (str, 한 줄 metric summary)
+- **registry append spec** (per G-stage, 총 **6 row** — plan-012/013 pattern align):
+  - **G0 row**: `id` = `H0NN_g0_preflight` / `config_path` = `analysis/plan-014/preflight.py` / `notes` = `F0_init_hit_1cm=X.XXXX (±0.005), anchor_scale_ok, soft_entropy=X.XX nat, plan_012_disclaimer_ok`
+  - **G1 row**: `id` = `H0NN_g1_module_smoke` / `config_path` = `src/pb_0_6822/plan014_paradigm.py` / `notes` = `재사용_끊김 4/4 pass (selector_import_0, F0_grad_ok, anchor_0.01m, soft_entropy≥0.5); smoke val_loss decreased`
+  - **G2 row**: `id` = `H0NN_g2_phase1_bakeoff` / `config_path` = `analysis/plan-014/g2_phase1_bakeoff.py` / `baseline_id` = G1 row id / `notes` = `winner={E0a/E0b/E0c}, winner_OOF=X.XXXX, DCM=X.XXXX, G2_passed=bool`
+  - **G3 row**: `id` = `H0NN_g3_phase2_axis5` / `config_path` = `analysis/plan-014/g3_phase2_axis.py` / `baseline_id` = G2 row id / `notes` = `positive_axes=[...], max_delta=+X.XXXX, best_sub_id=E?, G3_passed=bool`
+  - **G4 row**: `id` = `H0NN_g4_phase3_aux3` / `config_path` = `analysis/plan-014/g4_phase3_aux.py` / `baseline_id` = G3 row id / `notes` = `positive_axes=[...], max_delta=+X.XXXX (informational)`
+  - **G5 row**: `id` = `H0NN_g5_phase4_final` / `config_path` = `analysis/plan-014/g5_phase4_final.py` / `baseline_id` = G4 row id / `notes` = `best_stack_5fold_OOF=X.XXXX (band: positive/partial/negative), delta_vs_anchor=+X.XXXX, G5_passed=bool, submission_used=<file>` ★ 핵심 row
+- **G_final 의 frontmatter sync**: `lb_score` (initially null, plan-014.1 carry-over 후 fill) / `exp_ids` (= 위 6 row 의 id list) / `status: spec → completed`
 
 ### §3.5 External reference (plan-006 / plan-013 — plan-012 INVALID 박제 후)
 
