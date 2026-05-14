@@ -1,6 +1,6 @@
 ---
 plan_id: 015
-version: 2.3 (spec patch — plan-review-master iter 3 fix 7건. (1) §1 Feature B acc_normal/binormal 산식 단일화 (raw acc · n̂ / b̂, sign 보존 — 이전 ‖acc_perp‖ 와 동일해지는 문제 제거). (2) §5.3/§6.3/§7.3/§8.3 marginal anchor inheritance 명기 (G_(n+1) anchor = G_n cumulative). (3) §1 Feature C τ=2 alignment spec 단일화 (alignment 무시, BiGRU 흡수). (4) §3.3 G0(b) Feature C 단독 18D = 9D base (cumulative 26D 의 13D base 와 다름) 명시. (5) §9.1 candidates baseline = plan-015 G0 재현 OOF (plan-014 hard-coded 0.6425 아님) — fair comparison. (6) §5.1 plan015_features.py signature 박제 (`make_seq_features_v2`, feature_flags dict). (7) §7.2 BiGRU input_dim 변경 시 weight 재초기화 (Kaiming, seed=20260514 carry, plan-014 weight transfer 안 함). v2.2 → v2.3.)
+version: 2.4 (spec patch — plan-review-master iter 4 fix 6건. (1)+(2) §5.1 plan015_features.py 의 적용 순서 + 분기 로직 박제 (A→B→C→D 순차, feature_flags 단독/cumulative 동시 지원). (3) §5/§6/§8 spec 본문에 weight 재초기화 carry 명기 (§7.2 와 정합). (4) §9.1 argmax + tie-break + drop rule 코드 spec 박제. (5) §9.2 test 5-fold ensemble = per-fold checkpoint coord mean (hit majority vote 아님). (6) §3.1 test sample reduction = §9.2 5-fold ensemble coord mean (train OOF concat 과 다름) cross-ref. v2.3 → v2.4.)
 date: 2026-05-14 (Asia/Seoul)
 status: spec
 based_on:
@@ -91,6 +91,7 @@ lb_score: null
 | c2.1 | docs | **v2.1 spec patch — plan-review-master iter 1 fix 6건.** (1) §1 Feature A residual modal switch 단일화 (displacement_F0 sign convention). (2) §1 Feature C dim 모순 제거 (26D cumulative, τ=1,2 2 stream). (3) §3.3 G0 (b) feature dim 도출식 박제. (4) anchor inheritance 단일화 (immediate prior cumulative). (5) §3.1 baseline reduction = 5-fold concat hit. (6) §1 Feature B Frenet basis 산출식 + edge case 박제. v2 → v2.1 | [DONE] 0c53cd9 |
 | c2.2 | docs | **v2.2 spec patch — plan-review-master iter 2 fix 6건.** (1) §1 Feature C τ=2 step indices `range(3,11,2)`=[3,5,7,9] 4 step + pad rule 박제. (2) §3.2 sub-exp matrix base column anchor inheritance 정합화 (G_(n-1) cumulative, negative → G_final). (3) §0.5 Quick Ref C feature 39D → 26D 갱신. (4) §1 Feature D stat 정의 명료화 (cosine + Δspeed 2 stat × 3 pair = 6D, Δangle 제외). (5) §1 Feature B edge case 단일화 (world ẑ post-ortho). (6) B/C/D narrative 가설 motivation 박제. v2.1 → v2.2 | [DONE] 612f92e |
 | c2.3 | docs | **v2.3 spec patch — plan-review-master iter 3 fix 7건.** (1) §1 Feature B acc_normal/binormal = raw acc · n̂/b̂ sign 보존 (정보 손실 해결). (2) §5~§8 marginal anchor inheritance 명기. (3) Feature C τ=2 alignment 단일화. (4) §3.3 G0(b) C 단독 18D base 9D 명시. (5) §9.1 candidates baseline = G0 재현 OOF. (6) §5.1 plan015_features.py signature 박제. (7) §7.2 weight 재초기화 spec. v2.2 → v2.3 | [DONE] d4cb908 |
+| c2.4 | docs | **v2.4 spec patch — plan-review-master iter 4 fix 6건.** (1+2) §5.1 plan015_features 의 A→B→C→D 적용 순서 + 단독/cumulative 분기 로직 박제. (3) §5/§6/§8 spec 본문 weight 재초기화 carry 명기. (4) §9.1 argmax + tie-break + drop rule 코드 spec 박제. (5) §9.2 test 5-fold ensemble = per-fold checkpoint coord mean 명시. (6) §3.1 test sample reduction cross-ref. v2.3 → v2.4 | [TODO] |
 | c3 | code+exp | STAGE 0 (G0) — preflight: plan-014 baseline 5-fold reproduce + feature dim sanity | [TODO] |
 | c4 | code+exp | STAGE 1 (G1, E1) — feature A only (F0 residual direct), 5-fold OOF | [TODO] |
 | c5 | exp | STAGE 2 (G2, E2) — A+B (F0 residual + binormal split), 5-fold OOF | [TODO] |
@@ -197,7 +198,7 @@ lb_score: null
 |---|---|---|
 | F0 raw hit@1cm | 0.6320 | plan-014 G0 (H036_g0_preflight) |
 | plan-014 G5 anchor 5-fold OOF | 0.6359 | plan-014 G5 (H041) |
-| **plan-014 G5 best_stack 5-fold OOF** ★ | **0.6425** | plan-014 G5 (H041), = plan-015 baseline. **reduction = 5-fold concat hit@1cm** (= `mean(‖oof_pred − y_true‖₂ ≤ 0.01m)` over all 10000 samples, 각 sample 이 정확히 1번 val 등장; *fold-mean of fold-means* 아님). |
+| **plan-014 G5 best_stack 5-fold OOF** ★ | **0.6425** | plan-014 G5 (H041), = plan-015 baseline. **reduction = 5-fold concat hit@1cm** (= `mean(‖oof_pred − y_true‖₂ ≤ 0.01m)` over all 10000 train samples, 각 sample 이 정확히 1번 val 등장; *fold-mean of fold-means* 아님). **test sample 처리는 별개 — §9.2 의 5-fold ensemble coord mean 사용** (train OOF reduction 과 다름, plan-014 G5 v4 carry). |
 | oracle ceiling (E0b Frenet-ortho) | 0.8248 | plan-014 G0 |
 | corrector 회수율 | 5.4% | (best − F0) / (oracle − F0) = 0.0105/0.1928 |
 
@@ -312,7 +313,18 @@ plan-014 module (`src/pb_0_6822/plan014_paradigm.py`) reuse OK — corrector arc
 
 ### §5.1 산출물
 
-- `src/pb_0_6822/plan015_features.py` — A/B/C/D feature 함수 정의 (plan-014 `make_seq_features` 의 확장 wrapper). **signature**: `make_seq_features_v2(X: np.ndarray, end_idx: int = 10, direction: float = 1.0, *, feature_flags: dict[str, bool]) -> np.ndarray` where `feature_flags = {"A": bool, "B": bool, "C": bool, "D": bool}`. plan-014 module *import* (monkey-patch 아님), 별도 함수로 wrap. cumulative E_n 시 `feature_flags = {f: f in {"A", ..., n-th}}` 활성. shape `(N, 6, target_dim)` 반환, target_dim 은 §3.3 G0(b) carry table.
+- `src/pb_0_6822/plan015_features.py` — A/B/C/D feature 함수 정의 (plan-014 `make_seq_features` 의 확장 wrapper). **signature**: `make_seq_features_v2(X: np.ndarray, end_idx: int = 10, direction: float = 1.0, *, feature_flags: dict[str, bool]) -> np.ndarray` where `feature_flags = {"A": bool, "B": bool, "C": bool, "D": bool}`. plan-014 module *import* (monkey-patch 아님), 별도 함수로 wrap. shape `(N, 6, target_dim)` 반환.
+- **분기 로직 (v2.4 단일화)**:
+  - 함수 내부 적용 순서 = **A → B → C → D** (순차):
+    1. `base = plan-014_make_seq_features(X, end_idx, direction)` → (N, 6, 9) 9D plan-014 raw
+    2. A=True 시: `base = base + displacement_F0[:, :, None]` (+3D) → (N, 6, 12)
+    3. B=True 시: 현 base 의 (5) `perp_norm/speed` 1D 자리에 (acc_normal/speed, acc_binormal/speed) 2D swap → dim +1
+    4. C=True 시: 현 base 를 τ=1, τ=2 2 stream 산출 후 axis=-1 concat → dim ×2
+    5. D=True 시: 현 base 에 pairwise 6D 추가 (+6D)
+  - **단독 적용 dim** (다른 flag False 시): A 단독 = 9+3 = **12D**, B 단독 = 9−1+2 = **10D**, C 단독 = 9×2 = **18D**, D 단독 = 9+6 = **15D** (§3.3 G0(b) sanity carry).
+  - **cumulative E_n dim**: A=12 → A+B=13 → A+B+C=26 → A+B+C+D=32 (§3.2 carry).
+  - C cumulative (after A+B) = 13D × 2 = 26D, C 단독 = 9D × 2 = 18D — 이 두 path 모두 동일 함수가 *적용 순서*에 따라 분기 산출.
+- target_dim 은 §3.3 G0(b) carry table 박제 (단독/cumulative 양쪽).
 - `analysis/plan-015/g1_e1_feature_A.py` — E1 config × 5-fold OOF
 - `analysis/plan-015/g1_e1.json` — schema = §3.3
 - registry row: `H043_g1_e1_feature_A`
@@ -321,6 +333,7 @@ plan-014 module (`src/pb_0_6822/plan014_paradigm.py`) reuse OK — corrector arc
 
 - input dim = 12D (9D plan-014 + 3D F0 residual)
 - corrector arch / loss / lever / F0 frozen 모두 plan-014 G5 best_stack carry
+- **weight 재초기화** (v2.4 carry, §7.2 spec same): BiGRU input_dim=12 로 변경, 전체 model state PyTorch Kaiming default init + seed=20260514 carry. plan-014 학습된 weight transfer 안 함 — 모든 G_n 동일 init + 동일 데이터 학습 = fair comparison.
 - 5-fold OOF (stable_hash carry)
 
 ### §5.3 G1 합격
@@ -341,8 +354,10 @@ plan-014 module (`src/pb_0_6822/plan014_paradigm.py`) reuse OK — corrector arc
 
 ### §6.2 spec
 
-- input dim = 13D (12D + 1D binormal split)
-- 외 plan-014 carry
+- input dim = 13D (12D + 1D binormal split, v2.2 net dim)
+- 외 plan-014 carry (corrector arch / loss / lever / F0 frozen)
+- **weight 재초기화** (v2.4 carry, §7.2 spec same): BiGRU input_dim=13 로 변경, 전체 model state Kaiming default + seed=20260514. plan-014 weight transfer 안 함.
+- 5-fold OOF
 
 ### §6.3 G2 합격
 
@@ -384,7 +399,9 @@ plan-014 module (`src/pb_0_6822/plan014_paradigm.py`) reuse OK — corrector arc
 
 ### §8.2 spec
 
-- input dim ≈ 32D (26D + 6D pairwise)
+- input dim = **32D** (26D + 6D pairwise)
+- 외 plan-014 carry
+- **weight 재초기화** (v2.4 carry, §7.2 spec same): BiGRU input_dim=32 로 변경, 전체 model state Kaiming default + seed=20260514. plan-014 weight transfer 안 함.
 - 5-fold OOF
 
 ### §8.3 G4 합격 (마지막 stage)
@@ -408,18 +425,32 @@ candidates = {
     "E3 (A+B+C)": G3_oof,
     "E4 (A+B+C+D)": G4_oof,
 }
-best_name = argmax(candidates)
+best_name = max(candidates, key=candidates.get)
 best_oof = candidates[best_name]
+# tie-break (동일 OOF 시): cumulative 적은 feature 우선 (key list 순서:
+# "baseline" > "E1 (A)" > "E2 (A+B)" > "E3 (A+B+C)" > "E4 (A+B+C+D)")
+# Python dict 의 insertion order 가 위 순서로 보장됨 → max() 가 first 반환.
 ```
 
 **baseline 값 결정 (v2.3 단일화)**: candidates 의 "baseline" = **plan-015 G0 재현 OOF** (= 0.6425 ± 0.005 reproduce 결과). plan-014 의 hard-coded 0.6425 가 아닌 plan-015 자체 재현값 사용 — fair comparison (G0~G4 모두 동일 5-fold scheme + 동일 seed + 동일 코드 path 산출).
 
-drop rule (§3.2): negative stage 이후 stages 는 candidates 에서 제외.
+**drop rule 코드 spec (v2.4 단일화)**:
+```python
+# G_n negative (ΔOOF < 0) 시 G_(n+1)..G_4 stage skip → candidates 에서 제외
+if g1_delta < 0:
+    del candidates["E2 (A+B)"], candidates["E3 (A+B+C)"], candidates["E4 (A+B+C+D)"]
+elif g2_delta < 0:
+    del candidates["E3 (A+B+C)"], candidates["E4 (A+B+C+D)"]
+elif g3_delta < 0:
+    del candidates["E4 (A+B+C+D)"]
+# G4 negative 시 candidates 그대로 (G4 결과 자체는 박제, drop 의미는 다음 stage 부재)
+```
 
 ### §9.2 산출물
 
-- `analysis/plan-015/g5_best_stack.py` — best config 의 test 5-fold ensemble (이미 G_n 에서 5-fold OOF 산출 → test 만 새로 산출)
-- `runs/baseline/plan015_g5/submission_best.csv`
+- `analysis/plan-015/g5_best_stack.py` — best config 의 test 5-fold ensemble. G_n 에서 5-fold OOF + per-fold checkpoint 5개 박제됨 → 각 fold checkpoint 로 test 예측 후 ensemble.
+- **test 5-fold ensemble reduction (v2.4 spec)**: per-fold model `M_k (k ∈ 0..4)` 의 test prediction `pred_k (N_test, 3)` 산출 후 좌표 평균: `test_pred = mean(pred_0, ..., pred_4)` (coord-wise mean over fold axis). hit majority vote 아닌 *coord mean* (plan-014 G5 v4 carry, plan-012 §9.2 origin).
+- `runs/baseline/plan015_g5/submission_best.csv` — `test_pred` 의 6-decimal float64 (id order = `sample_submission.csv`, plan-014 carry).
 - `analysis/plan-015/g5_phase4.json`
 - registry row: `H047_g5_best_stack_5fold`
 
