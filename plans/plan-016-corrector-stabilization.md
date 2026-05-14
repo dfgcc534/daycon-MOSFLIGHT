@@ -1,6 +1,6 @@
 ---
 plan_id: 016
-version: 1.3 (spec patch — plan-review-master iter 3 fix 6건. (1) §3.2 footnote conditional fallback rule pass 정의 단일화 (pass = positive OR marginal, negative 만 G1 fallback). (2) §5.2 OOF aggregation 표현 §3.3 와 단어 통일 (sample-level concat hit). (3) §4.1 reproduce ±0.005 산수 정정 → ±0.0005 (실제 ≤ 0.6430 범위). (4) §3.2.B Feature B degenerate fallback `t̂_s = world x̂` 명시. (5) §7.2 / §9.2 BiGRU weight 재초기화 §8.2 와 동일 명시. (6) §1.4 stretch goal narrative 와 §10.4 alias 의미 단어 통일 (G6 LB = cumulative best Path C). v1.2 → v1.3.)
+version: 1.4 (spec patch — plan-review-master iter 4 fix 3건 (AMBIGUITY). (1) §0.5 per-stage Δ threshold 를 G1/G2 (+0.005) vs G3/G4/G5 (+0.003) 분기 표현 ↔ §3.3 G3/G4/G5 의 +0.003 consistent. (2) §10.1 best_c 선정 시 `status != "negative_drop"` drop filter + 전부 drop 시 `best_c = None` (= G2 alias) 분기. (3) §10.3 G6 합격 식 `g6_lb` 일반화 + §10.4 alias 대상 분기 (best Path C / G2). v1.3 → v1.4.)
 date: 2026-05-14 (Asia/Seoul)
 status: spec
 based_on:
@@ -49,10 +49,10 @@ baseline (plan-014/015 best_stack, LB 0.6628)
 ### 합격 기준 — LB-aware (Q1 v1 결정)
 
 - 모든 stage 의 5-fold OOF + LB head-to-head 측정 (각 stage dacon-submit 1회, plan-016 총 5회 ≤ DACON daily 5 limit).
-- per-stage Δ threshold:
-  - **OOF Δ ≥ +0.005** → OOF-pass (variance 감소된 후의 검출)
-  - **LB Δ ≥ +0.005** → LB-pass (실측 회수)
-  - 둘 다 pass → positive; 한 쪽 만 pass → marginal; 둘 다 fail → negative drop
+- per-stage Δ threshold (stage 별 분기):
+  - **G1 (Path A) / G2 (Path B)**: OOF Δ ≥ +0.005 AND LB Δ ≥ +0.005 → both-pass = positive (§5.3 / §6.3 carry).
+  - **G3 / G4 / G5 (Path C-B/C/D single-feature)**: OOF Δ ≥ +0.003 AND LB Δ ≥ +0.003 → both-pass = positive. threshold 낮음 = single feature marginal lever 인정 (§3.3 G3/G4/G5 [L297](#) / §7.3 / §8.3 / §9.3 carry).
+  - 둘 다 pass → positive; 한 쪽 만 pass → marginal; 둘 다 fail → negative drop (모든 stage 동일).
 - band classification (LB 기준, v0.5 LB-aware):
   - LB ≥ 0.68 → **plan-004 LB 위 진입** (positive-top)
   - 0.66 ≤ LB < 0.68 → positive (band carry from plan-014/015)
@@ -85,6 +85,7 @@ baseline (plan-014/015 best_stack, LB 0.6628)
 | c1.1 | docs | **v1.1 spec patch — plan-review-master iter 1 fix 7건.** (1) §3.2 Feature B/C/D 산식 inline. (2) §3.1 9D base feature 전체 list inline. (3) Path C base fallback conditional rule 단일화. (4) G0 seed=20260514 + 5 seed list 명시. (5) OOF aggregation = 좌표 mean 단일화. (6) G6 alias 명시. (7) stretch goal LB 0.68 + self-label 사후 승격 룰. v1 → v1.1 | [DONE] 40765af |
 | c1.2 | docs | **v1.2 spec patch — plan-review-master iter 2 fix 8건.** (1) §5.2 OOF aggregation 단일 정의 (concat 10000 sample single hit). (2) §3.2.B/C/D 산식 sub-section inline (Frenet basis + degenerate fallback / stride pad / cosine ε). (3) §4.1 reproduce criterion 해소 (same seed = 4자리 일치). (4) §10.4 H055 alias row 12 column registry schema. (5) §10.1 best_c tie-break (LB primary + OOF 2차). (6) §1.4 stretch goal vs threshold 산술 상한 0.6758 gap 박제. (7) §11.1 closure measurement criterion (fold spread / best_epoch std / Path C positive). (8) §1.3 Mechanism mapping (Path A/B/C → L1/L2/L3 closure) narrative. v1.1 → v1.2 | [DONE] 3ea7b2a |
 | c1.3 | docs | **v1.3 spec patch — plan-review-master iter 3 fix 6건.** (1) §3.2 footnote pass 정의 = positive OR marginal (negative 만 fallback). (2) §5.2 OOF aggregation 표현 §3.3 와 단어 통일. (3) §4.1 ±0.005 → ±0.0005 산수 정정. (4) §3.2.B `t̂_s = world x̂` fallback 명시. (5) §7.2/§9.2 BiGRU weight 재초기화 §8.2 와 동일. (6) §1.4 stretch goal vs G6 alias 단어 통일. v1.2 → v1.3 | [DONE] c699bc6 |
+| c1.4 | docs | **v1.4 spec patch — plan-review-master iter 4 fix 3건 (AMBIGUITY).** (1) §0.5 per-stage Δ threshold 를 G1/G2 (+0.005) vs G3/G4/G5 (+0.003) 분기 표현 ↔ §3.3 G3/G4/G5 의 +0.003 consistent. (2) §10.1 best_c 선정 시 negative_drop 후보 drop filter 추가 (`status != "negative_drop"`) + 전부 drop 시 `best_c = None` (= G2 alias) 분기 명시. (3) §10.3 G6 합격 식을 `g6_lb` (best_c != None → best_c LB, best_c == None → g2_lb) 로 일반화 + §10.4 alias 대상 분기 (best Path C sub-exp / G2). v1.3 → v1.4 | [TODO] |
 | c2 | code+exp | STAGE 0 (G0) — preflight: baseline reproduce + 3 path config sanity | [TODO] |
 | c3 | code+exp | STAGE 1 (G1, Path A) — multi-seed × multi-fold ensemble | [TODO] |
 | c4 | code+exp | STAGE 2 (G2, Path B) — monitor=val_loss cumulative | [TODO] |
@@ -494,15 +495,24 @@ python analysis/plan-016/preflight.py
 ### §10.1 best 선정
 
 ```python
-c_candidates = {
-    "C-B": (g3_oof, g3_lb),
-    "C-C": (g4_oof, g4_lb),
-    "C-D": (g5_oof, g5_lb),
+# 1) 각 Path C sub-exp 의 (status, OOF, LB).
+#    status ∈ {"positive", "marginal", "negative_drop"} per §7.3 / §8.3 / §9.3 (vs G2: 둘 다 pass / 한 쪽 / 둘 다 fail).
+c_raw = {
+    "C-B": (g3_status, g3_oof, g3_lb),
+    "C-C": (g4_status, g4_oof, g4_lb),
+    "C-D": (g5_status, g5_oof, g5_lb),
 }
-# argmax LB primary (LB = ground truth). DACON LB 가 4자리 truncate 이므로 tie 흔함.
-# tie-break: LB 동률 → OOF max → 그래도 동률 → insertion order (C-B > C-C > C-D, 단순성 우선)
-best_c = max(c_candidates, key=lambda k: (c_candidates[k][1], c_candidates[k][0]))
-# 위는 LB 우선, OOF 2차 정렬. tie 시 max() 의 Python 안정성으로 first key 반환 (C-B > C-C > C-D 자동).
+# 2) drop filter: negative_drop 후보 제외. positive / marginal 만 candidate.
+c_candidates = {k: (oof, lb) for k, (status, oof, lb) in c_raw.items() if status != "negative_drop"}
+
+if len(c_candidates) == 0:
+    # 모든 Path C drop → G6 = G2 alias (no C feature). G2 cumulative 자체가 best stack.
+    best_c = None
+else:
+    # argmax LB primary (LB = ground truth). DACON LB 가 4자리 truncate 이므로 tie 흔함.
+    # tie-break: LB 동률 → OOF max → 그래도 동률 → insertion order (C-B > C-C > C-D, 단순성 우선)
+    best_c = max(c_candidates, key=lambda k: (c_candidates[k][1], c_candidates[k][0]))
+    # 위는 LB 우선, OOF 2차 정렬. tie 시 max() 의 Python 안정성으로 first key 반환 (C-B > C-C > C-D 자동).
 ```
 
 ### §10.2 best_stack config
@@ -513,22 +523,23 @@ best_c = max(c_candidates, key=lambda k: (c_candidates[k][1], c_candidates[k][0]
 
 ### §10.3 G6 합격
 
-- best_c LB ≥ baseline + 0.005 (= 0.6678) → **G6 PASS**
-- 0.65 ≤ best_c LB < 0.66 → partial
-- best_c LB < 0.65 → negative (paradigm 한계)
-- best_c LB ≥ 0.68 → **plan-004 정조준 달성** ★
+- `g6_lb` = `best_c LB` (best_c != None) **또는** `g2_lb` (best_c == None, all Path C drop → G6 = G2 alias, §10.1).
+- `g6_lb` ≥ baseline + 0.005 (= 0.6678) → **G6 PASS**
+- 0.65 ≤ `g6_lb` < 0.66 → partial
+- `g6_lb` < 0.65 → negative (paradigm 한계)
+- `g6_lb` ≥ 0.68 → **plan-004 정조준 달성** ★
 
 ### §10.4 submission
 
-- 별도 dacon-submit 안 함 (best_c 의 submission 자체가 G6 submission).
-- G6 = **alias of best Path C sub-exp** (= argmax LB over {G3, G4, G5}). artifact = best sub-exp 의 결과 carry. 별도 학습/산출 없음.
+- 별도 dacon-submit 안 함 (`best_c != None`: best_c submission 자체가 G6 submission. `best_c == None`: G2 submission 이 G6 submission alias).
+- G6 = **alias of best Path C sub-exp** (`best_c != None`, = argmax LB over {G3, G4, G5} pos/marginal) **또는** **alias of G2** (`best_c == None`, all Path C drop). artifact = alias 대상의 결과 carry. 별도 학습/산출 없음.
 - registry row `H055_g6_best_stack` (alias row, 12 column 일반 schema 유지):
   - `id` = `H055_g6_best_stack`
   - `type` = `baseline`, `status` = `complete`
-  - `run_dir` = best sub-exp 의 run_dir (직접 path, alias 표기 없음 — 그냥 동일 directory 가리킴)
+  - `run_dir` = alias 대상 run_dir (best_c != None → best sub-exp run_dir, best_c == None → G2 run_dir).
   - `config_path` = `analysis/plan-016/g6_best_stack.py` (선택 logic 산출 script)
-  - `baseline_id` = `H050_g1_path_a_multiseed` (G1 = G3~G5 가 모두 G2 carry, G2 가 fail 시 G1) 또는 G2/best Path C 의 직전 row id (선택 결정 후)
-  - `notes` = `"alias of {best_c_sub_exp_id}, LB={best_c_LB}, OOF={best_c_OOF}, band={band}"`
+  - `baseline_id` = alias 대상의 직전 row id (best_c != None → `H051_g2_path_b`; best_c == None → `H050_g1_path_a_multiseed`).
+  - `notes` = `"alias of {alias_target_id}, LB={g6_lb}, OOF={g6_oof}, band={band}"` (alias_target_id ∈ {best Path C sub-exp id, `H051_g2_path_b`} per best_c 분기).
 - §3.4 exp_id `H055` = alias row, *new training/submission 없음* 명시.
 
 ---
