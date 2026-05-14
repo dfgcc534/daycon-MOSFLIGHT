@@ -101,7 +101,7 @@ G0 preflight  →  G1 module + smoke  →  G2 Phase 1 bake-off  →  G3 Phase 2 
 
 ### G-gates (정량 spec @ §3.4)
 
-- **G0** preflight: F0 frozen reproduce ±0.005 (= 0.6320) / anchor 0.01m / soft entropy ≥0.5 nat / plan-012 disclaimer verify [TODO]
+- **G0** preflight: F0 frozen reproduce ±0.005 (= 0.6320) / anchor 0.01m / soft entropy ≥0.5 nat / plan-012 disclaimer verify [DONE 6c56dd1: F0=0.6320 / oracle (E0a/E0b/E0c)=(0.8203/0.8248/0.7625) / soft=1.707 nat / ranking abs=[y,x,z] fro=[n,b,t]]
 - **G1** module build: `plan014_paradigm.py` + smoke + 재사용 끊김 4가지 (i) `selector` / `ring_classifier` / `boundary` / plan-006 numpy F0 함수 import 0 (ii) F0 forward = (1.98, 1.20, −0.20) reproduce ±0.005 + grad path 끊김 (= F0 는 nn.Buffer 또는 plain function, requires_grad 없음) (iii) anchor ‖·‖ = 0.01m ± 1e-6 (iv) soft label `w_k` (target Gaussian 분포) 의 sample-별 entropy 평균 ≥0.5 nat — **G0 (c) 와 같은 분석적 산출 (학습 전, model output prob_k 와 별개)** [TODO]
 - **G2** Phase 1 bake-off: winner_OOF ≥ 0.60 + DCM ≥ 0.002 (plan-012 G1 spec carry) [TODO]
 - **G3** Phase 2 axis 5: 5 axis 중 1+ ΔOOF ≥ 0.005 (plan-012 G2 spec) [TODO]
@@ -122,7 +122,7 @@ G0 preflight  →  G1 module + smoke  →  G2 Phase 1 bake-off  →  G3 Phase 2 
 | c1.v4.3 | docs | **v4.3 spec patch — plan-review-master iter 3 fix 5건.** (1) §2.1.B.1 E2 K=9/13 anchor `±(a+b)/√2` norm 보장 가정 박제. (2) §9.1 E4+E5 동시 채택 final loss formula 명시 (`use_reg_head=False, use_hinge=True` 분기). (3) §2.1.A.1 F0 1.98 dimensionless hard-coded constant (plan-006 carry, dt 흡수) + 단위 일관. (4) §5.4 G1 smoke val_hit_after path = `model.eval()` + `hybrid_predict()` (inference path 동일) 명시. (5) §3.1 single→5-fold sign mismatch sub-exp 제외 룰 박제. v4.2 → v4.3 | [DONE] 28235c3 |
 | c1.v4.4 | docs | **v4.4 spec patch — plan-review-master iter 4 fix 6건.** (1) §5.2 train_one_fold explicit signature. (2) §9.2 3 helper signature + 반환 spec. (3) §7.1 E5 ΔOOF 부호 convention 통일 (variant − anchor, 다른 axis 동일). (4) §3.4 G5 submission keys 4 explicit. (5) §2.1.A Loss batch reduction = mean 명시. (6) §3.2 hit@1.5cm 정의식 박제. v4.3 → v4.4 | [DONE] 56f31c7 |
 | c1.v4.5 | docs | **v4.5 spec patch — plan-review-master iter 5 (max) fix 4건 → loop 종료.** (1) §3.4 G5 best_stack 정의 wording sync to §9.1 (Phase 2 best 1 + Phase 3 best 1, max 3 elements). (2) §3.4 G1 (a) threshold sync to §5.4 (strict > → ≥ initial − 0.05 margin). (3) §3.4 G1 F0 range 4-digit 통일. (4) §2.1.B.1 E6 boundary weighted_mean 분모 = Σw 명시. plan-review-master loop 최종 종료. v4.4 → v4.5 | [DONE] c7f4d31 |
-| c4 | code+exp | STAGE 0 (G0) — preflight artifact (F0 frozen reproduce 0.6320 ±0.005). spec @ §4 | [TODO] |
+| c4 | code+exp | STAGE 0 (G0) — preflight artifact (F0 frozen reproduce 0.6320 ±0.005). spec @ §4. PASS 4/4: F0 frozen hit@1cm=0.6320 (정확 reproduce). oracle (E0a/E0b/E0c)=(0.8203/0.8248/0.7625). marginal ranking abs=[y,x,z] fro=[n,b,t]. min_cluster=338 | [DONE] 6c56dd1 |
 | c5 | code | STAGE 1 (G1) — `src/pb_0_6822/plan014_paradigm.py` 새 module + smoke + 재사용 끊김. spec @ §5 | [TODO] |
 | c6 | code+exp | STAGE 2 (G2) — Phase 1 codebook bake-off (E0a/E0b/E0c 3 sub-exp → winner). spec @ §6 | [TODO] |
 | c7 | exp | STAGE 3 (G3) — Phase 2 axis ablation 5 (E1~E5). spec @ §7 | [TODO] |
