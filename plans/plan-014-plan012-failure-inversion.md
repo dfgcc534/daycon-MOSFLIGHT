@@ -1,6 +1,6 @@
 ---
 plan_id: 014
-version: 4.4 (spec patch — plan-review-master iter 4 fix 6건. (1) §5.2 train_one_fold explicit signature: `train_one_fold(config, fold_id, train_loader, val_loader, F0_function, anchors_local, *, seed, device) → dict`. (2) §9.2 3 helper 시그너처 + 반환 spec (build_plan014_model / train_and_predict / predict). (3) §7.1 E5 ΔOOF 부호 convention 통일 = `variant − anchor` (= 다른 axis 동일). positive → off 채택. (4) §3.4 G5 submission keys 4 explicit (submission_best_path / submission_anchor_fallback_path / submission_used_for_LB / submission_n_rows). (5) §2.1.A Loss batch reduction = `mean` over batch 명시. (6) §3.2 secondary `hit@1.5cm = mean(‖hybrid_pred − y_true‖₂ ≤ 0.015m)` 정의식. v4.3 → v4.4.)
+version: 4.5 (spec patch — plan-review-master iter 5 (max) fix 4건 → loop 종료. (1) §3.4 G5 best_stack 정의 wording sync to §9.1: "Phase 2 best 1 + Phase 3 best 1, ΔOOF > 0 인 경우 채택, max 3 elements stack". (2) §3.4 G1 (a) val_hit threshold sync to §5.4: strict `>` → `≥ initial − 0.05` margin (random-init variance 흡수). (3) §3.4 G1 (b)(ii) F0 range 4-digit 통일 `[0.6270, 0.6370]`. (4) §2.1.B.1 E6 boundary weight `weighted_mean = Σ(w·loss)/Σw` 분모 = Σw (plan-012 convention carry). plan-review-master loop max iter 도달, BLOCKER 0. v4.4 → v4.5.)
 date: 2026-05-14 (Asia/Seoul)
 status: spec
 based_on:
@@ -121,6 +121,7 @@ G0 preflight  →  G1 module + smoke  →  G2 Phase 1 bake-off  →  G3 Phase 2 
 | c1.v4.2 | docs | **v4.2 spec patch — plan-review-master iter 2 fix 8건.** (1) §2.1.A C1: BiGRU output reduction = last-step bidir concat. (2) §5.2: Plan014HybridHead forward/hybrid_predict 분리 + F0 detach caller-side 명시. (3) §5.4 G1 smoke initial_val_hit 측정 spec + threshold − 0.05 margin. (4) §2.1.B.1 E2 K density frame 선택 룰 (winner-codebook 별 axis_family frame). (5) §7.1 E1 anchor 변수 표식. (6) §7.1 E4 2-variable composition 명시. (7) §3.4 G_final registry 6 row 의 12 column 값 룰. (8) §5.2 run_kfold_oof config dict key set + E7 MLP GELU 위치. v4.1 → v4.2 | [DONE] 906eb67 |
 | c1.v4.3 | docs | **v4.3 spec patch — plan-review-master iter 3 fix 5건.** (1) §2.1.B.1 E2 K=9/13 anchor `±(a+b)/√2` norm 보장 가정 박제. (2) §9.1 E4+E5 동시 채택 final loss formula 명시 (`use_reg_head=False, use_hinge=True` 분기). (3) §2.1.A.1 F0 1.98 dimensionless hard-coded constant (plan-006 carry, dt 흡수) + 단위 일관. (4) §5.4 G1 smoke val_hit_after path = `model.eval()` + `hybrid_predict()` (inference path 동일) 명시. (5) §3.1 single→5-fold sign mismatch sub-exp 제외 룰 박제. v4.2 → v4.3 | [DONE] 28235c3 |
 | c1.v4.4 | docs | **v4.4 spec patch — plan-review-master iter 4 fix 6건.** (1) §5.2 train_one_fold explicit signature. (2) §9.2 3 helper signature + 반환 spec. (3) §7.1 E5 ΔOOF 부호 convention 통일 (variant − anchor, 다른 axis 동일). (4) §3.4 G5 submission keys 4 explicit. (5) §2.1.A Loss batch reduction = mean 명시. (6) §3.2 hit@1.5cm 정의식 박제. v4.3 → v4.4 | [DONE] 56f31c7 |
+| c1.v4.5 | docs | **v4.5 spec patch — plan-review-master iter 5 (max) fix 4건 → loop 종료.** (1) §3.4 G5 best_stack 정의 wording sync to §9.1 (Phase 2 best 1 + Phase 3 best 1, max 3 elements). (2) §3.4 G1 (a) threshold sync to §5.4 (strict > → ≥ initial − 0.05 margin). (3) §3.4 G1 F0 range 4-digit 통일. (4) §2.1.B.1 E6 boundary weighted_mean 분모 = Σw 명시. plan-review-master loop 최종 종료. v4.4 → v4.5 | [TODO] |
 | c4 | code+exp | STAGE 0 (G0) — preflight artifact (F0 frozen reproduce 0.6320 ±0.005). spec @ §4 | [TODO] |
 | c5 | code | STAGE 1 (G1) — `src/pb_0_6822/plan014_paradigm.py` 새 module + smoke + 재사용 끊김. spec @ §5 | [TODO] |
 | c6 | code+exp | STAGE 2 (G2) — Phase 1 codebook bake-off (E0a/E0b/E0c 3 sub-exp → winner). spec @ §6 | [TODO] |
@@ -284,7 +285,7 @@ Frenet basis @ end_idx (sample-별 (3, 3) orthonormal matrix R_world_from_frenet
 | E3 τ scan | inference time `temperature` 변경. variants: argmax (τ≤1e-8) + {0.01, 0.03, 0.1, 0.3, 1.0} | 학습 = baseline τ=0.03, eval 만 변경 (same model checkpoint) |
 | E4 loss swap | `ring_classifier.py:410-454` `hybrid_combined_loss(use_hinge)`. L7 hinge = `ring_classifier.py:380-389` `hit_aware_hinge(corrected_pos, target, R_HIT=0.01, smooth=0.005)` — `(softplus(excess / smooth) · smooth)²` where `excess = ‖pred − target‖ − R_HIT` | sub-exp A: baseline `L = α·CE(logits, w_k) + β·Huber_offset`. sub-exp B: `L = α·CE + 0.5·Huber_offset + 0.5·Hinge_pred` (domain 다른 두 항 weighted sum, Huber_offset = per-anchor offset domain, Hinge_pred = sample-level final position) |
 | E5 reg head on/off | `hybrid_combined_loss(use_reg_head)` flag | off variant: reg_offset 항 무시, `hybrid_pred = F0 + anchor_blend` 만 |
-| E6 boundary weight | `phase3_aux.py:57-61`: `boundary_mask = (err_F0 > 0.005) & (err_F0 < 0.015)`, `sw = where(mask, 3.0, 1.0)`. err_F0 = `‖F0_pred_frozen − y_true‖` (frozen F0 산출) | loss batch reduction 에 sample weight 곱셈 (= weighted mean). on/off 2 sub-exp |
+| E6 boundary weight | `phase3_aux.py:57-61`: `boundary_mask = (err_F0 > 0.005) & (err_F0 < 0.015)`, `sw = where(mask, 3.0, 1.0)`. err_F0 = `‖F0_pred_frozen − y_true‖` (frozen F0 산출) | loss batch reduction 에 sample weight 곱셈 = `weighted_mean = Σ_i (w_i × loss_i) / Σ_i w_i` (분모는 Σw, 단순 N 아님 — plan-012 convention carry). on/off 2 sub-exp |
 | E7 scorer arch | `ring_classifier.py:342-372` `LastStepMLPScorer(seq_dim=9, cand_dim=11, hidden=64, cand_count=7)` — GRU 우회, last-step seq → 2-layer GELU MLP | plan-014 baseline (BiGRU h=128) vs LastStep MLP variant. cand_feat = anchor coord (B, K, 3) — plan-014 의 K=7 (not 11). seq[:, -1, :] (last step 9 dim) → `MLP_seq` (2-layer GELU, 9→64) → `h`. anchor → `MLP_cand` (2-layer GELU, 3→64) → `cand_h`. logits = `(cand_h * h[:, None, :]).sum(-1)` → (B, K). seq MLP 와 cand MLP 별도 weight |
 | E8 r=0 logit prior | `ring_classifier.py:464-490` `hybrid_predict(r0_logit_prior=0.0/0.5/1.0)`. `prior[0] = r0_logit_prior` (center mode k=0 만 bias) | inference 시만 적용 (학습은 baseline 동일). variants: 0 / +0.5 / +1.0 |
 
@@ -371,10 +372,10 @@ decision-note: E0c K-Means 의 `random_state=20260606` 은 plan-012 그대로 ca
 #### G1 — 새 module 구현 + 재사용 끊김
 
 - artifact: `src/pb_0_6822/plan014_paradigm.py` + smoke test (`tests/test_plan014_smoke.py`)
-- (a) smoke train: 1-fold 1-epoch — no NaN, `val_hit_after_epoch_1 > initial_val_hit` (= epoch 0 random-init val forward 보다 improvement, val_hit monitor 와 정합)
+- (a) smoke train: 1-fold 1-epoch — no NaN, `val_hit_after_epoch_1 >= initial_val_hit − 0.05` (= random-init variance 흡수 margin, false-positive smoke fail 방지). 상세 spec = §5.4 (a) (initial_val_hit / val_hit_after 산출 path 박제)
 - (b) 재사용 끊김 4가지:
   1. AST import 0: `selector` / `ring_classifier` / `boundary` / plan-006 numpy F0 함수 import 0 (= `f0_predict_frenet_par120_perp_neg020` 류)
-  2. **F0 함수 본 module 안 재구현 verify**: F0 forward 가 (1.98, 1.20, −0.20) constants 으로 reproduce, `F0 params 의 requires_grad = False` (= frozen, optimizer 가 학습 안 함). F0 산식 reproduce hit@1cm ∈ [0.627, 0.637] (G0 (a) carry)
+  2. **F0 함수 본 module 안 재구현 verify**: F0 forward 가 (1.98, 1.20, −0.20) constants 으로 reproduce, `F0 params 의 requires_grad = False` (= frozen, optimizer 가 학습 안 함). F0 산식 reproduce hit@1cm ∈ [0.6270, 0.6370] (G0 (a) carry)
   3. anchor `‖a_k‖ = 0.01 ± 1e-6` for E0a/E0b (E0c: anchor[0] = center origin)
   4. soft label entropy ≥ 0.5 nat
 - fail trigger: 1+ fail → `reuse_cut_violation` severe (premise 위배)
@@ -409,7 +410,7 @@ decision-note: E0c K-Means 의 `random_state=20260606` 은 plan-012 그대로 ca
 
 - artifact: `analysis/plan-014/g5_phase4_final.py` + `g5_phase4.json` + `runs/baseline/plan014_g5_phase4/submission.csv`
 - spec: G2 winner + G3/G4 best lever stack 으로 5-fold concat OOF + submission
-- best_stack 정의: anchor config + G3/G4 의 max(ΔOOF) > 0 인 lever 들의 combined config
+- best_stack 정의: anchor config + Phase 2 best lever (E1~E5 중 max ΔOOF 단일 axis, ΔOOF > 0 인 경우) + Phase 3 best lever (E6~E8 중 max ΔOOF 단일 axis, ΔOOF > 0 인 경우) = 최대 3 elements stack. §9.1 stacking rule sync.
 - criterion: **best_stack 5-fold OOF ≥ anchor_5fold + 0.005**
 - band 분류 (§3.2): best_stack OOF 기준 ≥0.66 / 0.65~0.66 / <0.65
 - fail trigger: best_stack < anchor + 0.005 → `g5_no_additive` warn (anchor fallback submission)
@@ -580,7 +581,7 @@ pytest tests/test_plan014_smoke.py -x -v
 - (a) smoke train: 1-fold 1-epoch — no NaN, `val_hit_after_epoch_1 > initial_val_hit − 0.05` (= improvement 또는 minor degradation 허용; threshold 는 random-init variance 흡수용). **initial_val_hit 정의**: `model.eval()` 상태에서 학습 *전* (Adam.step() 0회) random-init weights 으로 val fold forward → `hybrid_predict(seq, anchors, R_wfn, F0_pred_detached, temperature=0.03, use_reg_head=True, r0_logit_prior=0.0)` → hit@1cm 측정. 동일 seed (=20260514) 보장. **val_hit_after 산출 path = identical** — 1 epoch 학습 후 다시 `model.eval()` + `hybrid_predict()` 동일 인자, val fold 동일 sample 위 hit@1cm 측정. 두 산출 path 가 inference path 와 동일 (= G2~G5 의 OOF 산출과 일관). assert: `val_hit_after >= val_hit_initial − 0.05` (절대 hit rate scale, false-positive 안전 margin)
 - (b) 재사용 끊김 4 assert:
   1. AST import 0: `selector` / `ring_classifier` / `boundary` / plan-006 numpy F0 함수
-  2. **F0 함수 본 module 안 재구현 verify**: F0_pred 산출 hit@1cm ∈ [0.627, 0.637] (G0 (a) carry) + F0 관련 attribute 의 `requires_grad = False` (= frozen)
+  2. **F0 함수 본 module 안 재구현 verify**: F0_pred 산출 hit@1cm ∈ [0.6270, 0.6370] (G0 (a) carry) + F0 관련 attribute 의 `requires_grad = False` (= frozen)
   3. anchor `‖a_k‖ = 0.01 ± 1e-6` for E0a/E0b
   4. soft label `w_k = exp(−d_k² / (2 × 0.01²))` 정규화 후 평균 entropy ≥ 0.5 nat (target 분포, learning-independent)
 
