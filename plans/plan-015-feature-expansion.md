@@ -88,7 +88,7 @@ lb_score: null
 |---|---|---|---|
 | c1 | docs | v1 draft — feature spec (A/B/C/D) 박제 | [DONE] de3131b |
 | **c2** | docs | **v2 spec patch — §3 expand: 순차 ablation + Δ+band 합격기준 + exp_id naming + STAGE §4~§9 추가** | [DONE] f195da4 |
-| c2.1 | docs | **v2.1 spec patch — plan-review-master iter 1 fix 6건.** (1) §1 Feature A residual modal switch 단일화 (displacement_F0 sign convention). (2) §1 Feature C dim 모순 제거 (26D cumulative, τ=1,2 2 stream). (3) §3.3 G0 (b) feature dim 도출식 박제. (4) anchor inheritance 단일화 (immediate prior cumulative). (5) §3.1 baseline reduction = 5-fold concat hit. (6) §1 Feature B Frenet basis 산출식 + edge case 박제. v2 → v2.1 | [TODO] |
+| c2.1 | docs | **v2.1 spec patch — plan-review-master iter 1 fix 6건.** (1) §1 Feature A residual modal switch 단일화 (displacement_F0 sign convention). (2) §1 Feature C dim 모순 제거 (26D cumulative, τ=1,2 2 stream). (3) §3.3 G0 (b) feature dim 도출식 박제. (4) anchor inheritance 단일화 (immediate prior cumulative). (5) §3.1 baseline reduction = 5-fold concat hit. (6) §1 Feature B Frenet basis 산출식 + edge case 박제. v2 → v2.1 | [DONE] 0c53cd9 |
 | c3 | code+exp | STAGE 0 (G0) — preflight: plan-014 baseline 5-fold reproduce + feature dim sanity | [TODO] |
 | c4 | code+exp | STAGE 1 (G1, E1) — feature A only (F0 residual direct), 5-fold OOF | [TODO] |
 | c5 | exp | STAGE 2 (G2, E2) — A+B (F0 residual + binormal split), 5-fold OOF | [TODO] |
