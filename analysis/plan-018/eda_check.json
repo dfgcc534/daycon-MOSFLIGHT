@@ -1,0 +1,32 @@
+{
+  "exp_id": "F008_eda_check",
+  "plan_version": "v1.2",
+  "shape_ok": true,
+  "axis_std": [
+    1.2213975652103877,
+    0.798087981849211,
+    0.6383384372966965
+  ],
+  "std_ok": true,
+  "const_vel_mae_per_axis_max_m": 0.015023937359999951,
+  "mae_ok": true,
+  "const_vel_hit_1cm": 0.2463,
+  "a0_oof_hit_1cm": 0.6482,
+  "a0_oof_target": 0.6482,
+  "a0_oof_tolerance": 0.003,
+  "a0_in_range": true,
+  "best_basis_vars": [
+    "d1",
+    "acc_par",
+    "acc_perp",
+    "d2",
+    "jerk",
+    "ts_term",
+    "speed_slope_d1",
+    "rotation_term"
+  ],
+  "n_coeffs": 8,
+  "all_assertions_pass": true,
+  "g0_passed": true,
+  "elapsed_seconds": 0.6986136436462402
+}

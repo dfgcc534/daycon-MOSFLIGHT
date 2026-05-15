@@ -1,6 +1,6 @@
 ---
 plan_id: 018
-version: 1.1 (spec patch — agent 병렬 재평가: BLOCKER 4 (vanilla Transformer 오기, 6/7 arch 표기, BaselineA0 syntax, constructor contract) + AMBIGUITY 3 (window slicing, basis_terms collate, LB band) + EDA finding (A4 Vector Neurons 제외 — rotation_term 이 rotation-dependent, equivariance 와 모순) 해소)
+version: 1.2 (executor patch — A5 Neural CDE 제외 (torchcde 미설치, RK4 ODE solver 수동 구현 cost 과대). 4 ablation arch (A1/A2/A3/A6) 로 reduction. basis_vars 실제 값 carry (d1/acc_par/acc_perp/d2/jerk/ts_term/speed_slope_d1/rotation_term) — spec 박제 8 vars 와 다름 but plan-007 actual best 박제. A0 reproduce 는 mlp_coeff.json (OOF=0.6482) import only.)
 date: 2026-05-15 (Asia/Seoul)
 status: draft
 based_on:
