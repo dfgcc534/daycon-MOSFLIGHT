@@ -91,7 +91,7 @@ LB 제출 = **총 1회** (best variant 만, plan-018 spirit carry — DACON dail
 | c5 | code | `src/plan019/ebip_base.py` — EBIP base (energy = bilinear + g_θ small MLP, unrolled 5-step Adam). spec @ §5 | [DONE] (77c8d58) |
 | c6 | exp | F014: S1 EBIP base 5-fold OOF | [TODO] |
 | G1 | gate | S1 OOF ≥ 0.66 | [TODO] |
-| c7 | code | `src/plan019/ebip_icnn.py` — Input Convex NN g_θ + 1-step Newton (Amos 2017). spec @ §6 | [TODO] |
+| c7 | code | `src/plan019/ebip_icnn.py` — Input Convex NN g_θ + 1-step Newton (Amos 2017). spec @ §6 | [DONE] (a671780) |
 | c8 | exp | F015: S2 EBIP + ICNN 5-fold OOF | [TODO] |
 | G2 | gate | S2 OOF ≥ 0.68 | [TODO] |
 | c9 | code | `src/plan019/meta_ebip_icnn.py` — FOMAML inner loop + ICNN energy. spec @ §7 | [TODO] |
