@@ -1,0 +1,229 @@
+{
+  "exp_id": "F008_arch-ablation",
+  "plan_version": "v1.2",
+  "arch_results": {
+    "A0": {
+      "arch": "A0",
+      "input_type": "stats_13d",
+      "oof_hit_1cm": 0.6482,
+      "fold_oofs": [
+        0.6618812084197998,
+        0.6453346610069275,
+        0.648099958896637,
+        0.6500000357627869,
+        0.6355421543121338
+      ],
+      "n_params": 297,
+      "imported_from": "analysis/plan-007/mlp_coeff.json"
+    },
+    "A1": {
+      "arch": "A1",
+      "input_type": "traj_6x3",
+      "oof_hit_1cm": 0.6473,
+      "fold_oofs": [
+        0.659900963306427,
+        0.6468002200126648,
+        0.6454971432685852,
+        0.6499999761581421,
+        0.634036123752594
+      ],
+      "fold_results": [
+        {
+          "fold": 0,
+          "best_val_hit": 0.659900963306427,
+          "n_epochs": 11,
+          "n_params": 32585,
+          "elapsed_sec": 14.753308534622192
+        },
+        {
+          "fold": 1,
+          "best_val_hit": 0.6468002200126648,
+          "n_epochs": 19,
+          "n_params": 32585,
+          "elapsed_sec": 23.19919180870056
+        },
+        {
+          "fold": 2,
+          "best_val_hit": 0.6454971432685852,
+          "n_epochs": 16,
+          "n_params": 32585,
+          "elapsed_sec": 21.605334520339966
+        },
+        {
+          "fold": 3,
+          "best_val_hit": 0.6499999761581421,
+          "n_epochs": 10,
+          "n_params": 32585,
+          "elapsed_sec": 11.837239027023315
+        },
+        {
+          "fold": 4,
+          "best_val_hit": 0.634036123752594,
+          "n_epochs": 9,
+          "n_params": 32585,
+          "elapsed_sec": 11.7083101272583
+        }
+      ],
+      "n_params": 32585,
+      "elapsed_sec": 83.10528016090393
+    },
+    "A2": {
+      "arch": "A2",
+      "input_type": "traj_6x3",
+      "oof_hit_1cm": 0.648,
+      "fold_oofs": [
+        0.6623762249946594,
+        0.6463117003440857,
+        0.646538257598877,
+        0.6499999761581421,
+        0.6345381736755371
+      ],
+      "fold_results": [
+        {
+          "fold": 0,
+          "best_val_hit": 0.6623762249946594,
+          "n_epochs": 26,
+          "n_params": 6024,
+          "elapsed_sec": 2.92216420173645
+        },
+        {
+          "fold": 1,
+          "best_val_hit": 0.6463117003440857,
+          "n_epochs": 13,
+          "n_params": 6024,
+          "elapsed_sec": 1.418339729309082
+        },
+        {
+          "fold": 2,
+          "best_val_hit": 0.646538257598877,
+          "n_epochs": 11,
+          "n_params": 6024,
+          "elapsed_sec": 1.1618809700012207
+        },
+        {
+          "fold": 3,
+          "best_val_hit": 0.6499999761581421,
+          "n_epochs": 10,
+          "n_params": 6024,
+          "elapsed_sec": 1.036553144454956
+        },
+        {
+          "fold": 4,
+          "best_val_hit": 0.6345381736755371,
+          "n_epochs": 12,
+          "n_params": 6024,
+          "elapsed_sec": 1.3313686847686768
+        }
+      ],
+      "n_params": 6024,
+      "elapsed_sec": 7.872271537780762
+    },
+    "A3": {
+      "arch": "A3",
+      "input_type": "stats_13d",
+      "oof_hit_1cm": 0.6485,
+      "fold_oofs": [
+        0.6613861322402954,
+        0.6468002200126648,
+        0.6460176706314087,
+        0.6509901285171509,
+        0.6370481848716736
+      ],
+      "fold_results": [
+        {
+          "fold": 0,
+          "best_val_hit": 0.6613861322402954,
+          "n_epochs": 13,
+          "n_params": 5200,
+          "elapsed_sec": 3.3668909072875977
+        },
+        {
+          "fold": 1,
+          "best_val_hit": 0.6468002200126648,
+          "n_epochs": 17,
+          "n_params": 5200,
+          "elapsed_sec": 4.495731353759766
+        },
+        {
+          "fold": 2,
+          "best_val_hit": 0.6460176706314087,
+          "n_epochs": 11,
+          "n_params": 5200,
+          "elapsed_sec": 3.0740342140197754
+        },
+        {
+          "fold": 3,
+          "best_val_hit": 0.6509901285171509,
+          "n_epochs": 11,
+          "n_params": 5200,
+          "elapsed_sec": 2.903002977371216
+        },
+        {
+          "fold": 4,
+          "best_val_hit": 0.6370481848716736,
+          "n_epochs": 10,
+          "n_params": 5200,
+          "elapsed_sec": 2.657809257507324
+        }
+      ],
+      "n_params": 5200,
+      "elapsed_sec": 16.499356269836426
+    },
+    "A6": {
+      "arch": "A6",
+      "input_type": "traj_6x3",
+      "oof_hit_1cm": 0.6476,
+      "fold_oofs": [
+        0.6603960394859314,
+        0.6463117003440857,
+        0.6460176706314087,
+        0.6504950523376465,
+        0.6345381736755371
+      ],
+      "fold_results": [
+        {
+          "fold": 0,
+          "best_val_hit": 0.6603960394859314,
+          "n_epochs": 12,
+          "n_params": 15465,
+          "elapsed_sec": 10.786485195159912
+        },
+        {
+          "fold": 1,
+          "best_val_hit": 0.6463117003440857,
+          "n_epochs": 15,
+          "n_params": 15465,
+          "elapsed_sec": 13.495537042617798
+        },
+        {
+          "fold": 2,
+          "best_val_hit": 0.6460176706314087,
+          "n_epochs": 20,
+          "n_params": 15465,
+          "elapsed_sec": 16.232097148895264
+        },
+        {
+          "fold": 3,
+          "best_val_hit": 0.6504950523376465,
+          "n_epochs": 13,
+          "n_params": 15465,
+          "elapsed_sec": 11.018379926681519
+        },
+        {
+          "fold": 4,
+          "best_val_hit": 0.6345381736755371,
+          "n_epochs": 9,
+          "n_params": 15465,
+          "elapsed_sec": 7.840197801589966
+        }
+      ],
+      "n_params": 15465,
+      "elapsed_sec": 59.37465167045593
+    }
+  },
+  "g1_threshold": 0.6532,
+  "g1_passed": false,
+  "best_arch": "A3",
+  "best_arch_oof": 0.6485,
+  "n_arch_passing": 0
+}
