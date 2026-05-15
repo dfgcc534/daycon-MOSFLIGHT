@@ -1,23 +1,35 @@
 ---
 plan_id: 019
-version: 1
+version: 1.1 (G_final_complete — G0 PASS / G1 WARN ebip_no_gain / G2 WARN icnn_no_gain / G3 WARN meta_adaptation_no_gain / G4 SKIP per user)
 date: 2026-05-15 (Asia/Seoul)
-status: draft
+status: G_final_complete
 based_on:
   - 007 (Step 4 MLP OOF 0.6482, LB 0.6598 — 본 plan baseline)
   - 005 (oracle 0.7188 — 본 plan ceiling reference)
   - 004 (ensemble LB 0.6822 — single-model ceiling 돌파 target)
   - brainstorm-iter-1~5 (5-iteration /loop, 6 candidates: meta-EBIP+ICNN / EBIP / meta-EBIP / Learnable Basis+MoLE / DEQ / ICNN)
+  - 018 (single-stack architecture lever falsified — plan-019 의 paradigm-shift 동기)
+followed_by:
+  - 020 후보 박제 (corrector 결합 / multi-stack / learnable basis / DEQ — energy-based 단독 ceiling 박제 후 paradigm-shift 필수)
 scope: 본 5-iteration brainstorm 의 *ambitious path* — **meta-EBIP + ICNN hybrid** (brainstorm ranking #1)
        의 progressive ablation. plan-018 결과 *무관* (사용자 명시) — plan-007 step 4 가 baseline.
        3 stage breakdown: (S1) EBIP base / (S2) + ICNN convex / (S3) + meta adaptation.
        LB > 0.70 도달이 G_final (= plan-005 oracle 0.7188 의 97%, plan-004 ensemble 0.6822 위 +0.018).
        brainstorm candidates #2 DEQ / #3 meta-EBIP / #4 Learnable Basis+MoLE 는 plan-020 carry.
 exp_ids:
+  - F013_a0                  # A0 baseline reproduce (=plan-007 step 4 5-fold OOF)
   - F014_ebip-base           # S1 EBIP base (energy = bilinear anchor + g_θ small MLP)
   - F015_ebip-icnn           # S2 + ICNN convex g_θ
   - F016_meta-ebip-icnn      # S3 + meta adaptation (FOMAML inner loop)
-lb_score: null
+lb_score: null    # G4 SKIP (사용자 결정, quota 보존)
+g0_passed: true
+g1_passed: false  # S1 OOF=0.6552, threshold 0.66 → `ebip_no_gain` warn
+g2_passed: false  # S2 OOF=0.6520, threshold 0.68 → `icnn_no_gain` warn
+g3_passed: false  # S3 OOF=0.6538, threshold 0.70 ⭐ → `meta_adaptation_no_gain` warn
+best_stage: S1
+best_stage_oof: 0.6552
+delta_vs_a0: 0.0070
+dacon_submits_used: 0   # 본 plan-019 단독, plan-018 G2 SKIP 답습
 exception_policy: plan-007 §2.2 "End-to-end 학습 통합 out-of-scope" 의 **예외 plan** (plan-018 의 예외 plan 정책 carry).
                   본 plan 의 paradigm = energy-based implicit prediction — single-stack 의 일종 (encoder + energy + coefficient).
                   multi-stack (corrector + selector + 등 ≥ 3 stage) 은 여전히 out-of-scope.
@@ -99,8 +111,8 @@ LB 제출 = **총 1회** (best variant 만, plan-018 spirit carry — DACON dail
 | G3 | gate | S3 OOF ≥ 0.70 ⭐ | [WARN] (2bdf9e6) — OOF=0.6538 `meta_adaptation_no_gain` warn |
 | c11 | sub-lb | best variant dacon-submit + lb_log + frontmatter. spec @ §8 | [SKIP] — user 결정, plan-018 G2 SKIP 답습, CV S1=0.6552 << target 0.70 quota 보존 |
 | G4 | gate | LB > 0.70 (또는 회수 후 band 박제) | [SKIP] — c11 미시행 |
-| c12 | synthesis | `analysis/plan-019/results.md` + `next_plan_candidates.md` (≥ 2 후보). spec @ §9 | [TODO] |
-| G_final | gate | results.md + plan-020 후보 + 3 파일 frontmatter sync | [TODO] |
+| c12 | synthesis | `analysis/plan-019/results.md` + `next_plan_candidates.md` (≥ 2 후보). spec @ §9 | [DONE] (이번 commit) |
+| G_final | gate | results.md + plan-020 후보 + 3 파일 frontmatter sync | [DONE] (이번 commit) |
 
 ### Plan-specific severe (WORKFLOW.md §12.3 default 위 추가분)
 
