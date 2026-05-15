@@ -1,0 +1,71 @@
+{
+  "exp_id": "F014_ebip-base",
+  "plan_version": "v1.1",
+  "stage": "S1_EBIP_base",
+  "oof_hit": 0.6552,
+  "g1_threshold": 0.66,
+  "g1_passed": false,
+  "best_basis_vars": [
+    "d1",
+    "acc_par",
+    "acc_perp",
+    "d2",
+    "jerk",
+    "ts_term",
+    "speed_slope_d1",
+    "rotation_term"
+  ],
+  "n_coeffs": 8,
+  "handcraft_dim": 13,
+  "cnn_dim": 64,
+  "cond_dim": 77,
+  "unroll_T": 5,
+  "inner_lr": 0.1,
+  "batch_size": 256,
+  "n_epochs_max": 50,
+  "patience": 8,
+  "elapsed_sec": 726.659930229187,
+  "device": "cpu",
+  "folds": [
+    {
+      "fold": 0,
+      "train_n": 39900,
+      "val_n": 2020,
+      "best_val_hit": 0.6712871193885803,
+      "n_epochs_run": 26,
+      "n_params": 25322
+    },
+    {
+      "fold": 1,
+      "train_n": 39765,
+      "val_n": 2047,
+      "best_val_hit": 0.6531509757041931,
+      "n_epochs_run": 14,
+      "n_params": 25322
+    },
+    {
+      "fold": 2,
+      "train_n": 40395,
+      "val_n": 1921,
+      "best_val_hit": 0.6517438888549805,
+      "n_epochs_run": 13,
+      "n_params": 25322
+    },
+    {
+      "fold": 3,
+      "train_n": 39900,
+      "val_n": 2020,
+      "best_val_hit": 0.655940592288971,
+      "n_epochs_run": 16,
+      "n_params": 25322
+    },
+    {
+      "fold": 4,
+      "train_n": 40040,
+      "val_n": 1992,
+      "best_val_hit": 0.6435742974281311,
+      "n_epochs_run": 19,
+      "n_params": 25322
+    }
+  ]
+}
