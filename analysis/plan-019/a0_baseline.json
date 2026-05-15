@@ -1,0 +1,69 @@
+{
+  "exp_id": "F013_a0",
+  "plan_version": "v1.1",
+  "oof_hit": 0.6482,
+  "a0_oof_target_min": 0.6479,
+  "a0_oof_target_max": 0.6485,
+  "g0_passed": true,
+  "best_basis_vars": [
+    "d1",
+    "acc_par",
+    "acc_perp",
+    "d2",
+    "jerk",
+    "ts_term",
+    "speed_slope_d1",
+    "rotation_term"
+  ],
+  "n_coeffs": 8,
+  "feat_dim": 13,
+  "stage3_best_params": [
+    1.8279402256011963,
+    1.4428973197937012,
+    -0.3242616057395935,
+    0.06577188521623611,
+    0.08414215594530106,
+    0.03882269561290741,
+    0.10465255379676819,
+    0.3087244927883148
+  ],
+  "elapsed_sec": 5.7716076374053955,
+  "device": "cpu",
+  "folds": [
+    {
+      "fold": 0,
+      "train_n": 39900,
+      "val_n": 2020,
+      "best_val_hit": 0.6618812084197998,
+      "n_epochs_run": 9
+    },
+    {
+      "fold": 1,
+      "train_n": 39765,
+      "val_n": 2047,
+      "best_val_hit": 0.6453346610069275,
+      "n_epochs_run": 15
+    },
+    {
+      "fold": 2,
+      "train_n": 40395,
+      "val_n": 1921,
+      "best_val_hit": 0.6475793719291687,
+      "n_epochs_run": 11
+    },
+    {
+      "fold": 3,
+      "train_n": 39900,
+      "val_n": 2020,
+      "best_val_hit": 0.6509901285171509,
+      "n_epochs_run": 11
+    },
+    {
+      "fold": 4,
+      "train_n": 40040,
+      "val_n": 1992,
+      "best_val_hit": 0.6350401639938354,
+      "n_epochs_run": 15
+    }
+  ]
+}
