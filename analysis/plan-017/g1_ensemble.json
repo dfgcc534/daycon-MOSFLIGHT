@@ -23,7 +23,9 @@
   },
   "baseline_lb_plan016_g1": 0.6638,
   "submission_path": "runs/baseline/plan017_g1_ensemble/submission.csv",
-  "lb_score": null,
-  "lb_pass": null,
-  "elapsed_seconds": 0.05138754844665527
+  "lb_score": 0.664,
+  "lb_pass": true,
+  "elapsed_seconds": 0.05138754844665527,
+  "delta_lb_vs_baseline": 0.0002,
+  "status": "pass_marginal"
 }

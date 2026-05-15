@@ -1,0 +1,264 @@
+{
+  "exp_id": "H059_g2_voxel_ce",
+  "plan_version": "v1.4",
+  "voxel_depth": 7,
+  "voxel_total": 343,
+  "voxel_width_m": 0.01,
+  "voxel_window_half_m": 0.03,
+  "config_base": {
+    "name": "voxel_ce",
+    "K": 9,
+    "encoder_name": "bigru",
+    "codebook": "kmeans",
+    "frame": "world",
+    "use_reg_head": true,
+    "use_hinge": false,
+    "temperature": 0.03,
+    "r0_logit_prior": 0.0,
+    "boundary_weight_on": true,
+    "lr": 0.001,
+    "batch_size": 256,
+    "epochs": 20,
+    "patience": 5,
+    "seed": 20260514,
+    "device": "cpu",
+    "end_idx": 10,
+    "monitor": "val_hit"
+  },
+  "seeds": [
+    20260514,
+    20260515,
+    20260516,
+    20260517,
+    20260518
+  ],
+  "n_models": 25,
+  "per_seed_oof_hit_1cm": [
+    0.6329,
+    0.6328,
+    0.6324,
+    0.6325,
+    0.6323
+  ],
+  "fold_oof_hit_per_fold": {
+    "0": 0.6517137096774194,
+    "1": 0.6273445212240869,
+    "2": 0.6426786606696652,
+    "3": 0.627826941986234,
+    "4": 0.6158567774936061
+  },
+  "overall_oof_hit_1cm": 0.6331,
+  "baseline_oof": 0.6452,
+  "baseline_lb": 0.6638,
+  "delta_oof_vs_g1": -0.0121,
+  "delta_threshold": 0.003,
+  "oof_pass": false,
+  "lb_pass": null,
+  "lb_score": null,
+  "status": "negative_drop",
+  "fold_results": [
+    {
+      "seed": 20260514,
+      "fold": 0,
+      "best_val_hit": 0.6517137289047241,
+      "best_val_loss": 3.224400043487549,
+      "best_epoch": 1,
+      "elapsed_seconds": 10.635111093521118
+    },
+    {
+      "seed": 20260514,
+      "fold": 1,
+      "best_val_hit": 0.62635737657547,
+      "best_val_loss": 3.4015722274780273,
+      "best_epoch": 1,
+      "elapsed_seconds": 10.505887746810913
+    },
+    {
+      "seed": 20260514,
+      "fold": 2,
+      "best_val_hit": 0.6441779136657715,
+      "best_val_loss": 3.129081964492798,
+      "best_epoch": 8,
+      "elapsed_seconds": 22.5390408039093
+    },
+    {
+      "seed": 20260514,
+      "fold": 3,
+      "best_val_hit": 0.6273353099822998,
+      "best_val_loss": 3.259003162384033,
+      "best_epoch": 3,
+      "elapsed_seconds": 15.574360132217407
+    },
+    {
+      "seed": 20260514,
+      "fold": 4,
+      "best_val_hit": 0.6148337721824646,
+      "best_val_loss": 3.2338130474090576,
+      "best_epoch": 10,
+      "elapsed_seconds": 34.62311267852783
+    },
+    {
+      "seed": 20260515,
+      "fold": 0,
+      "best_val_hit": 0.6517137289047241,
+      "best_val_loss": 3.2468581199645996,
+      "best_epoch": 1,
+      "elapsed_seconds": 11.043565273284912
+    },
+    {
+      "seed": 20260515,
+      "fold": 1,
+      "best_val_hit": 0.626850962638855,
+      "best_val_loss": 3.1745645999908447,
+      "best_epoch": 6,
+      "elapsed_seconds": 19.758332014083862
+    },
+    {
+      "seed": 20260515,
+      "fold": 2,
+      "best_val_hit": 0.643178403377533,
+      "best_val_loss": 3.1393682956695557,
+      "best_epoch": 8,
+      "elapsed_seconds": 18.236339569091797
+    },
+    {
+      "seed": 20260515,
+      "fold": 3,
+      "best_val_hit": 0.6273353099822998,
+      "best_val_loss": 3.2347359657287598,
+      "best_epoch": 4,
+      "elapsed_seconds": 9.923450231552124
+    },
+    {
+      "seed": 20260515,
+      "fold": 4,
+      "best_val_hit": 0.6148337721824646,
+      "best_val_loss": 3.290606737136841,
+      "best_epoch": 4,
+      "elapsed_seconds": 11.24511456489563
+    },
+    {
+      "seed": 20260516,
+      "fold": 0,
+      "best_val_hit": 0.6517137289047241,
+      "best_val_loss": 3.229518175125122,
+      "best_epoch": 1,
+      "elapsed_seconds": 6.325803995132446
+    },
+    {
+      "seed": 20260516,
+      "fold": 1,
+      "best_val_hit": 0.62635737657547,
+      "best_val_loss": 3.4315266609191895,
+      "best_epoch": 1,
+      "elapsed_seconds": 6.248271226882935
+    },
+    {
+      "seed": 20260516,
+      "fold": 2,
+      "best_val_hit": 0.6421788930892944,
+      "best_val_loss": 3.1521201133728027,
+      "best_epoch": 3,
+      "elapsed_seconds": 8.368122577667236
+    },
+    {
+      "seed": 20260516,
+      "fold": 3,
+      "best_val_hit": 0.6273353099822998,
+      "best_val_loss": 3.2759015560150146,
+      "best_epoch": 3,
+      "elapsed_seconds": 8.135645627975464
+    },
+    {
+      "seed": 20260516,
+      "fold": 4,
+      "best_val_hit": 0.6143222451210022,
+      "best_val_loss": 3.306960344314575,
+      "best_epoch": 3,
+      "elapsed_seconds": 8.253151416778564
+    },
+    {
+      "seed": 20260517,
+      "fold": 0,
+      "best_val_hit": 0.6517137289047241,
+      "best_val_loss": 3.228081226348877,
+      "best_epoch": 1,
+      "elapsed_seconds": 6.059777021408081
+    },
+    {
+      "seed": 20260517,
+      "fold": 1,
+      "best_val_hit": 0.62635737657547,
+      "best_val_loss": 3.3853299617767334,
+      "best_epoch": 1,
+      "elapsed_seconds": 6.183757543563843
+    },
+    {
+      "seed": 20260517,
+      "fold": 2,
+      "best_val_hit": 0.6416791677474976,
+      "best_val_loss": 3.307158946990967,
+      "best_epoch": 1,
+      "elapsed_seconds": 6.108782529830933
+    },
+    {
+      "seed": 20260517,
+      "fold": 3,
+      "best_val_hit": 0.6273353099822998,
+      "best_val_loss": 3.2149853706359863,
+      "best_epoch": 4,
+      "elapsed_seconds": 9.135896682739258
+    },
+    {
+      "seed": 20260517,
+      "fold": 4,
+      "best_val_hit": 0.6153452396392822,
+      "best_val_loss": 3.2659718990325928,
+      "best_epoch": 4,
+      "elapsed_seconds": 9.008633852005005
+    },
+    {
+      "seed": 20260518,
+      "fold": 0,
+      "best_val_hit": 0.6517137289047241,
+      "best_val_loss": 3.1940321922302246,
+      "best_epoch": 1,
+      "elapsed_seconds": 6.287275075912476
+    },
+    {
+      "seed": 20260518,
+      "fold": 1,
+      "best_val_hit": 0.62635737657547,
+      "best_val_loss": 3.3751368522644043,
+      "best_epoch": 1,
+      "elapsed_seconds": 5.947026014328003
+    },
+    {
+      "seed": 20260518,
+      "fold": 2,
+      "best_val_hit": 0.6416791677474976,
+      "best_val_loss": 3.338608980178833,
+      "best_epoch": 1,
+      "elapsed_seconds": 6.170222759246826
+    },
+    {
+      "seed": 20260518,
+      "fold": 3,
+      "best_val_hit": 0.6273353099822998,
+      "best_val_loss": 3.2176756858825684,
+      "best_epoch": 4,
+      "elapsed_seconds": 9.128539323806763
+    },
+    {
+      "seed": 20260518,
+      "fold": 4,
+      "best_val_hit": 0.6143222451210022,
+      "best_val_loss": 3.265838384628296,
+      "best_epoch": 4,
+      "elapsed_seconds": 9.166675090789795
+    }
+  ],
+  "submission_path": "runs/baseline/plan017_g2_voxel_ce/submission.csv",
+  "elapsed_total_seconds": 276.06034111976624,
+  "lb_submitted": false
+}
