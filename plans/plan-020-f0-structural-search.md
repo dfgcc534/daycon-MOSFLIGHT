@@ -94,8 +94,8 @@ band: positive
 | G2.N | gate | 3 NN metric finite ✓ + val_hit > 0.10 ✓ + overfit guard ✓ + n1_drift ±0.02 ✓ | [DONE] |
 | c11 | analysis | 17 × 2 table + 7 family winner + overall best. **C05_per_regime_f0 단독 PASS, band positive** (Δ +0.0183 / +0.0053). | [DONE] |
 | G3 | gate | table 박제 ✓ + family winner 박제 ✓ + ≥1 paired Δ ≥ +0.005 둘 다 (C05) ✓ | [DONE] |
-| c12 | docs | `plans/plan-020-f0-structural-search.results.md` + `analysis/plan-020/results.md` + frontmatter sync | [TODO] |
-| G_final | gate | results 3-file sync + §0.5 [TODO]→[DONE] sync + follow-up 후보 박제 | [TODO] |
+| c12 | docs | 3-file frontmatter sync (status all_complete, band positive, best_candidate C05) + results.md (필수 항목 10건) + follow-up plan-021/022/023 박제 | [DONE] |
+| G_final | gate | 3-file sync ✓ + §0.5 c1~c12 + G0/G1/G2.D/G2.N/G3 모두 [DONE] ✓ + follow-up 3건 박제 ✓ | [DONE] |
 
 ### Plan-specific severe (WORKFLOW.md §12.3 default 위 추가분)
 
