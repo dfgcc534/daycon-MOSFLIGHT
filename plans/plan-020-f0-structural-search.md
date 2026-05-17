@@ -56,7 +56,6 @@ band: null
 - **G2.D**: 14 deterministic 후보 모두 5-fold OOF 측정 완료. NaN/Inf 0건. 각 후보의 (hit@1cm, hit@1.5cm) finite. 위반 시 `formula_numerical` severe.
 - **G2.N**: 3 NN 후보 모두 5-fold OOF 측정 완료. train loss NaN/Inf 0건, val_hit > 0.10 (random baseline 통과). 위반 시 `nn_no_signal` severe.
 - **G3 (family-level)**: 7 family 별 winner 선정 + 17 × 2 metric × 5-fold 결과 표 박제. **≥ 1 후보가 paired Δ ≥ +0.005 *둘 다*** (hit@1cm AND hit@1.5cm) 통과 시 G3 pass. 0 통과 = `all_negative` warn (severe X, negative finding 박제 후 G_final 진입).
-- **G4 (optional, 27-pool oracle delta)**: G3 winner 들 각각의 27-pool oracle Δ ≥ +0.005 측정 (기존 27 + 새 1 의 best-of-28 oracle - 기존 best-of-27 oracle = 0.7277). 시간 여유 시만 진행, G_final 진입 의무 아님.
 - **G_final**: results.md + best 박제 + plan-017 overlap 해소 표 + follow-up plan 후보 박제. **LB 제출 의무 없음** (§0 narrative).
 
 ### G-gates
@@ -66,8 +65,7 @@ band: null
 - G2.D: STAGE 2 14 deterministic 측정 [TODO]
 - G2.N: STAGE 3 3 NN 측정 [TODO]
 - G3: STAGE 4 family-level 분석 [TODO]
-- G4: STAGE 5 27-pool oracle delta (optional) [TODO]
-- G_final: STAGE 6 best 박제 + results [TODO]
+- G_final: STAGE 5 best 박제 + results [TODO]
 
 ### Commit chain (next-up)
 
@@ -89,9 +87,7 @@ band: null
 | G2.N | gate | 3 NN metric finite + val_hit > 0.10 | [TODO] |
 | c11 | analysis | family-level winner + paired Δ table → `analysis/plan-020/family_analysis.{json,md}` | [TODO] |
 | G3 | gate | 17 × 2 × 5-fold table + family winner 박제 | [TODO] |
-| c12 | analysis | (optional) 27-pool oracle delta → `analysis/plan-020/oracle_delta.{json,md}` | [TODO] |
-| G4 | gate | (optional) | [TODO] |
-| c13 | docs | `plans/plan-020-f0-structural-search.results.md` + `analysis/plan-020/results.md` + frontmatter sync | [TODO] |
+| c12 | docs | `plans/plan-020-f0-structural-search.results.md` + `analysis/plan-020/results.md` + frontmatter sync | [TODO] |
 | G_final | gate | results 3-file sync + §0.5 [TODO]→[DONE] sync + follow-up 후보 박제 | [TODO] |
 
 ### Plan-specific severe (WORKFLOW.md §12.3 default 위 추가분)
@@ -191,7 +187,7 @@ band: null
 | NN device | cuda:1 (project convention) |
 | Deterministic 학습 | CMA-ES, popsize=20, maxiter=200, seed [20260518..20260522] |
 | NN 학습 | Adam, lr=1e-3, batch=256, epochs=50, annealed hit-aware loss, same 5 seeds |
-| 결과 박제 | 17 × 2 metric × 5-fold table + family winner + (optional) 27-pool oracle delta |
+| 결과 박제 | 17 × 2 metric × 5-fold table + family winner |
 
 ### §2.2 Out-of-scope (절대 안 함)
 
@@ -276,7 +272,6 @@ analysis/plan-020/
 ├── results_deterministic.{json,md}
 ├── results_nn.{json,md}
 ├── family_analysis.{json,md}
-├── oracle_delta.{json,md}      # optional G4
 └── results.md                  # G_final synthesis
 ```
 
@@ -721,31 +716,9 @@ class N05_MoE(nn.Module):
 
 ---
 
-## §9. STAGE 5 — 27-pool oracle delta (c12, G4, optional)
+## §9. STAGE 5 — Best 박제 + Results (c12, G_final)
 
-### §9.1 동기
-
-plan-020 의 단독 metric 향상이 plan-004 27-pool 안에서 *추가 가치* 있는가? 측정 = best-of-28 oracle − best-of-27 oracle (= 0.7277).
-
-### §9.2 실행
-
-- G3 winner 후보 별 27-pool 에 추가 → best-of-28 oracle 계산
-- 결과: `analysis/plan-020/oracle_delta.json`
-
-### §9.3 G4 합격 기준
-
-- best winner 의 27-pool oracle Δ ≥ +0.005 → 진정 *직교* 신호 박제
-- 미달 시 → "단독 hit 향상 ≠ 27-pool 가치" warn 박제
-
-### §9.4 시간 예산
-
-- 산식 결정적 적용 (학습 X), ~30 min
-
----
-
-## §10. STAGE 6 — Best 박제 + Results (c13, G_final)
-
-### §10.1 3-file frontmatter sync
+### §9.1 3-file frontmatter sync
 
 - `plans/plan-020-f0-structural-search.md` top-level frontmatter
 - `plans/plan-020-f0-structural-search.results.md`
@@ -757,52 +730,33 @@ plan-020 의 단독 metric 향상이 plan-004 27-pool 안에서 *추가 가치* 
 - `best_candidate: <후보 이름>` (G3 winner)
 - `best_hit_1cm: <float>`, `best_hit_1.5cm: <float>`
 
-### §10.2 results.md 필수 항목
+### §9.2 results.md 필수 항목
 
 - F0 baseline measured (G1)
 - 17 후보 hit@1cm + hit@1.5cm + paired Δ (5-fold concat) full table
 - 7 family winner 박제
 - NN vs Deterministic 직접 비교
 - N1 = plan-007 F002 재측정 결과 비교 (drift 박제)
-- (optional) 27-pool oracle delta
 - decision-note 박제 list
 - follow-up plan 후보 (post-G_final 분석 기반)
 - caveats
 
-### §10.3 plan-017 overlap 해소
+### §9.3 plan-017 overlap 해소
 
 - plan-017 status check (in progress → completion 까지 plan-020 N3/N4 carry)
 - plan-017 의 N3/N4 산출이 plan-020 G_final 이전 도착 시 → results.md 의 *부록* 으로 추가 (plan-020 본 분석은 N1/N2/N5 기준 그대로)
 - plan-017 결과가 plan-020 와 ±0.01 이상 차이 → `plan017_carry_conflict` warn 박제
 
-### §10.4 G_final 합격 기준
+### §9.4 G_final 합격 기준
 
 - 3-file sync 완료
-- §0.5 commit chain c1~c13 모두 [DONE]
+- §0.5 commit chain c1~c12 모두 [DONE]
 - results.md 필수 항목 모두 박제
 - follow-up plan 후보 ≥ 2건 박제
 
 ---
 
-## §N+1. 작업량 회계
-
-| 단계 | 시간 |
-|---|---|
-| §4 STAGE 0 — 18 모듈 구현 (14 deterministic + 3 NN + baseline) | 50-60 시간 |
-| §4 tests + edge case | 6-8 시간 |
-| §5 STAGE 1 G1 reproduce | 1 시간 |
-| §6 STAGE 2 G2.D 14 deterministic 측정 | 2-3 시간 (CPU) |
-| §7 STAGE 3 G2.N 3 NN 학습 + 측정 | 3 시간 (cuda:1) |
-| §8 STAGE 4 G3 family analysis | 3-4 시간 |
-| §9 STAGE 5 G4 oracle delta (optional) | 1-2 시간 |
-| §10 STAGE 6 G_final results | 4-6 시간 |
-| **총 (G4 포함)** | **70-90 시간** |
-
-→ 단일 개발자 2-3 주 budget. plan-018 (15 commit, 1 주) ~ plan-019 (re-do, 1.5 주) 와 동급 scale.
-
----
-
-## §N+2. results.md 필수 항목
+## §N+1. results.md 필수 항목
 
 (plan-014 / plan-006 format 참조)
 
@@ -812,13 +766,12 @@ plan-020 의 단독 metric 향상이 plan-004 27-pool 안에서 *추가 가치* 
 - 7 family winner 박제
 - NN vs Deterministic 직접 비교 (table)
 - N1 vs plan-007 F002 drift 박제
-- (optional) 27-pool oracle delta
 - decision-note 박제 list
 - follow-up plan 후보 (post-G_final)
 
 ---
 
-## §N+3. 통계 함정 & caveats
+## §N+2. 통계 함정 & caveats
 
 1. **Fold-internal regime fit 의무**: C5 의 18-regime fit + C8/C9 의 noise model fit 은 *반드시* train_(not k) 위에서만. val 누수 시 OOF 가 train hit 으로 inflate → false positive.
 
@@ -838,7 +791,7 @@ plan-020 의 단독 metric 향상이 plan-004 27-pool 안에서 *추가 가치* 
 
 7. **C13 Lévy mode = F0**: deterministic mode-only 라 단독 hit 가 *F0 와 동일* 예상. plan-020 안에서 측정 가치는 *분포 형태가 corrector 학습 신호에 영향* 가능성 박제만 (post hoc).
 
-8. **단독 hit ↔ pipeline 가치 비례 보장 X**: plan-020 의 단독 winner 가 plan-021 (가칭) 의 27-pool 통합 후 LB 향상 보장 X. *직교성* 측정이 G4 의 역할.
+8. **단독 hit ↔ pipeline 가치 비례 보장 X**: plan-020 의 단독 winner 가 27-pool 통합 후 LB 향상까지 보장하지는 않음. *직교성* 측정은 follow-up plan-021 (가칭) 으로 carry.
 
 9. **N5 MoE expert 선택 의존성**: K=4 expert (F0, helix, Hermite, CTRA) 가 *임의 선택*. 다른 expert set (예: F0, per-regime, KNN, Bishop) 와의 ablation 미시도 → follow-up plan.
 
@@ -846,13 +799,14 @@ plan-020 의 단독 metric 향상이 plan-004 27-pool 안에서 *추가 가치* 
 
 ---
 
-## §N+4. 변경 이력
+## §N+3. 변경 이력
 
 - v1 (2026-05-18): 초안 — 17 후보 (14 deterministic + 3 NN: N1/N2/N5) plan body. plan-017 overlap 으로 N3/N4 out-of-scope 박제. Maximum tier 선택.
+- v1.1 (2026-05-18): narrative ("단일 공식 결과 최대화") 정합 점검 — §9 STAGE 5 (27-pool oracle delta, §0 out-of-scope 와 충돌) + §N+1 작업량 회계 삭제. STAGE 6 → STAGE 5 / c13 → c12 renumber. caveat #8 의 G4 의존 표현 단순화.
 
 ---
 
-## §N+5. 참조
+## §N+4. 참조
 
 - `plans/archive/plan-006-minimal-variant-e-lb.md` — F0 산식 baseline 정의 + 0.6320 hard evidence
 - `plans/archive/plan-007-formula-tuning.md` — CMA-ES infrastructure + F002 NN coef precedent
