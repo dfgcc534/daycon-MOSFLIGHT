@@ -79,8 +79,8 @@ band: null
 | c6 | code | `analysis/plan-020/cma_es_fit.py` (CMA-ES 6 후보 + annealed τ schedule + per-regime + KNN, smoke C08/C10/C14 OK) | [DONE] |
 | c7 | test | `tests/test_plan020_smoke.py` 6 pytest (import + parity + 14 deterministic shape + 3 NN forward + dispatch + G1 preflight) | [DONE] |
 | G0 | gate | smoke + tests green — 6/6 pytest 통과 ✓ | [DONE] |
-| c8 | exp G1 | F0 baseline 5-fold OOF reproduce → `analysis/plan-020/baseline_oof.{json,md}` | [TODO] |
-| G1 | gate | F0 hit@1cm ∈ [0.6315, 0.6325] AND hit@1.5cm ∈ [0.8028, 0.8038] | [TODO] |
+| c8 | exp G1 | F0 baseline 5-fold OOF reproduce → exact 0.6320 / 0.8033 (drift 0). 산출: `analysis/plan-020/baseline_oof.{json,md}` | [DONE] |
+| G1 | gate | F0 hit@1cm = **0.6320** ∈ [0.6315, 0.6325] AND hit@1.5cm = **0.8033** ∈ [0.8028, 0.8038] ✓ | [DONE] |
 | c9 | exp G2.D | 14 deterministic 후보 측정 → `analysis/plan-020/results_deterministic.{json,md}` | [TODO] |
 | G2.D | gate | 14 후보 metric finite | [TODO] |
 | c10 | exp G2.N | 3 NN 후보 학습 + 측정 → `analysis/plan-020/results_nn.{json,md}` | [TODO] |
