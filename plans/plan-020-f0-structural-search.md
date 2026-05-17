@@ -98,7 +98,7 @@ band: null
 - `nn_overfit`: NN candidate train_hit − val_hit > 0.10 (5-fold mean). regularization 부족 → dropout/weight_decay 강화 필요.
 - `per_regime_overfit`: C5 per-regime F0 의 fold variance > 0.05. min sample threshold 강화 or global fallback.
 - `plan017_carry_conflict`: 만약 plan-017 의 N3/N4 산출이 인계되고 plan-020 의 N1/N2/N5 와 ±0.01 이상 차이 발생 시 protocol divergence 박제 (severe X, warn only).
-- `n1_drift_vs_f002`: N1 (plan-007 F002 재측정) 이 F002 의 OOF 0.6482 와 ±0.01 초과 차이. protocol 점검.
+- `n1_drift_vs_f002`: N1 (plan-007 F002 *paradigm 재측정* — architecture 다름) 이 F002 의 OOF 0.6482 와 **±0.02** 초과 차이. (threshold 완화 사유 §N+2 caveat #4 참조 — F002 = 13D 통계×6-step, N1 = 27D raw×3-step → 동일 *paradigm class* 안 다른 architecture 라 ±0.01 보장 무리.) protocol 점검 warn.
 - `all_negative`: 17/17 후보 모두 paired Δ < +0.005 → halt 안 함, **negative finding 박제 후 G_final 진입** (paradigm-level evidence).
 
 ### Plan-specific paths (WORKFLOW.md §12.5/§12.6)
@@ -149,7 +149,7 @@ band: null
 | 시도 | Plan | 형태 | 결과 | plan-020 처리 |
 |---|---|---|---|---|
 | NN → 3D coord 직접 회귀 | 003 R001-R006 | regression | LB 0.5688 (실패) | 재시도 X (paradigm 함정) |
-| Per-sample MLP F0 coef | 007 F002 | NN → (d1, par, perp) | OOF 0.6482 ≈ global F0 | **N1 으로 재측정** (일관 protocol) |
+| Per-sample MLP F0 coef | 007 F002 | NN → (d1, par, perp) | OOF 0.6482 ≈ global F0 | **N1 = paradigm 재측정** (architecture 다름: F002 13D 통계×6-step → N1 27D raw×3-step. *동일 MLP-coef paradigm 의 다른 instance*, drift threshold ±0.02 §0.5) |
 | Attn-GRU selector | 004 P001 | NN → 27 후보 분류 | LB 0.6806 | F0 아님 (out-of-scope) |
 | BiGRU + codebook corrector | 014-016 | NN → 7 anchor + magnitude | OOF 0.6425, LB 0.6638 | F0 아님 (out-of-scope) |
 | GRU-attention coef | 017 | Attn-NN → coef | IN PROGRESS | **plan-020 N3/N4 out-of-scope** (plan-017 carry) |
@@ -218,25 +218,37 @@ band: null
 #### §3.1.1 carry 함수 시그너처 + 결정성 spec (self-contained 박제)
 
 ```python
-# stable_fold_id (plan-004 carry, L147) — 결정성 보장
-def stable_fold_id(sample_id: int | str, n_folds: int = 5) -> int:
-    """sample_id 의 해시(seed 없음, blake2b 8-byte digest mod n_folds) 로 fold index 결정.
-    - 입력: sample_id (정수 또는 dataframe row 의 unique string), n_folds (=5 plan-020 default).
+# stable_fold_id (plan-004 carry, src/pb_0_6822/selector.py L185) — 결정성 보장
+def stable_fold_id(sample_id: str, n_folds: int = 5) -> int:
+    """sample_id 의 해시 (seed 없음, **MD5 32-bit prefix mod n_folds**) 로 fold index 결정.
+    실제 구현: `int(hashlib.md5(sample_id.encode("utf-8")).hexdigest()[:8], 16) % n_folds`.
+    - 입력: sample_id (str — dataframe row 의 unique string), n_folds (=5 plan-020 default).
     - 출력: 0..n_folds-1 정수 1 개.
-    - 결정성: 동일 sample_id 는 항상 같은 fold (process / seed 무관).
-    - 충돌 분포: 10000 sample 위 fold size deviation 통상 < 5%."""
+    - 결정성: 동일 sample_id 는 항상 같은 fold (process / seed 무관). 동일 string 입력 → 동일 fold.
+    - 충돌 분포: 10000 sample 위 fold size deviation 통상 < 5%.
+    - 주의: int sample_id 입력 시 호출자가 str(int) 변환 필요 — 자동 변환 X."""
 
-# fit_regime_bins (plan-004 carry) — fold-internal
-def fit_regime_bins(train_x: np.ndarray, end_idx: int) -> "RegimeBinsModel":
-    """train_x shape (N_train, T, 3) → 18-regime classifier.
-    - 입력: train_(not k) 의 trajectory + end_idx (= T-1).
-    - 출력: `.assign(x) → np.ndarray[int]` 가능한 모델 (각 sample → 0..17 정수).
-    - 결정성: 동일 train_x 는 동일 bins (seed 없음 또는 fixed seed 박제).
-    - fold-internal: val sample 의 regime 은 fold k 의 train_(not k) 모델로 assign (val 누수 차단)."""
+# fit_regime_bins + assign_regimes (plan-004 carry, src/pb_0_6822/selector.py L361/L371)
+# *분리된 2 함수* — fit 은 dict 반환, assign 은 별도 함수 호출 필수 (plan body 의 OO interface 가정은 silent bug).
+def fit_regime_bins(train_x: np.ndarray, end_idx: int) -> dict[str, list[float]]:
+    """train_x shape (N_train, T, 3), end_idx (= T-1) → regime bin edges (dict).
+    실제 반환 예시: {"speed": [0.0176, 0.0290], "curvature": [0.0874, 0.1923], "speed_slope": [0.0108]}.
+    - 결정성: 동일 train_x 는 동일 bins (np.quantile 결정적, seed 없음).
+    - 18 regime decomposition: speed_bin (3 levels) × curvature_bin (3) × speed_slope_bin (2) = 18.
+    - fold-internal 의무: caller 가 train_(not k) 만 전달 (val 누수 차단 책임 caller)."""
+
+def assign_regimes(x: np.ndarray, end_idx: int, bins: dict[str, list[float]]) -> np.ndarray:
+    """x shape (N, T, 3), bins = fit_regime_bins(...) 반환 dict → regime index 0..17 (int) shape (N,).
+    - regime_id = speed_bin * 6 + curve_bin * 2 + fatigue_bin  (∈ {0, 1, ..., 17}).
+    - usage 패턴 (fold-internal 의무):
+        bins         = fit_regime_bins(train_x_not_k, end_idx)
+        regimes_val  = assign_regimes(val_x_k, end_idx, bins)            # val 도 train_(not k) bins 으로 assign
+        regimes_train= assign_regimes(train_x_not_k, end_idx, bins)"""
 ```
 
-- carry 시 import 경로: `from src.pb_0_6822.selector import stable_fold_id, fit_regime_bins`.
-- 시그너처 drift 발생 시 (signature mismatch / 반환 shape 변화) → G0 `infra_drift` severe.
+- carry 시 import 경로: `from src.pb_0_6822.selector import stable_fold_id, fit_regime_bins, assign_regimes`.
+- 시그너처 drift 발생 시 (signature mismatch / 반환 type 변화 / assign_regimes 미사용) → G0 `infra_drift` severe.
+- **plan body 의 §6.1 C5 pseudo-code (L444-456) 의 `regimes[r]` 사용은 위 `assign_regimes` 출력 가정 — caller 가 fit + assign 2-step 직접 수행 의무**.
 
 ### §3.2 합격 기준 (정량)
 
@@ -867,7 +879,7 @@ class N05_MoE(nn.Module):
 - 3 NN 모두 metric finite
 - val_hit > 0.10 (random baseline floor)
 - train_hit − val_hit < 0.10 (overfit guard, 미달 시 `nn_overfit` warn)
-- N1 의 OOF 가 plan-007 F002 (0.6482) 와 ±0.01 안 (`n1_drift_vs_f002` warn)
+- N1 의 OOF 가 plan-007 F002 (0.6482) 와 **±0.02 안** (`n1_drift_vs_f002` warn — architecture 다름 완화)
 
 ### §7.5 시간 예산 (cuda:1)
 
@@ -987,11 +999,13 @@ class N05_MoE(nn.Module):
 
 3. **NN-overfit risk** (특히 N5 MoE): gating NN 이 train 위 expert 마다 hindsight 잘 맞는 sample 학습 시 overfit. dropout=0.1 + weight_decay=1e-4 + early stop 적용.
 
-4. **N1 vs plan-007 F002 drift**: plan-007 F002 가 같은 architecture 인데 OOF 차이 ±0.01 초과 시 *protocol divergence* 박제. drift 원인:
-   - fold split 차이 (plan-007 = plan-004 carry, plan-020 = 동일)
-   - seed 차이 (plan-007 = 20260606, plan-020 = 20260518..)
-   - loss schedule 차이 (plan-007 = MSE, plan-020 = annealed hit-aware)
-   → 이 중 *loss schedule* 가 가장 큰 영향 예상.
+4. **N1 vs plan-007 F002 drift** (threshold ±0.02, architecture 다름 — 코드 재사용 검토에서 확인된 drift 원인):
+   - **input feature 구성 차이 (가장 큰 원인 예상)**: F002 = 13D *통계 aggregates* (pos_mean/std/range 9D + speed_mean/std/max/last 4D) 위 6 timestep window. N1 = 27D *raw sequence* (last 3 × [px,py,pz, vx,vy,vz, ax,ay,az] displacement). 다른 paradigm.
+   - **train pool 차이**: F002 = 50K (10K original + 4× sliding views). N1 = 10K (original 만, sliding view 미사용).
+   - fold split 동일 (plan-004 carry, MD5).
+   - seed 차이 (F002 = 20260606 single, N1 = 20260518..20260522 multi-seed best-on-train).
+   - loss schedule 차이 (F002 = MSE? stage3 baseline 0.63868 추정, N1 = annealed smooth-hit + boundary).
+   - **결론**: ±0.01 의 *strict* drift threshold 는 architecture 동일 가정 — 본 plan 은 paradigm-class 동일 / instance 다름이라 ±0.02 로 완화. 그래도 초과 시 architecture / pool / loss 어느 lever 가 dominant 인지 분리 측정 권고 (follow-up plan-021).
 
 5. **C12 wingbeat FFT sub-Nyquist 위험**: 11 점 × 40 ms = 12.5 Hz Nyquist. wingbeat 600 Hz → fully aliased. cutoff freq 학습이 *aliased noise* 만 학습할 가능성. mitigate: moving-average fallback + 학습 후 visualization 검증.
 
@@ -1011,6 +1025,8 @@ class N05_MoE(nn.Module):
 
 - v1 (2026-05-18): 초안 — 17 후보 (14 deterministic + 3 NN: N1/N2/N5) plan body. plan-017 overlap 으로 N3/N4 out-of-scope 박제. Maximum tier 선택.
 - v1.1 (2026-05-18): narrative ("단일 공식 결과 최대화") 정합 점검 — §9 STAGE 5 (27-pool oracle delta, §0 out-of-scope 와 충돌) + §N+1 작업량 회계 삭제. STAGE 6 → STAGE 5 / c13 → c12 renumber. caveat #8 의 G4 의존 표현 단순화.
+- v1.2 (2026-05-18): plan-review-master 5-iter 자동 fix (BLOCKER 0 도달, 37 fix). 산식 박제 (C2/C4/C6/C7/C8/C9/C10/C11/C14) + NN spec (N1 9D feature / N2 dilated TCN / N5 expert_preds caching) + f0_form_torch torch mirror + annealed loss surrogate + best_candidate 단수 선정 규칙. C10 Bishop F0-degeneracy 차단 (λ 1 param). C12 cutoff Nyquist-aware [2.27, 12.5]. C13 Lévy v1 본문 정정 — wingbeat range alias zone [10, 200] → Nyquist 안. velocity 단위 displacement units 으로 통일.
+- v1.3 (2026-05-18): 코드 재사용 검토 (feedback_code_reuse_correctness) — 6 carry 항목 cascade + signature 사전 검토. **DRIFT/VIOLATION fix 3건**: (a) §3.1.1 `stable_fold_id` hash blake2b → MD5 정정 (실제 `selector.py` L185), (b) §3.1.1 `fit_regime_bins` 가 dict 반환이고 별도 `assign_regimes` 호출 필수임을 박제 (OO `.assign()` 가정 silent bug 회피), (c) §0.5 / §1.3 / §7.4 / §N+2 #4 의 N1 drift threshold ±0.01 → ±0.02 완화 + drift 원인 보강 (F002 13D 통계×6-step ≠ N1 27D raw×3-step + train pool 50K vs 10K — 동일 paradigm-class 다른 instance).
 
 ---
 
