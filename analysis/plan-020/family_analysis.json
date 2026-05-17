@@ -1,0 +1,256 @@
+{
+  "f0_baseline": {
+    "hit_1cm": 0.632,
+    "hit_1.5cm": 0.8033
+  },
+  "pass_threshold": 0.005,
+  "n_candidates": 17,
+  "n_pass": 1,
+  "table": [
+    {
+      "candidate": "C05_per_regime_f0",
+      "family": "F2_data_driven",
+      "hit_1cm": 0.6503,
+      "delta_1cm": 0.018299999999999983,
+      "hit_1.5cm": 0.8086,
+      "delta_1.5cm": 0.005299999999999971,
+      "fold_variance_1cm": 0.005592567248651829,
+      "fold_variance_1.5cm": 0.008857239194800259,
+      "pass_both": true,
+      "delta_combined": 0.02094999999999997
+    },
+    {
+      "candidate": "N01_mlp_coef",
+      "family": "F2_data_driven",
+      "hit_1cm": 0.6389,
+      "delta_1cm": 0.006900000000000017,
+      "hit_1.5cm": 0.8023,
+      "delta_1.5cm": -0.0010000000000000009,
+      "fold_variance_1cm": 0.005257770129879634,
+      "fold_variance_1.5cm": 0.008825957293440522,
+      "pass_both": false,
+      "delta_combined": 0.006400000000000017
+    },
+    {
+      "candidate": "N02_tcn_coef",
+      "family": "F2_data_driven",
+      "hit_1cm": 0.6372,
+      "delta_1cm": 0.005199999999999982,
+      "hit_1.5cm": 0.8036,
+      "delta_1.5cm": 0.00029999999999996696,
+      "fold_variance_1cm": 0.0059052857173373975,
+      "fold_variance_1.5cm": 0.008513127913970712,
+      "pass_both": false,
+      "delta_combined": 0.005349999999999966
+    },
+    {
+      "candidate": "N05_moe",
+      "family": "F2_data_driven",
+      "hit_1cm": 0.6327,
+      "delta_1cm": 0.0007000000000000339,
+      "hit_1.5cm": 0.8065,
+      "delta_1.5cm": 0.0031999999999999806,
+      "fold_variance_1cm": 0.006854323211503595,
+      "fold_variance_1.5cm": 0.008092780059967795,
+      "pass_both": false,
+      "delta_combined": 0.0023000000000000242
+    },
+    {
+      "candidate": "C10_bishop_frame",
+      "family": "F5_기하학",
+      "hit_1cm": 0.632,
+      "delta_1cm": 0.0,
+      "hit_1.5cm": 0.8033,
+      "delta_1.5cm": 0.0,
+      "fold_variance_1cm": 0.005192789253297582,
+      "fold_variance_1.5cm": 0.008722251291583995,
+      "pass_both": false,
+      "delta_combined": 0.0
+    },
+    {
+      "candidate": "C13_levy_prior",
+      "family": "F6_도메인_정보",
+      "hit_1cm": 0.632,
+      "delta_1cm": 0.0,
+      "hit_1.5cm": 0.8033,
+      "delta_1.5cm": 0.0,
+      "fold_variance_1cm": 0.005192789253297582,
+      "fold_variance_1.5cm": 0.008722251291583995,
+      "pass_both": false,
+      "delta_combined": 0.0
+    },
+    {
+      "candidate": "C04_imm",
+      "family": "F1_회전",
+      "hit_1cm": 0.598,
+      "delta_1cm": -0.03400000000000003,
+      "hit_1.5cm": 0.7974,
+      "delta_1.5cm": -0.005900000000000016,
+      "fold_variance_1cm": 0.010392216031492992,
+      "fold_variance_1.5cm": 0.009688371759444378,
+      "pass_both": false,
+      "delta_combined": -0.03695000000000004
+    },
+    {
+      "candidate": "C08_singer",
+      "family": "F4_noise_adaptive",
+      "hit_1cm": 0.5951,
+      "delta_1cm": -0.036900000000000044,
+      "hit_1.5cm": 0.7851,
+      "delta_1.5cm": -0.018199999999999994,
+      "fold_variance_1cm": 0.008943191127109246,
+      "fold_variance_1.5cm": 0.007813500615178598,
+      "pass_both": false,
+      "delta_combined": -0.04600000000000004
+    },
+    {
+      "candidate": "C01_helix",
+      "family": "F1_회전",
+      "hit_1cm": 0.5874,
+      "delta_1cm": -0.04459999999999997,
+      "hit_1.5cm": 0.7912,
+      "delta_1.5cm": -0.0121,
+      "fold_variance_1cm": 0.010165638320208613,
+      "fold_variance_1.5cm": 0.008615985853022005,
+      "pass_both": false,
+      "delta_combined": -0.05064999999999997
+    },
+    {
+      "candidate": "C03_ctrv",
+      "family": "F1_회전",
+      "hit_1cm": 0.5207,
+      "delta_1cm": -0.11129999999999995,
+      "hit_1.5cm": 0.7187,
+      "delta_1.5cm": -0.08460000000000001,
+      "fold_variance_1cm": 0.011979489599300253,
+      "fold_variance_1.5cm": 0.006503138968030745,
+      "pass_both": false,
+      "delta_combined": -0.15359999999999996
+    },
+    {
+      "candidate": "C02_ctra",
+      "family": "F1_회전",
+      "hit_1cm": 0.507,
+      "delta_1cm": -0.125,
+      "hit_1.5cm": 0.6898,
+      "delta_1.5cm": -0.11350000000000005,
+      "fold_variance_1cm": 0.009042097944258523,
+      "fold_variance_1.5cm": 0.008453529137739007,
+      "pass_both": false,
+      "delta_combined": -0.18175000000000002
+    },
+    {
+      "candidate": "C07_jerk_quartic",
+      "family": "F3_고차_미분",
+      "hit_1cm": 0.3929,
+      "delta_1cm": -0.23909999999999998,
+      "hit_1.5cm": 0.5847,
+      "delta_1.5cm": -0.21860000000000002,
+      "fold_variance_1cm": 0.007955353397474902,
+      "fold_variance_1.5cm": 0.010257465458205023,
+      "pass_both": false,
+      "delta_combined": -0.3484
+    },
+    {
+      "candidate": "C11_se3_twist",
+      "family": "F5_기하학",
+      "hit_1cm": 0.345,
+      "delta_1cm": -0.28700000000000003,
+      "hit_1.5cm": 0.5323,
+      "delta_1.5cm": -0.271,
+      "fold_variance_1cm": 0.006968721198656277,
+      "fold_variance_1.5cm": 0.00918220227331602,
+      "pass_both": false,
+      "delta_combined": -0.42250000000000004
+    },
+    {
+      "candidate": "C14_trajectory_knn",
+      "family": "F7_비모수",
+      "hit_1cm": 0.3404,
+      "delta_1cm": -0.2916,
+      "hit_1.5cm": 0.5336,
+      "delta_1.5cm": -0.26970000000000005,
+      "fold_variance_1cm": 0.009047502488455062,
+      "fold_variance_1.5cm": 0.009237306142859721,
+      "pass_both": false,
+      "delta_combined": -0.42645000000000005
+    },
+    {
+      "candidate": "C09_kalman_smoother",
+      "family": "F4_noise_adaptive",
+      "hit_1cm": 0.2374,
+      "delta_1cm": -0.3946,
+      "hit_1.5cm": 0.3846,
+      "delta_1.5cm": -0.4187,
+      "fold_variance_1cm": 0.003665521966121702,
+      "fold_variance_1.5cm": 0.009955933976876436,
+      "pass_both": false,
+      "delta_combined": -0.60395
+    },
+    {
+      "candidate": "C06_quintic_hermite",
+      "family": "F3_고차_미분",
+      "hit_1cm": 0.0096,
+      "delta_1cm": -0.6224,
+      "hit_1.5cm": 0.026,
+      "delta_1.5cm": -0.7773,
+      "fold_variance_1cm": 0.0008878869090568782,
+      "fold_variance_1.5cm": 0.0020377093531945135,
+      "pass_both": false,
+      "delta_combined": -1.01105
+    },
+    {
+      "candidate": "C12_wingbeat_corrected",
+      "family": "F6_도메인_정보",
+      "hit_1cm": 0.0008,
+      "delta_1cm": -0.6312,
+      "hit_1.5cm": 0.0015,
+      "delta_1.5cm": -0.8018000000000001,
+      "fold_variance_1cm": 0.00024795563388937177,
+      "fold_variance_1.5cm": 0.0004286644870661529,
+      "pass_both": false,
+      "delta_combined": -1.0321
+    }
+  ],
+  "family_winners": {
+    "F1_회전": {
+      "winner": null,
+      "reason": "no candidate passed +0.005 둘 다"
+    },
+    "F2_data_driven": {
+      "winner": "C05_per_regime_f0",
+      "delta_1cm": 0.018299999999999983,
+      "delta_1.5cm": 0.005299999999999971,
+      "delta_combined": 0.02094999999999997
+    },
+    "F3_고차_미분": {
+      "winner": null,
+      "reason": "no candidate passed +0.005 둘 다"
+    },
+    "F4_noise_adaptive": {
+      "winner": null,
+      "reason": "no candidate passed +0.005 둘 다"
+    },
+    "F5_기하학": {
+      "winner": null,
+      "reason": "no candidate passed +0.005 둘 다"
+    },
+    "F6_도메인_정보": {
+      "winner": null,
+      "reason": "no candidate passed +0.005 둘 다"
+    },
+    "F7_비모수": {
+      "winner": null,
+      "reason": "no candidate passed +0.005 둘 다"
+    }
+  },
+  "overall": {
+    "best_candidate": "C05_per_regime_f0",
+    "best_hit_1cm": 0.6503,
+    "best_hit_1.5cm": 0.8086,
+    "best_delta_1cm": 0.018299999999999983,
+    "best_delta_1.5cm": 0.005299999999999971,
+    "best_family": "F2_data_driven",
+    "band": "positive"
+  }
+}
