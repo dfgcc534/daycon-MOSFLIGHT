@@ -1,15 +1,22 @@
 ---
 plan_id: 020
-version: 1
+version: 1.4
 date: 2026-05-18 (Asia/Seoul)
-status: draft
+status: all_complete
+best_candidate: C05_per_regime_f0
+best_hit_1cm: 0.6503
+best_hit_1.5cm: 0.8086
+best_delta_1cm: +0.0183
+best_delta_1.5cm: +0.0053
 based_on:
   - 004 (fold split + 18-regime infrastructure + 27-pool reference)
   - 006 (F0 baseline 0.6320 / 0.8033 산식 — plan-006 `frenet_par120_perp_neg020`)
   - 007 (CMA-ES infrastructure + F002 per-sample MLP coef precedent)
   - 014~016 (corrector paradigm ceiling 측정 — F0 family 한계 박제)
   - 017 (GRU-attention coef regressor — N3 overlap, plan-020 N1/N2/N5 와 직교 선택)
-followed_by: []
+followed_by:
+  - plan-021 (가칭): C05 winner 의 27-pool 통합 + LB 측정 (BMA / oracle delta)
+  - plan-022 (가칭): C12 wingbeat default broken fix + C10 Bishop CMA saddle escape + 본 plan-020 v1.4 full-spec 재측정 (CMA popsize=20/maxiter=200/seeds=5, RTS smoother)
 scope: F0 (단일 공식, plan-006 frenet_par120_perp_neg020) 의 단독 hit@1cm / hit@1.5cm 갱신 17 후보 ablation (14 deterministic + 3 NN). plan-004 pipeline 통합 / dacon-submit / BMA = out-of-scope (follow-up plan).
 exp_ids:
   - Z020_C01_helix
@@ -30,7 +37,7 @@ exp_ids:
   - Z020_N02_tcn_coef
   - Z020_N05_moe_f0
 lb_score: null
-band: null
+band: positive
 ---
 
 # plan-020 v1 — F0 Structural Search: 17 후보 (14 deterministic + 3 NN) 의 단독 hit@1cm / hit@1.5cm 갱신
