@@ -1,0 +1,32 @@
+inline selector loaded: 27 candidates
+[plan-020 run_oof] loading train data ...
+[plan-020 run_oof] N=10000, shape=(10000, 11, 3)
+[plan-020 run_oof] fold sizes: [2020, 2047, 1921, 2020, 1992]
+[plan-020 run_oof] F0 baseline: hit@1cm=0.6320 hit@1.5cm=0.8033
+
+[plan-020 run_oof] === N01_mlp_coef ===
+  [N01_mlp_coef] fold 0: best_seed=20260518 train_hit=0.6378
+  [N01_mlp_coef] fold 1: best_seed=20260518 train_hit=0.6406
+  [N01_mlp_coef] fold 2: best_seed=20260519 train_hit=0.6404
+  [N01_mlp_coef] fold 3: best_seed=20260519 train_hit=0.6406
+  [N01_mlp_coef] fold 4: best_seed=20260518 train_hit=0.6416
+  [N01_mlp_coef] elapsed 30.5s
+
+[plan-020 run_oof] === N02_tcn_coef ===
+  [N02_tcn_coef] fold 0: best_seed=20260518 train_hit=0.6373
+  [N02_tcn_coef] fold 1: best_seed=20260518 train_hit=0.6394
+  [N02_tcn_coef] fold 2: best_seed=20260520 train_hit=0.6403
+  [N02_tcn_coef] fold 3: best_seed=20260519 train_hit=0.6400
+  [N02_tcn_coef] fold 4: best_seed=20260518 train_hit=0.6422
+  [N02_tcn_coef] elapsed 47.4s
+
+[plan-020 run_oof] === N05_moe ===
+  [N05_moe] fold 0: best_seed=20260520 train_hit=0.6321
+  [N05_moe] fold 1: best_seed=20260520 train_hit=0.6336
+  [N05_moe] fold 2: best_seed=20260520 train_hit=0.6342
+  [N05_moe] fold 3: best_seed=20260520 train_hit=0.6347
+  [N05_moe] fold 4: best_seed=20260520 train_hit=0.6355
+  [N05_moe] elapsed 27.5s
+
+[plan-020 run_oof] total 106.2s
+[plan-020 run_oof] wrote analysis/plan-020/results_nn.json
