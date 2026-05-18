@@ -62,7 +62,7 @@ band: null
 
 | # | type | spec section | status |
 |---|---|---|---|
-| c1 | docs | `plans/plan-021-frenet-corrector-input-augment.md` 본문 v1 작성 | [TODO] |
+| c1 | docs | `plans/plan-021-frenet-corrector-input-augment.md` 본문 v1 작성 (v1.1 plan-review-master 5-iter 자동 fix BLOCKER 0 도달, A/B/C 모두 "잘 드러남" 안정 수렴) | [DONE] |
 | c2 | code | `analysis/plan-021/build_input.py` (4 lever + macro stat + EWMA + Frenet basis) | [TODO] |
 | c3 | code | `analysis/plan-021/dual_head_model.py` (LGBM + GRU dual head, soft CE + smooth_hit loss) | [TODO] |
 | c4 | code | `analysis/plan-021/run_oof.py` (5-fold OOF runner, sub-exp A/B dispatch) | [TODO] |
