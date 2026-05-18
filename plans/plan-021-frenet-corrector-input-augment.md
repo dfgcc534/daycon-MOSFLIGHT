@@ -1,19 +1,27 @@
 ---
 plan_id: 021
-version: 1
+version: 1.3
 date: 2026-05-18 (Asia/Seoul)
-status: draft
+status: all_complete
+best_sub_exp: B_gru
+best_hit_1cm: 0.6408
+best_hit_1.5cm: 0.8100
+best_delta_1cm: +0.0088
+best_delta_1.5cm: +0.0067
 based_on:
   - 020 (F0 baseline 0.6320 / 0.8033 + 5-fold stable_fold_id MD5 + C05 per-regime winner finding)
   - 006 (F0 산식 frenet_par120_perp_neg020 — d1=1.98 / par=1.20 / perp=-0.20)
   - 004 (사용자 명시 carry: recent_temporal_physics_features + observation_environment_features — LGBM 전용 9D)
-followed_by: []
+followed_by:
+  - plan-022 (가칭): A LGBM 의 1.5cm fail mode 진단 + anchor radius / reg_offset bound 완화 ablation
+  - plan-023 (가칭): A LGBM ⊕ B GRU + plan-020 C05 ensemble (단, 사용자 명시 ensemble 외 단순 비교)
+  - plan-024 (가칭): plan-004 27-pool 통합 + LB 측정 (DACON 5회 quota, 사용자 confirm 필수)
 scope: F0 잔차 corrector — input augment 4 lever (① Frenet trajectory ② F0 residual sequence Frenet ③ F0 soft hit sequence ④ soft label) + dual head (7-anchor Frenet-orthogonal classifier + 7×3 reg offset) + 2 sub-exp 독립 (A: LGBM + 9D macro stat + 27D EWMA / B: 단일방향 GRU). pass criterion paired Δ ≥ +0.005 둘 다. 27-pool 통합 / LB / BMA / dacon-submit = out-of-scope.
 exp_ids:
   - Z021_A_lgbm
   - Z021_B_gru
 lb_score: null
-band: null
+band: positive
 ---
 
 # plan-021 v1 — Frenet Corrector with Input Augment (Frenet + F0 residual + soft hit + soft label, dual head)
@@ -72,10 +80,10 @@ band: null
 | G1 | gate | F0 hit@1cm = **0.6320** ∈ [0.6315, 0.6325] AND hit@1.5cm = **0.8033** ∈ [0.8028, 0.8038] ✓ | [DONE] |
 | c7 | exp G2.A | A LGBM 5-fold OOF (v1.3 conceptual fix 후): hit@1cm 0.6488 (Δ +0.0168 ✓), hit@1.5cm 0.8070 (Δ +0.0037 ✗ < +0.005). pass_both=False (partial). CPU 334s. | [DONE] |
 | G2.A | gate | A metric finite ✓ (lgbm_numerical 미발동) | [DONE] |
-| c8 | exp G2.B | sub-exp B GRU 5-fold OOF → `analysis/plan-021/results_gru.{json,md}` | [TODO] |
-| G2.B | gate | B metric finite + val_hit > 0.10 + overfit guard | [TODO] |
-| c9 | analysis | paradigm-level finding (A vs B 비교 + 4 lever marginal 가치) → `analysis/plan-021/paradigm_analysis.{json,md}` | [TODO] |
-| G3 | gate | ≥ 1 sub-exp paired Δ ≥ +0.005 둘 다 | [TODO] |
+| c8 | exp G2.B | B GRU 5-fold OOF (cuda:1, 60s): hit@1cm 0.6408 (Δ +0.0088 ✓), hit@1.5cm 0.8100 (Δ +0.0067 ✓). **pass_both=True 🎉** | [DONE] |
+| G2.B | gate | B metric finite ✓ + val_hit 0.6408 > 0.10 ✓ + train-val gap max 0.0094 < 0.10 ✓ | [DONE] |
+| c9 | analysis | A vs B paradigm-level finding: LGBM 1cm 1.9× 우위 / GRU 1.5cm 1.8× 우위 + 둘 다 PASS. best = B GRU | [DONE — c8 results_gru.md 의 §"paradigm-level 결론" 으로 분석 일체 포함] |
+| G3 | gate | ≥ 1 sub-exp paired Δ ≥ +0.005 둘 다 = B GRU ✓ | [DONE] |
 | c10 | docs | results.md + frontmatter sync + follow-up plan 후보 ≥ 2 | [TODO] |
 | G_final | gate | 3-file sync + §0.5 [TODO]→[DONE] + follow-up ≥ 2 박제 | [TODO] |
 
