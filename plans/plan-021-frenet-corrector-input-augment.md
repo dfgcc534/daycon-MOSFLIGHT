@@ -84,8 +84,8 @@ band: positive
 | G2.B | gate | B metric finite ✓ + val_hit 0.6408 > 0.10 ✓ + train-val gap max 0.0094 < 0.10 ✓ | [DONE] |
 | c9 | analysis | A vs B paradigm-level finding: LGBM 1cm 1.9× 우위 / GRU 1.5cm 1.8× 우위 + 둘 다 PASS. best = B GRU | [DONE — c8 results_gru.md 의 §"paradigm-level 결론" 으로 분석 일체 포함] |
 | G3 | gate | ≥ 1 sub-exp paired Δ ≥ +0.005 둘 다 = B GRU ✓ | [DONE] |
-| c10 | docs | results.md + frontmatter sync + follow-up plan 후보 ≥ 2 | [TODO] |
-| G_final | gate | 3-file sync + §0.5 [TODO]→[DONE] + follow-up ≥ 2 박제 | [TODO] |
+| c10 | docs | 3-file frontmatter sync (status all_complete, band positive, best_sub_exp B_gru) + results.md (필수 항목 11건) + follow-up plan-022/023/024 박제 | [DONE] |
+| G_final | gate | 3-file sync ✓ + §0.5 c1~c10 모두 [DONE] ✓ + follow-up 3건 박제 ✓ | [DONE] |
 
 ### Plan-specific severe (WORKFLOW.md §12.3 default 위 추가분)
 
