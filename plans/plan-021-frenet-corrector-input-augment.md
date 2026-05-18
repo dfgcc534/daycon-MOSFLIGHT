@@ -21,7 +21,7 @@ band: null
 ## §0. 한 줄 목적
 
 > **F0 의 paired Δ ≥ +0.005 *둘 다* (hit@1cm + hit@1.5cm) 통과** = corrector NN/tree 의 *input MI 부족* root cause 를 4 lever input augment 로 직접 공략. 4 lever:
-> 1. **Frenet input** — trajectory 를 `(traj − origin) @ R_wfn` 으로 Frenet 좌표계 변환 → translation + rotation invariance
+> 1. **Frenet input** — trajectory 를 Frenet 좌표계 변환 (산식 §6.1.1: `R_wfn^T @ (traj − origin)`, R_wfn columns = [t̂, n̂, b̂]) → translation + rotation invariance
 > 2. **F0 residual sequence (Frenet)** — 7 past sub-window 의 F0 잔차 `(pred_F0_t − actual_t) @ R_wfn`
 > 3. **F0 soft hit sequence** — 7 past sub-window 의 `sigmoid((R − d)/τ)` at R ∈ {0.01, 0.015}
 > 4. **soft label** — classifier target = `softmax(−dist(ANCHORS_FRENET, residual_true)/τ_cls)` (7-class soft prob, hard one-hot 회피)
@@ -83,9 +83,9 @@ band: null
 
 - `f0_reproduce_drift`: G1 reproduce 가 plan-020 hard evidence 0.6320 / 0.8033 ±0.0005 밖. 추출/fold split/F0 산식 carry 버그 의심 → halt.
 - `lgbm_numerical`: A LGBM classifier 또는 regression 출력 NaN/Inf. soft label CE 또는 anchor target 산출 버그 의심.
-- `gru_no_signal`: B GRU val_hit < 0.10 (random baseline). normalization / loss 버그 의심.
+- `gru_no_signal`: B GRU **val_hit@1cm (5-fold concat OOF) < 0.10** (= F0 baseline 0.6320 의 1/6, "최소 학습 시그널 floor" 임계 — 7-class random uniform `1/7 ≈ 0.143` 과는 다른 task-specific floor). normalization / loss 버그 의심.
 - `gru_overfit`: B GRU train_hit − val_hit > 0.10. regularization 부족.
-- `frenet_basis_degenerate`: ‖v_last‖ < 1e-9 또는 ‖a_⊥‖ < 1e-9 sample 비율 > 5% — Frenet basis 정의 불가 sample 다수. fallback (world frame use) 또는 sample 제외 박제.
+- `frenet_basis_degenerate`: ‖v_last‖ < 1e-9 또는 ‖a_⊥‖ < 1e-9 sample 비율 > 5% — Frenet basis 정의 불가 sample 다수. `a_⊥ = a − (a · t̂) · t̂` (= 가속도 a 의 tangent-수직 성분, perpendicular 방향). fallback (world frame use: `R_wfn ← I_3`, origin ← x[end_idx]) 또는 sample 제외 박제.
 - `soft_label_collapse`: classifier 가 anchor 0 (origin) 만 selecting (π_0 평균 > 0.95). soft CE temperature 너무 sharp 의심.
 - `all_negative`: A + B 모두 paired Δ < +0.005 *둘 다*. → `all_negative` warn 박제 + G_final 진입 (paradigm-level evidence — input augment lever 의 한계).
 
@@ -113,7 +113,7 @@ band: null
 - `decision-note: spec-default — soft label τ_cls = 0.001m (1mm, anchor scale 의 1/5).`
 - `decision-note: spec-default — LGBM: n_estimators=500, lr=0.05, num_leaves=63, multi-output 7-class softmax classifier + 21 regressor.`
 - `decision-note: spec-default — GRU: hidden=64, layers=1, bidir=False, dropout=0.1, epochs=50, batch=256, Adam lr=1e-3.`
-- `decision-note: spec-default — multi-seed = 3 seeds [20260518, 20260519, 20260520], best-on-train selection.`
+- `decision-note: spec-default — multi-seed = 3 seeds [20260518, 20260519, 20260520], best-on-train selection. **scope: GRU (sub-exp B) 전용** — LGBM (sub-exp A) 는 결정적이라 single seed (§6.2 spec-default).`
 - `decision-note: spec-default — 2 sub-exp 독립 (ensemble 아님). 결과 비교는 paradigm-level finding 만.`
 
 ---
@@ -199,7 +199,7 @@ mean-regression trap (single regression head 가 residual 평균에 끌려가는
 | folds | 5 |
 | fold 할당 | `stable_fold_id(str(sample_id), 5)` (plan-020 carry, MD5 32-bit prefix mod 5) |
 | seed | fold split deterministic (no seed) |
-| F0 baseline OOF | plan-020 baseline_oof.json 그대로 사용 (anchor for paired Δ — re-run 불필요) |
+| F0 baseline OOF | plan-020 baseline_oof.json 의 *집계 metric* 만 carry (0.6320 / 0.8033 sanity). **paired Δ 산출용 per-sample F0 pred 는 run-time 에 `bf.f0_baseline(X, end_idx=10)` 호출로 재계산** (deterministic numpy, < 1s) — baseline_oof.json 에는 array 박제 X. |
 
 ### §3.2 합격 기준 (정량)
 
@@ -216,8 +216,8 @@ mean-regression trap (single regression head 가 residual 평균에 끌려가는
 |---|---|---|
 | hit@1cm | `mean(‖final_world − gt‖₂ ≤ 0.01)` | F0 baseline 0.6320 |
 | hit@1.5cm | `mean(‖final_world − gt‖₂ ≤ 0.015)` | F0 baseline 0.8033 |
-| paired Δ | sample-level: `mean_i(1{‖pred_cand_i − gt_i‖ ≤ R} − 1{‖pred_F0_i − gt_i‖ ≤ R})`. 5-fold concat OOF. | +0.005 임계 적용 |
-| fold variance | per-fold metric (5 개) std | < 0.05 (overfit guard) |
+| paired Δ | sample-level: `mean_i(1{‖pred_cand_i − gt_i‖ ≤ R} − 1{‖pred_F0_i − gt_i‖ ≤ R})`. 5-fold concat OOF. **`pred_cand_i` = sub-exp 단수 (A 또는 B 각각)** — ensemble 아님. A/B 각자 별 paired Δ 산출. | +0.005 임계 적용 |
+| fold variance | per-fold metric (5 개) std | **informational only** (gate binding 없음 — `nn_overfit`/`gru_overfit` warn 은 train-val gap 으로 별도 측정 §3.2 G2.B) |
 
 ### §3.4 Anchor 정의 (단일 codebook, 사용자 명시 — bake-off 안 함)
 
@@ -257,18 +257,53 @@ analysis/plan-021/
 
 | symbol | module | type |
 |---|---|---|
-| `build_frenet_basis_3d` | build_input | `Callable[[np.ndarray, int], np.ndarray]` ((N,T,3), end_idx → (N,3,3)) |
+| `build_frenet_basis_3d` | build_input | `Callable[[np.ndarray, int], np.ndarray]` ((N,T,3), end_idx → (N,3,3) = stack [t̂, n̂, b̂] columns). 산식 §4.2.1 참조. |
 | `to_frenet` | build_input | `Callable[[np.ndarray, np.ndarray, np.ndarray], np.ndarray]` (vec, R, origin → frenet vec) |
-| `build_input_common` | build_input | `Callable[[np.ndarray], dict]` (X (N,T,3) → {"L1": (N,11,9), "L2": (N,7,3), "L4": (N,7,2)}) |
+| `build_input_common` | build_input | `Callable[[np.ndarray, Callable], dict]` (X (N,T,3), `f0_baseline_fn` (= bf.f0_baseline injected) → {"L1": (N,11,9), "L2": (N,7,3), "L4": (N,7,2), **"R_wfn": (N,3,3), "origin": (N,3)**}). F0 산식은 호출자 (run_oof) 가 plan-020 baseline_f0.py 의 `f0_baseline` 함수 인자로 주입. R_wfn / origin 은 §6.4 inference 의 Frenet→world 역변환에 필요. **LGBM 의 L5/L6 (170D 의 macro stat + EWMA) 은 `build_input_lgbm_extra` 가 별도 산출 (35D) — `run_oof_lgbm` 의 `X_lgbm = np.concatenate([common['L1'].reshape(N,99), common['L2'].reshape(N,21), common['L4'].reshape(N,14), lgbm_extra], axis=1)` 으로 sub-exp A entry 에서 concat (총 170D).** |
 | `build_input_lgbm_extra` | build_input | `Callable[[np.ndarray], np.ndarray]` (X → (N, 9+27=36) = macro stat 9D + EWMA 27D) |
-| `build_soft_label` | build_input | `Callable[[np.ndarray, np.ndarray, ndarray, ndarray], np.ndarray]` (gt, F0_pred, R_wfn, origin → (N, 7) soft prob) |
+| `build_soft_label` | build_input | `Callable[[np.ndarray, np.ndarray, np.ndarray], np.ndarray]` (gt (N,3), R_wfn (N,3,3), origin (N,3) → (N, 7) soft prob). 산식: `residual_true_frenet = einsum('nij,nj->ni', R_wfn.transpose(0,2,1), gt - origin); dist = ‖ANCHORS_FRENET[None] − residual_true_frenet[:,None]‖; q = softmax(−dist / 0.001, axis=1)`. **F0_pred 인자 제거** (v1.1: dead-arg, residual_true_frenet 산식이 F0_pred 미사용). |
 | `ANCHORS_FRENET` | build_input | `np.ndarray` shape (7, 3) |
 | `LgbmDualHead` | dual_head_model | sklearn-style class — fit / predict_proba / predict_offset |
 | `GRUDualHead` | dual_head_model | `nn.Module` — forward returns (logits, reg_offset) |
-| `soft_ce_loss`, `smooth_hit_loss` | dual_head_model | `Callable` |
+| `soft_ce_loss` | dual_head_model | `Callable[[Tensor, Tensor], Tensor]` (logits (B, K), q (B, K) soft prob → scalar loss = `-(q * log_softmax(logits)).sum(dim=1).mean()`) |
+| `smooth_hit_loss` | dual_head_model | `Callable[[Tensor, Tensor, float, bool], Tensor]` (pred (B, 3), gt (B, 3), tau, use_boundary → scalar loss). 산식 §7.3.1 참조. |
 | `run_oof_lgbm`, `run_oof_gru` | run_oof | `Callable` |
 
 → 위 export 중 하나라도 AttributeError 시 G0 `infra_drift` severe.
+
+### §4.2.1 `build_frenet_basis_3d` 산식 (self-contained)
+
+```python
+def build_frenet_basis_3d(x: np.ndarray, end_idx: int) -> np.ndarray:
+    """x shape (N, T, 3), end_idx = T-1. returns (N, 3, 3) — columns = [t̂, n̂, b̂].
+
+    산식 (sample-wise):
+      v_last = x[:, end_idx] - x[:, end_idx-1]                          # (N, 3)
+      v_prev = x[:, end_idx-1] - x[:, end_idx-2]
+      a      = v_last - v_prev                                           # (N, 3)
+      
+      t̂ = v_last / max(‖v_last‖, 1e-9)                                   # tangent (앞)
+      a_⊥ = a - (a · t̂) · t̂                                              # tangent-수직 성분
+      n̂ = a_⊥ / max(‖a_⊥‖, 1e-9)                                         # normal (회전 안쪽)
+      b̂ = t̂ × n̂                                                          # binormal (위)
+      
+      return stack([t̂, n̂, b̂], axis=-1)  # (N, 3, 3) — columns = basis vectors
+
+    Fallback (frenet_basis_degenerate):
+      - ‖v_last‖ < 1e-9 → R_wfn = I_3 (world frame use)
+      - ‖a_⊥‖ < 1e-9 (직선 운동) → 임의 n̂ 선택:
+          z_world = (0, 0, 1)
+          if |t̂ · z_world| > 0.99:   z_world ← (1, 0, 0)    # collinearity 임계 정량
+          n̂ = (z_world − (z_world · t̂) · t̂) / ‖...‖
+          b̂ = t̂ × n̂
+      - 둘 다 발생 sample 비율 > 5% → severe escalate
+    """
+```
+
+산식 invariant (smoke test catch):
+- `R @ R.T ≈ I_3` (orthonormality, ±1e-6)
+- `det(R) ≈ +1` (right-handed)
+- `R[:, :, 0] ≈ v_last / ‖v_last‖` (t̂ column 0)
 
 ### §4.3 F0 산식 carry (plan-020 baseline_f0.py reuse)
 
@@ -327,12 +362,133 @@ assert 0.8028 <= f0["hit_1.5cm_5fold_concat"] <= 0.8038
 
 | 채널 | dim | source | sample-wise? |
 |---|---|---|---|
-| L1 Frenet trajectory | 11 × 9 = **99** | `(traj − origin) @ R_wfn` + per-step `[p, v, a]` (Frenet) | ✓ |
-| L2 F0 residual sequence | 7 × 3 = **21** | `(F0_pred_t − actual_t) @ R_wfn` for t ∈ {4..10} | ✓ |
-| L4 F0 soft hit sequence | 7 × 2 = **14** | `sigmoid((R − d_t)/τ_loss)` at R={0.01, 0.015}, τ_loss=0.001 | ✓ |
-| L5 macro statistic | **9** | plan-004 carry: `recent_temporal_physics_features` (6D) + `observation_environment_features` unique (3D) | ✓ |
-| L6 EWMA | 9 × 3 = **27** | Frenet `[p, v, a]` per step → EWMA last value at α ∈ {0.1, 0.3, 0.5} | ✓ |
+| L1 Frenet trajectory | 11 × 9 = **99** | per-step `[p, v, a]` Frenet, 산식 §6.1.1 | ✓ |
+| L2 F0 residual sequence | 7 × 3 = **21** | 7 past sub-window F0 잔차 Frenet, 산식 §6.1.2 | ✓ |
+| L4 F0 soft hit sequence | 7 × 2 = **14** | `sigmoid((R − d_t)/τ_loss)` at R={0.01, 0.015}, τ_loss=0.001m, 산식 §6.1.3 | ✓ |
+| L5 macro statistic | **9** | 6D recent_temporal + 3D observation_env (self-contained 식 §6.1.4) | ✓ |
+| L6 EWMA | 9 × 3 = **27** | Frenet `[p, v, a]` per step → EWMA last value at α ∈ {0.1, 0.3, 0.5}, 식 §6.1 ewma_last | ✓ |
 | **total** | **170** | | |
+
+#### §6.1.1 L1 산식 (Frenet trajectory 11 × 9)
+
+```python
+# x shape (N, 11, 3), end_idx = 10
+R_wfn = build_frenet_basis_3d(x, end_idx=10)   # (N, 3, 3) — §4.2.1
+origin = x[:, end_idx]                          # (N, 3)
+
+# per-step 9D: [px, py, pz, vx, vy, vz, ax, ay, az] in Frenet, displacement units
+L1 = np.zeros((N, 11, 9), dtype=np.float32)
+for t in range(11):
+    pos_world = x[:, t]
+    v_world = x[:, t] - x[:, t-1]  if t >= 1 else np.zeros_like(pos_world)
+    v_prev_world = x[:, t-1] - x[:, t-2]  if t >= 2 else np.zeros_like(pos_world)
+    a_world = v_world - v_prev_world  if t >= 2 else np.zeros_like(pos_world)
+    
+    # Frenet 변환 (R_wfn^T 회전 + origin 평행이동)
+    pos_frenet = einsum('nij,nj->ni', R_wfn.transpose(0, 2, 1), pos_world - origin)
+    v_frenet   = einsum('nij,nj->ni', R_wfn.transpose(0, 2, 1), v_world)
+    a_frenet   = einsum('nij,nj->ni', R_wfn.transpose(0, 2, 1), a_world)
+    
+    L1[:, t, 0:3] = pos_frenet
+    L1[:, t, 3:6] = v_frenet
+    L1[:, t, 6:9] = a_frenet
+```
+
+단위: displacement (v, a 가 Δt 분할 없음, plan-020 baseline_f0 carry 와 통일).
+
+#### §6.1.2 L2 산식 (F0 residual sequence, Frenet)
+
+```python
+# 7 past sub-window: t ∈ {4, 5, 6, 7, 8, 9, 10}
+# 각 sub-window 마다 F0 적용 → past observation `x[t]` 와의 잔차
+# horizon = 2 step (= 0.080 s, plan-020 baseline_f0 default 와 통일)
+#
+# F0 input window = (x[t-4], x[t-3], x[t-2]) — 3 점 (last_idx = t-2 in sub-window)
+# F0 output target time = (t-2) + horizon = t
+# 즉 F0 가 t-2 시점에서 80ms 앞 예측 → t 시점 위치 예측
+# actual_t = x[:, t]
+
+L2 = np.zeros((N, 7, 3), dtype=np.float32)
+residual_t_world_list = []  # §6.1.3 L4 가 reuse — d_t = ‖residual_t_world‖ 산출용
+# f0_baseline_fn = plan-020 bf.f0_baseline (signature `(x, end_idx) -> pred (N, 3)`,
+#                  horizon 2 step (=80ms) hardcoded in 산식 — 계수 1.98 ≈ 2 그 자체.
+#                  parameter X. sub-window 3 점 호환 — last 3 obs 만 사용해 산출).
+#
+# ★ sub-window 호환성 verify (c2 build_input.py smoke test 의무 추가 항목):
+#   assert bf.f0_baseline(x[:, 0:3, :], end_idx=2).shape == (N, 3)
+#   assert np.isfinite(bf.f0_baseline(x[:, 0:3, :], end_idx=2)).all()
+#   → 위 assertion fail 시 plan-020 f0_baseline 가 end_idx<10 호환 안 한다는 의미 →
+#     `f0_baseline_3pt(p0, p1, p2)` helper 를 plan-021 안에 직접 작성 (산식: §4.3 numpy 그대로).
+for i, t in enumerate(range(4, 11)):
+    sub_x = x[:, t-4:t-1, :]                                    # shape (N, 3, 3)
+    pred_t_world = f0_baseline_fn(sub_x, end_idx=2)              # (N, 3) — last_idx=2 → predict t (= 2+2)
+    actual_t_world = x[:, t]                                      # (N, 3)
+    residual_t_world = pred_t_world - actual_t_world             # (N, 3)
+    residual_t_world_list.append(residual_t_world)                # ★ L4 cache
+    # Frenet 변환 (현재 sample 의 R_wfn 사용 — sub-window 별 frame 아님)
+    L2[:, i] = einsum('nij,nj->ni', R_wfn.transpose(0, 2, 1), residual_t_world)
+```
+
+`f0_baseline_fn` = `build_input_common` 의 인자로 plan-020 `bf.f0_baseline` 주입.
+
+#### §6.1.3 L4 산식 (F0 soft hit sequence)
+
+```python
+# L2 의 7 past sub-window 와 동일 t loop. d_t = ‖residual_t_world‖ (world frame norm).
+TAU_LOSS = 0.001  # 1mm
+
+L4 = np.zeros((N, 7, 2), dtype=np.float32)
+for i, t in enumerate(range(4, 11)):
+    # L2 산출 시 이미 계산된 residual_t_world reuse
+    d_t = np.linalg.norm(residual_t_world_list[i], axis=1)       # (N,)
+    L4[:, i, 0] = sigmoid((0.010 - d_t) / TAU_LOSS)              # R=1cm
+    L4[:, i, 1] = sigmoid((0.015 - d_t) / TAU_LOSS)              # R=1.5cm
+
+sigmoid(z) = 1.0 / (1.0 + np.exp(-z))
+```
+
+#### §6.1.4 L5 산식 (macro statistic 9D, self-contained)
+
+last 6 timestep (`start = max(0, end_idx - 5)` = 5, `pts = x[:, 5:11]` 6 점) 위 계산:
+
+```python
+pts = x[:, 5:11, :]                                              # (N, 6, 3)
+v = np.diff(pts, axis=1)                                          # (N, 5, 3) — step deltas
+speeds = np.linalg.norm(v, axis=2)                                # (N, 5)
+current_speed = speeds[:, -1:] + 1e-9                             # (N, 1)
+mean_speed = speeds.mean(axis=1, keepdims=True) + 1e-9            # (N, 1)
+path = speeds.sum(axis=1, keepdims=True)                          # (N, 1)
+disp = np.linalg.norm(pts[:, -1] - pts[:, 0], axis=1, keepdims=True)  # (N, 1)
+straightness = disp / (path + 1e-9)                               # (N, 1)
+speed_slope = (speeds[:, -1:] - speeds[:, :1]) / mean_speed       # (N, 1)
+speed_cv = speeds.std(axis=1, keepdims=True) / mean_speed         # (N, 1)
+v0, v1 = v[:, :-1], v[:, 1:]                                       # (N, 4, 3) each
+turn_cos = (v0 * v1).sum(axis=2) / (np.linalg.norm(v0, axis=2) * np.linalg.norm(v1, axis=2) + 1e-9)
+turn_accum = (1.0 - np.clip(turn_cos, -1, 1)).mean(axis=1, keepdims=True)
+turn_volatility = (1.0 - np.clip(turn_cos, -1, 1)).std(axis=1, keepdims=True)
+acc = np.diff(v, axis=1)                                          # (N, 4, 3)
+acc_norm = np.linalg.norm(acc, axis=2)                            # (N, 4)
+accel_slope = (acc_norm[:, -1:] - acc_norm[:, :1]) / (acc_norm.mean(axis=1, keepdims=True) + 1e-9)
+linear_pred = x[:, end_idx-1] + (x[:, end_idx-1] - x[:, end_idx-2])
+linear_resid = np.linalg.norm(x[:, end_idx] - linear_pred, axis=1, keepdims=True) / mean_speed
+jerk = np.diff(acc, axis=1)                                       # (N, 3, 3)
+jerk_vol = np.linalg.norm(jerk, axis=2).std(axis=1, keepdims=True) / mean_speed
+
+# 9D = recent (6D) + observation_env unique (3D)
+L5 = np.concatenate([
+    path / current_speed,    # [0] normalized path length
+    straightness,            # [1] disp/path
+    speed_slope,             # [2] 속도 변화 추세
+    speed_cv,                # [3] 속도 variability
+    turn_accum,              # [4] 회전 누적
+    accel_slope,             # [5] 가속도 변화 추세
+    turn_volatility,         # [6] 회전 안정성
+    linear_resid,            # [7] linear extrap 잔차 normalized
+    jerk_vol,                # [8] jerk volatility normalized
+], axis=1).astype(np.float32)  # (N, 9)
+```
+
+이 9D 가 LGBM 전용 (GRU 미사용 — sequence GRU 가 자체 학습).
 
 EWMA 식:
 ```python
@@ -365,6 +521,18 @@ class LgbmDualHead:
         # classifier — argmax of soft label as hard target with sample_weight = q
         hard_target = soft_label_q.argmax(axis=1)
         weights = soft_label_q.max(axis=1)
+        # ★ single-class fallback: hard_target unique count < 7 시 LGBM multi-class fit 실패 위험.
+        # → 누락된 class index 마다 1개의 dummy sample 주입 (sample_weight=0 → 학습 기여 X,
+        #    classes_ 만 7-class 확보). predict_proba 시 자연스럽게 0 column 으로 나옴.
+        unique_classes = set(np.unique(hard_target).tolist())
+        missing_classes = set(range(7)) - unique_classes
+        if missing_classes:
+            X_dummy = np.zeros((len(missing_classes), X.shape[1]), dtype=X.dtype)
+            target_dummy = np.array(sorted(missing_classes), dtype=hard_target.dtype)
+            weight_dummy = np.zeros(len(missing_classes), dtype=weights.dtype)
+            X = np.concatenate([X, X_dummy], axis=0)
+            hard_target = np.concatenate([hard_target, target_dummy])
+            weights = np.concatenate([weights, weight_dummy])
         self.clf.fit(X, hard_target, sample_weight=weights)
         # regression — per-(anchor, axis) booster, target = anchor 별 residual offset
         for k in range(7):
@@ -372,8 +540,13 @@ class LgbmDualHead:
                 self.reg[k*3+axis].fit(X, residual_targets[:, k, axis])
 
     def predict(self, X):
-        # logits via probabilities
-        probs = self.clf.predict_proba(X)  # (N, 7)
+        # logits via probabilities — **7-class zero-pad guard** (fold 내 미관측 class 처리)
+        probs_raw = self.clf.predict_proba(X)                # (N, len(self.clf.classes_))
+        probs = np.zeros((X.shape[0], 7), dtype=np.float32)  # full 7-channel
+        for col_idx, class_label in enumerate(self.clf.classes_):
+            probs[:, int(class_label)] = probs_raw[:, col_idx]
+        # missing class column 은 0 (분포 mass 0) — softmax-renormalize 불필요 (학습 시
+        # 미관측이라 inference 도 그 anchor 선택 안 됨이 합리적 prior)
         reg_offset = np.stack([
             np.stack([self.reg[k*3+axis].predict(X) for axis in range(3)], axis=1)
             for k in range(7)
@@ -386,18 +559,29 @@ class LgbmDualHead:
 - n_estimators=500, lr=0.05, num_leaves=63
 - single seed (LGBM 결정적 — multi-seed 안 함)
 
+**LGBM 의 soft CE 우회 (self-label vs 실제 구현 정합 명시)**:
+- 본 plan §0/§4.2 의 "soft CE" 는 GRU 측 *full* 구현 (continuous q distribution 위 `-(q · log_softmax(logits)).sum(1).mean()`).
+- LGBM 측은 sklearn API 의 multi-class classifier 가 *hard label + sample_weight* 만 지원 → **`argmax(q) + sample_weight=max(q)` 우회** (위 `fit` 코드).
+- 즉 lever ④ "soft label" 은 LGBM 에선 *partial* (sample weighting 만), GRU 에선 *full* (continuous CE) 적용. 두 sub-exp 결과 차이 분석 시 본 우회 효과도 paradigm-level finding 의 component 로 박제.
+
 ### §6.3 학습 target
 
 ```python
-# soft label (classifier target)
-residual_true_frenet = (gt - origin) @ R_wfn  # (N, 3) — actual 잔차 Frenet
+# soft label (classifier target) — §4.2 build_soft_label 산식과 동일
+# world → frenet: R_wfn^T @ vec (R_wfn columns = [t̂, n̂, b̂], forward §6.1.1 와 정합)
+residual_true_frenet = np.einsum('nij,nj->ni', R_wfn.transpose(0, 2, 1), gt - origin)  # (N, 3) Frenet
 dist_to_anchors = np.linalg.norm(
     ANCHORS_FRENET[None, :, :] - residual_true_frenet[:, None, :], axis=-1
 )  # (N, 7)
 soft_label_q = softmax(-dist_to_anchors / 0.001, axis=1)  # (N, 7), τ_cls=0.001
 
 # regression target (anchor 별 offset)
-residual_targets = residual_true_frenet[:, None, :] - ANCHORS_FRENET[None, :, :]  # (N, 7, 3)
+# raw target = true residual − anchor (unclipped, can be > ±0.005m for samples far from any anchor).
+# inference 의 reg_offset 은 tanh*0.005 로 ±0.5cm clamp 라 unclamped target ↔ clamped output 불일치 가능.
+# spec-default policy: **target 도 ±0.005m 로 clip** — anchor-local 영역만 학습, anchor 밖 sample 은
+# anchor 쪽 saturation 효과 그대로 (classifier 가 다른 anchor 선택 책임).
+residual_targets_raw = residual_true_frenet[:, None, :] - ANCHORS_FRENET[None, :, :]  # (N, 7, 3) unclipped
+residual_targets = np.clip(residual_targets_raw, -0.005, 0.005)                       # (N, 7, 3) clipped
 ```
 
 ### §6.4 Inference (5-fold OOF)
@@ -411,9 +595,11 @@ for k in range(5):
     probs_val, reg_offset_val = model.predict(X[val_idx])
 
     # final pred (Frenet → world)
-    combined = ANCHORS_FRENET[None, :, :] + reg_offset_val   # (N_val, 7, 3)
-    final_frenet = (probs_val[:, :, None] * combined).sum(axis=1)  # (N_val, 3)
-    final_world[val_idx] = (R_wfn[val_idx].transpose(0, 2, 1) @ final_frenet[..., None]).squeeze(-1) + origin[val_idx]
+    # R_wfn columns = [t̂, n̂, b̂] → world_vec = R_wfn @ frenet_vec (transpose NO).
+    # (forward §6.1.1 의 world→frenet 은 R_wfn^T 사용 — 이는 inverse 방향.)
+    combined = ANCHORS_FRENET[None, :, :] + reg_offset_val   # (N_val, 7, 3) Frenet
+    final_frenet = (probs_val[:, :, None] * combined).sum(axis=1)  # (N_val, 3) Frenet
+    final_world[val_idx] = einsum('nij,nj->ni', R_wfn[val_idx], final_frenet) + origin[val_idx]
 ```
 
 ### §6.5 산출 (`results_lgbm.json`)
@@ -492,12 +678,61 @@ class GRUDualHead(nn.Module):
 | Weight decay | 1e-4 |
 | Device | cuda:1 (가용 시) / cpu fallback |
 | Seed list | [20260518, 20260519, 20260520] |
-| Seed aggregation | 각 fold 마다 3 seed → train_(not k) hit@1cm best 1 seed → val_k OOF (val metric 으로 seed 선택 시 selection bias 회피) |
+| Seed aggregation | 각 fold k, 각 seed 별: epoch 0~49 학습 + `train_hit_history[epoch]` 누적 + early-stop (10 epoch plateau) → `best_epoch_per_seed = argmax(train_hit_history)` + checkpoint 저장. 3 seed 중 `best_seed = argmax_seed(train_hit_history[best_epoch_per_seed])` → 해당 (seed, best_epoch) checkpoint 만 val_k 위 평가. 5-fold val_k concat = OOF. (의사 코드: `best_seed, best_epoch = argmax_{seed, epoch ≤ early_stop_epoch}(train_hit_history[seed, epoch])`. val metric 미사용 — selection bias 회피.) |
 | Early stop | train_(not k) hit plateau 10 epoch |
 | Loss | `α · CE(softmax(logits), q) + β · smooth_hit(final, gt; R=0.01) + (β/2) · smooth_hit(final, gt; R=0.015)`, α=β=1.0 |
-| smooth_hit τ schedule | annealed (plan-020 carry): epoch 0-15 τ=0.003, 16-30 τ=0.001, 31-50 τ=0.0003 + boundary weighting |
+| smooth_hit τ schedule | annealed: epoch [0, 15) τ=0.003, [15, 30) τ=0.001, [30, 50) τ=0.0003 + boundary weighting (= §7.3.1 `tau_for_epoch` 의 0..14 / 15..29 / 30..49 와 정확 일치) |
 | soft CE τ_cls | 0.001m (anchor scale 의 1/5) |
 | Fold-internal training | 5-fold |
+
+### §7.3.0 GRU 학습 loop 의 `final` 합성 (§6.4 LGBM inference 와 동일 식 재진술)
+
+**책임 위치**: GRU `forward(seq, flat)` 는 `(logits, reg_offset)` 만 반환 (R_wfn/origin 은 forward signature 부재). final_world 산출 + loss 계산은 **training loop helper** (예: `compute_loss_and_pred(model, seq, flat, R_wfn, origin, q, gt, epoch)`) 에서 수행. R_wfn / origin 은 batch 별 tensor 로 dataloader 가 전달 (build_input_common 반환 dict 의 R_wfn, origin 을 fold 별 tensor 화 후 batch sampling).
+
+```python
+# GRU forward → (logits, reg_offset). 학습/평가 공통 final 산출 (training loop 안):
+probs = torch.softmax(logits, dim=1)                                # (B, 7)
+ANCHORS = torch.from_numpy(ANCHORS_FRENET).to(device)               # (7, 3), buffer
+combined = ANCHORS[None, :, :] + reg_offset                         # (B, 7, 3) — Frenet
+final_frenet = (probs[:, :, None] * combined).sum(dim=1)            # (B, 3) Frenet
+# Frenet → world (per-sample R_wfn, origin = build_input_common 반환 dict carry)
+# R_wfn columns = [t̂, n̂, b̂] → world = R_wfn @ frenet_vec (transpose NO — §6.4 와 정합).
+final_world = torch.einsum('nij,nj->ni', R_wfn, final_frenet) + origin
+# loss
+loss = soft_ce_loss(logits, q)                                       # classifier
+     + smooth_hit_loss(final_world, gt, tau=tau_for_epoch(ep)[0], use_boundary=tau_for_epoch(ep)[1])
+```
+
+LGBM inference (§6.4) 와 산식 동일, torch tensor + autograd 만 차이.
+
+### §7.3.1 smooth_hit_loss 산식 (self-contained)
+
+```python
+def smooth_hit_loss(pred: Tensor, gt: Tensor, tau: float, use_boundary: bool = False) -> Tensor:
+    """L = − mean_i [ w_i · ( sigmoid((R_main − d_i)/τ) + 0.5 · sigmoid((R_loose − d_i)/τ) ) ].
+
+    pred, gt: (B, 3). 둘 다 world frame.
+    tau: 0.003 → 0.001 → 0.0003 annealed per epoch (schedule §7.3 table).
+    use_boundary: True (epoch 31-50) 시 boundary weighting 적용.
+    """
+    R_MAIN = 0.010
+    R_LOOSE = 0.015
+    d = (pred - gt).norm(dim=1)                                              # (B,)
+    sh_main = torch.sigmoid((R_MAIN - d) / tau)                              # (B,)
+    sh_loose = torch.sigmoid((R_LOOSE - d) / tau)                            # (B,)
+    per_sample = sh_main + 0.5 * sh_loose
+    if use_boundary:
+        # boundary weight: R_main 경계 부근 sample 비중 강화 (d.detach() 로 weight grad 차단)
+        d_detach = d.detach()
+        w = 1.0 + 5.0 * torch.exp(-(((R_MAIN - d_detach) / 0.001) ** 2))     # (B,)
+        per_sample = w * per_sample
+    return -per_sample.mean()
+```
+
+τ schedule (per epoch, `tau_for_epoch(epoch)`):
+- epoch 0..14  → τ = 0.003,  use_boundary = False
+- epoch 15..29 → τ = 0.001,  use_boundary = False
+- epoch 30..49 → τ = 0.0003, use_boundary = True
 
 ### §7.4 산출 (`results_gru.json`)
 
@@ -519,7 +754,7 @@ class GRUDualHead(nn.Module):
 ### §7.5 G2.B 합격 기준
 
 - metric finite
-- val_hit > 0.10 (random baseline floor)
+- val_hit > 0.10 (= F0 baseline 0.6320 / 6, **task-specific 최소 학습 시그널 floor**. 7-class random uniform 0.143 보다 낮은 conservative 임계 — §0.5 `gru_no_signal` 정의 carry, hit@1cm 의 random floor 가 R=0.01 m 거리 chance 라 매우 낮음.)
 - train_hit − val_hit < 0.10 (overfit guard, 미달 시 `gru_overfit` warn)
 
 ### §7.6 시간 예산 (cuda:1)
