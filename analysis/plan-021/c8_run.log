@@ -1,0 +1,16 @@
+inline selector loaded: 27 candidates
+[plan-021 run_oof] loading data ...
+[plan-021] N=10000 folds=[2020, 2047, 1921, 2020, 1992]
+[plan-021] F0: hit@1cm=0.6320 hit@1.5cm=0.8033
+
+[plan-021] === B_gru ===
+  [B_gru] device = cuda:1
+  [B_gru] fold 0: best_seed=20260520 epoch=24 train_hit=0.6435
+  [B_gru] fold 1: best_seed=20260519 epoch=24 train_hit=0.6447
+  [B_gru] fold 2: best_seed=20260520 epoch=29 train_hit=0.6464
+  [B_gru] fold 3: best_seed=20260519 epoch=29 train_hit=0.6470
+  [B_gru] fold 4: best_seed=20260520 epoch=29 train_hit=0.6482
+  [B_gru] elapsed 59.3s
+
+[plan-021 run_oof] total 60.1s
+[plan-021] wrote analysis/plan-021/results_gru.json
