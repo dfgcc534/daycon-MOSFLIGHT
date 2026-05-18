@@ -3,11 +3,11 @@ plan_id: 021
 version: 1.3
 date: 2026-05-18 (Asia/Seoul)
 status: all_complete
-best_sub_exp: B_gru
-best_hit_1cm: 0.6408
-best_hit_1.5cm: 0.8100
-best_delta_1cm: +0.0088
-best_delta_1.5cm: +0.0067
+best_sub_exp: A_lgbm
+best_hit_1cm: 0.6488
+best_hit_1.5cm: 0.8070
+best_delta_1cm: +0.0168
+best_delta_1.5cm: +0.0037
 based_on:
   - 020 (F0 baseline 0.6320 / 0.8033 + 5-fold stable_fold_id MD5 + C05 per-regime winner finding)
   - 006 (F0 산식 frenet_par120_perp_neg020 — d1=1.98 / par=1.20 / perp=-0.20)
