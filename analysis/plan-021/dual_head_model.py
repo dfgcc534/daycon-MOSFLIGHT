@@ -86,19 +86,21 @@ class LgbmDualHead:
         weights = soft_label_q.max(axis=1)
 
         # single-class fallback (§6.2 v1.2 — dummy sample weight=0, classes_ 7-class 확보)
+        # ★ augment 는 classifier fit 에만 적용 — regression 은 원본 X 사용 (length mismatch 회피).
+        X_clf, hard_clf, weights_clf = X, hard_target, weights
         unique = set(np.unique(hard_target).tolist())
         missing = sorted(set(range(7)) - unique)
         if missing:
             X_dummy = np.zeros((len(missing), X.shape[1]), dtype=X.dtype)
             target_dummy = np.asarray(missing, dtype=hard_target.dtype)
             weight_dummy = np.zeros(len(missing), dtype=weights.dtype)
-            X = np.concatenate([X, X_dummy], axis=0)
-            hard_target = np.concatenate([hard_target, target_dummy])
-            weights = np.concatenate([weights, weight_dummy])
+            X_clf = np.concatenate([X, X_dummy], axis=0)
+            hard_clf = np.concatenate([hard_target, target_dummy])
+            weights_clf = np.concatenate([weights, weight_dummy])
 
-        self.clf.fit(X, hard_target, sample_weight=weights)
+        self.clf.fit(X_clf, hard_clf, sample_weight=weights_clf)
 
-        # regression: per-(anchor, axis) booster, target clip ±0.005
+        # regression: per-(anchor, axis) booster — 원본 X (augment 전) 사용
         rt_clipped = np.clip(residual_targets, -ANCHOR_RADIUS, ANCHOR_RADIUS)
         for k in range(7):
             for axis in range(3):
