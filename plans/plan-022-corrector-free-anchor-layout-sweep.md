@@ -104,8 +104,8 @@ band: null
 | G0 | gate | smoke + tests green — 8/8 pytest pass (8.52s) | [DONE — c1199c4] |
 | c6 | exp G1 | F0 baseline 5-fold OOF reproduce → 0.6320 / 0.8033 (plan-020/021 carry exact). `analysis/plan-022/baseline_carry.json` 박제 (dataset_hash=b91502db94fab67d legacy seed, N=10000) | [DONE — d3da5df] |
 | G1 | gate | F0 hit@1cm = 0.6320 ∈ [0.6315, 0.6325] ✓ AND hit@1.5cm = 0.8033 ∈ [0.8028, 0.8038] ✓ | [DONE — d3da5df] |
-| c7 | exp G2.A1 | A1 octa7 (baseline reproduce) — 3 τ_cls cell 측정 → `results_A1.{json,md}` | [TODO] |
-| G2.A1 | gate | 3 cell metric finite + max-class 비율 < 0.95 | [TODO] |
+| c7 | exp G2.A1 | A1 octa7 — 3 τ_cls cell 측정. **best τ=0.001 PASS_BOTH** (Δ_1cm +0.0194 / Δ_1.5cm +0.0068). 342s. | [DONE — 7b18cb1] |
+| G2.A1 | gate | 3 cell metric finite ✓ + max_class_ratio < 0.95 ✓ (max 0.232) | [DONE — 7b18cb1] |
 | c8 | exp G2.A2 | A2 ico13 — 3 τ_cls cell 측정 → `results_A2.{json,md}` | [TODO] |
 | G2.A2 | gate | 3 cell metric finite + max-class 비율 < 0.95 | [TODO] |
 | c9 | exp G2.A3 | A3 cubocta13 — 3 τ_cls cell 측정 → `results_A3.{json,md}` | [TODO] |
