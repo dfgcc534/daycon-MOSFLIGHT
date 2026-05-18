@@ -96,7 +96,7 @@ band: null
 
 | # | type | spec section | status |
 |---|---|---|---|
-| c1 | docs | `plans/plan-022-corrector-free-anchor-layout-sweep.md` v1 작성 (plan-review-master 5-iter 자동 fix BLOCKER 0 도달) | [TODO] |
+| c1 | docs | `plans/plan-022-corrector-free-anchor-layout-sweep.md` v1 작성 (plan-review-master 4-iter 자동 fix BLOCKER 0 도달 — iter 1 BLOCKER 2→fix / iter 2 BLOCKER 1→fix / iter 3-4 BLOCKER 0 sustained + AMBIGUITY ~10 fix) | [DONE — 2613835] |
 | c2 | code | `analysis/plan-022/anchors.py` (7 layout numpy 상수 + smoke test: 각 layout ‖a‖ ≤ 0.005m + dtype float32 + shape 정합) | [TODO] |
 | c3 | code | `analysis/plan-022/selector_only_model.py` (LgbmSelectorOnly class — plan-021 LgbmDualHead.clf_head carry, reg head 제거. predict → probs only) | [TODO] |
 | c4 | code | `analysis/plan-022/run_oof.py` (5-fold OOF runner, 7 layout × 3 τ_cls = 21 cell sweep, paired Δ 21 셀 산출 + best cell selection) | [TODO] |
