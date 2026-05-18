@@ -63,7 +63,7 @@ band: null
 | # | type | spec section | status |
 |---|---|---|---|
 | c1 | docs | `plans/plan-021-frenet-corrector-input-augment.md` 본문 v1 작성 (v1.1 plan-review-master 5-iter 자동 fix BLOCKER 0 도달, A/B/C 모두 "잘 드러남" 안정 수렴) | [DONE] |
-| c2 | code | `analysis/plan-021/build_input.py` (4 lever + macro stat + EWMA + Frenet basis) | [TODO] |
+| c2 | code | `analysis/plan-021/build_input.py` (Frenet basis + L1/L2/L4/L5/L6 + ANCHORS_FRENET + soft label, smoke 8/8 pass — Frenet orthonormality 2.7e-7 / roundtrip 9.1e-9 / F0 sub-window 호환 / 170D concat) | [DONE] |
 | c3 | code | `analysis/plan-021/dual_head_model.py` (LGBM + GRU dual head, soft CE + smooth_hit loss) | [TODO] |
 | c4 | code | `analysis/plan-021/run_oof.py` (5-fold OOF runner, sub-exp A/B dispatch) | [TODO] |
 | c5 | test | `tests/test_plan021_smoke.py` (4 module import + Frenet sanity + F0 reproduce) | [TODO] |
