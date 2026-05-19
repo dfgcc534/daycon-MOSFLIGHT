@@ -83,14 +83,14 @@ band: positive
 
 ### G-gates
 
-- G0: STAGE 0 인프라 [TODO]
-- G1: STAGE 1 F0 baseline reproduce [TODO]
-- G2.B1: B1 dodeca20 3 τ_cls 측정 [TODO]
-- G2.B2: B2 trunc_octa24 3 τ_cls 측정 [TODO]
-- G2.B3: B3 icosidodec30 3 τ_cls 측정 [TODO]
-- G2.B4: B4 fib50 3 τ_cls 측정 [TODO]
-- G3: STAGE 3 best cell selection + paradigm finding [TODO]
-- G_final: STAGE 4 results + 3-file sync [DONE — 🏆 best=B4_fib50_tau001 sum 0.0287 (plan-022 +0.0008)]
+- G0: STAGE 0 인프라 [DONE — 2abd988] 7/7 pytest pass (112s)
+- G1: STAGE 1 F0 baseline reproduce [DONE — a7198fb] 0.6320/0.8033 ✓
+- G2.B1: B1 dodeca20 3 τ_cls [DONE — 7c83eb1] 2/3 PASS, sum 0.0273
+- G2.B2: B2 trunc_octa24 3 τ_cls [DONE — b3bc1e3] 2/3 PASS, sum 0.0272
+- G2.B3: B3 icosidodec30 3 τ_cls [DONE — 63469b5] 2/3 PASS, sum 0.0276
+- G2.B4: B4 fib50 3 τ_cls [DONE — a8e143e] 🏆 sum 0.0287 (plan-022 갱신 +0.0008)
+- G3: STAGE 3 paradigm + best cell [DONE — bffe9bf] 8/12 PASS, 1/12 plan-022 갱신
+- G_final: STAGE 4 results + 3-file sync [DONE — b1cfd18] 🏆 best=B4_fib50_tau001 sum 0.0287
 
 ### Commit chain (next-up)
 
