@@ -8,6 +8,11 @@
 Anchor index 일관성 (§3.4 명시):
   - center 가 있는 layout (A1/A2/A3/A4/A7): index 0 = center (0,0,0)
   - center 없는 layout (A5/A6): index 0 부터 첫 anchor (layout-specific)
+
+Post-G_final ablation (NOT in 7-layout sweep, NOT in LAYOUT_NAMES):
+  - ANCHORS_A8 = (center, *ANCHORS_A6) — K=15, A6 의 center bias 직접 검증용
+    (diag_center_bias_a6_a8.py 에서 import). LAYOUT_NAMES 에는 미등록하여
+    21-cell sweep invariant (7 layout × 3 τ_cls) 보존.
 """
 from __future__ import annotations
 
@@ -128,6 +133,17 @@ def _fib_sphere(N: int, r: float) -> np.ndarray:
 
 _FIB12 = _fib_sphere(12, 0.005)
 ANCHORS_A7 = np.vstack([[(0.0, 0.0, 0.0)], _FIB12]).astype(np.float32)
+
+
+# ── A8: A6 + center (15) — post-G_final ablation, NOT in LAYOUT_NAMES ──
+#
+# A6 의 "center bias = mode collapse 원인" 가설 직접 검증용. sweep 의
+# 21-cell invariant (7 layout × 3 τ) 를 깨뜨리지 않기 위해 LAYOUT_NAMES
+# 에는 등록하지 않음. diag_center_bias_a6_a8.py 에서 직접 import.
+
+ANCHORS_A8 = np.vstack([[(0.0, 0.0, 0.0)], ANCHORS_A6]).astype(np.float32)
+assert ANCHORS_A8.shape == (15, 3)
+assert float(np.linalg.norm(ANCHORS_A8, axis=1).max()) <= 0.005 + 1e-7
 
 
 # ── LAYOUT_NAMES dict (export) ────────────────────────────────────────

@@ -43,3 +43,19 @@ frontmatter 4-way 토큰 일치 (WORKFLOW.md §4 / §11) 의무 충족용 stub.
 - plan-023: A6_bcc14 + corrector reg head 재투입 ablation
 - plan-024: A6_bcc14 + GRU sub-exp + ensemble
 - plan-025: DACON LB 측정 (사용자 quota confirm 필수)
+
+## Post-G_final 자체실험 (2026-05-19)
+
+A8_bcc15 (= A6_bcc14 + center, K=15) controlled ablation — `analysis/plan-022/results.md` §12.
+
+핵심 finding: paradigm finding §8.1 의 "center 제거 = mode collapse 완화 → OOF
+향상" 가설 **refuted**. A8 vs A6 Δ(hit@1cm) 평균 -0.9bp / Δ(hit@1.5cm) 평균
++0.2bp = seed noise 수준. `max_class_ratio` 는 ground-truth 자연 분포 (`q_true.mean`)
+의 mirror 일 뿐 — distribution-match (KL ≤ 0.005, top1_acc 모두 일치) 직접
+측정으로 selector 가 두 layout 다 자연 분포 충실히 추종 확인. A6 winner 결론
+불변 (sweep 박제 유지), 그러나 우위 원인은 ① BCC 14 anchor geometry ② sharp
+τ=0.001 이지 *center 제거 자체* 가 아님. 후속 진단 metric 권고: `max_class_ratio`
+→ `dist_match_KL` + `top1_acc` 교체.
+
+artifacts: `analysis/plan-022/diag_center_bias_a6_a8.py`, `diag_a8.json`,
+`diag_a8.log`, `anchors.py:ANCHORS_A8`.

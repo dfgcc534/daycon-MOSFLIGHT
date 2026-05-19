@@ -1,0 +1,114 @@
+inline selector loaded: 27 candidates
+[diag_a8] loading data ...
+[diag_a8] N=10000 folds=[2020, 2047, 1921, 2020, 1992]
+[diag_a8] building LGBM features ...
+[diag_a8] X_lgbm shape=(10000, 170)
+
+=== A6_bcc14 (K=14) ===
+  [A6_bcc14] τ_cls=0.001 ...
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+    fold 0: hit@1cm=0.6569
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+    fold 1: hit@1cm=0.6536
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+    fold 2: hit@1cm=0.6512
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+    fold 3: hit@1cm=0.6569
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+    fold 4: hit@1cm=0.6451
+  [A6_bcc14] τ_cls=0.001 hit@1cm=0.6528 Δ_1cm=+0.0208 Δ_1.5cm=+0.0069 pass=True | max_class=0.105 q_true_max=0.097 KL=0.0022 top1_acc=0.1707 CE=2.5346 | 236s
+  [A6_bcc14] τ_cls=0.003 ...
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+    fold 0: hit@1cm=0.6500
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+    fold 1: hit@1cm=0.6424
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+    fold 2: hit@1cm=0.6455
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+    fold 3: hit@1cm=0.6485
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+    fold 4: hit@1cm=0.6381
+  [A6_bcc14] τ_cls=0.003 hit@1cm=0.6449 Δ_1cm=+0.0129 Δ_1.5cm=+0.0058 pass=True | max_class=0.085 q_true_max=0.083 KL=0.0001 top1_acc=0.1642 CE=2.6056 | 230s
+  [A6_bcc14] τ_cls=0.005 ...
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+    fold 0: hit@1cm=0.6465
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+    fold 1: hit@1cm=0.6375
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+    fold 2: hit@1cm=0.6413
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+    fold 3: hit@1cm=0.6431
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+    fold 4: hit@1cm=0.6335
+  [A6_bcc14] τ_cls=0.005 hit@1cm=0.6404 Δ_1cm=+0.0084 Δ_1.5cm=+0.0036 pass=False | max_class=0.080 q_true_max=0.079 KL=0.0000 top1_acc=0.1600 CE=2.6256 | 227s
+
+=== A8_bcc15 (K=15) ===
+  [A8_bcc15] τ_cls=0.001 ...
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+    fold 0: hit@1cm=0.6609
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+    fold 1: hit@1cm=0.6541
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+    fold 2: hit@1cm=0.6528
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+    fold 3: hit@1cm=0.6525
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+    fold 4: hit@1cm=0.6416
+  [A8_bcc15] τ_cls=0.001 hit@1cm=0.6524 Δ_1cm=+0.0204 Δ_1.5cm=+0.0079 pass=True | max_class=0.135 q_true_max=0.111 KL=0.0051 top1_acc=0.2415 CE=2.5294 | 260s
+  [A8_bcc15] τ_cls=0.003 ...
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+    fold 0: hit@1cm=0.6470
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+    fold 1: hit@1cm=0.6414
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+    fold 2: hit@1cm=0.6445
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+    fold 3: hit@1cm=0.6490
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+    fold 4: hit@1cm=0.6376
+  [A8_bcc15] τ_cls=0.003 hit@1cm=0.6439 Δ_1cm=+0.0119 Δ_1.5cm=+0.0051 pass=True | max_class=0.095 q_true_max=0.085 KL=0.0008 top1_acc=0.2348 CE=2.6692 | 253s
+  [A8_bcc15] τ_cls=0.005 ...
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+    fold 0: hit@1cm=0.6455
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+    fold 1: hit@1cm=0.6356
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+    fold 2: hit@1cm=0.6393
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+    fold 3: hit@1cm=0.6416
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+    fold 4: hit@1cm=0.6335
+  [A8_bcc15] τ_cls=0.005 hit@1cm=0.6391 Δ_1cm=+0.0071 Δ_1.5cm=+0.0038 pass=False | max_class=0.084 q_true_max=0.080 KL=0.0001 top1_acc=0.2350 CE=2.6928 | 249s
+
+[diag_a8] wrote analysis/plan-022/diag_a8.json
+[diag_a8] total 1457.0s
