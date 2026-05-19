@@ -1,0 +1,57 @@
+inline selector loaded: 27 candidates
+[plan-023 run_oof_largeN] loading data ...
+[plan-023] N=10000 folds=[2020, 2047, 1921, 2020, 1992]
+  [B1_dodeca20] τ_cls=0.001 K=20 ...
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+    fold 0: hit@1cm=0.6574
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+    fold 1: hit@1cm=0.6527
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+    fold 2: hit@1cm=0.6543
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+    fold 3: hit@1cm=0.6495
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+    fold 4: hit@1cm=0.6426
+  [B1_dodeca20] τ_cls=0.001  hit@1cm=0.6513  hit@1.5cm=0.8113  Δ_1cm=+0.0193  Δ_1.5cm=+0.0080  pass=True  max_class=0.073  372s
+  [B1_dodeca20] τ_cls=0.003 K=20 ...
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+    fold 0: hit@1cm=0.6495
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+    fold 1: hit@1cm=0.6429
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+    fold 2: hit@1cm=0.6455
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+    fold 3: hit@1cm=0.6465
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+    fold 4: hit@1cm=0.6376
+  [B1_dodeca20] τ_cls=0.003  hit@1cm=0.6444  hit@1.5cm=0.8087  Δ_1cm=+0.0124  Δ_1.5cm=+0.0054  pass=True  max_class=0.059  361s
+  [B1_dodeca20] τ_cls=0.005 K=20 ...
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+    fold 0: hit@1cm=0.6465
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+    fold 1: hit@1cm=0.6380
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+    fold 2: hit@1cm=0.6403
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+    fold 3: hit@1cm=0.6431
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+    fold 4: hit@1cm=0.6325
+  [B1_dodeca20] τ_cls=0.005  hit@1cm=0.6401  hit@1.5cm=0.8072  Δ_1cm=+0.0081  Δ_1.5cm=+0.0039  pass=False  max_class=0.055  359s
+  wrote analysis/plan-023/results_B1.json
+
+[plan-023 run_oof_largeN] total 1093.0s
