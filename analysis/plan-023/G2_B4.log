@@ -1,0 +1,57 @@
+inline selector loaded: 27 candidates
+[plan-023 run_oof_largeN] loading data ...
+[plan-023] N=10000 folds=[2020, 2047, 1921, 2020, 1992]
+  [B4_fib50] τ_cls=0.001 K=50 ...
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+    fold 0: hit@1cm=0.6589
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+    fold 1: hit@1cm=0.6561
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+    fold 2: hit@1cm=0.6543
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+    fold 3: hit@1cm=0.6540
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+    fold 4: hit@1cm=0.6426
+  [B4_fib50] τ_cls=0.001  hit@1cm=0.6532  hit@1.5cm=0.8108  Δ_1cm=+0.0212  Δ_1.5cm=+0.0075  pass=True  max_class=0.032  1602s
+  [B4_fib50] τ_cls=0.003 K=50 ...
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+    fold 0: hit@1cm=0.6480
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+    fold 1: hit@1cm=0.6444
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+    fold 2: hit@1cm=0.6455
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+    fold 3: hit@1cm=0.6475
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+    fold 4: hit@1cm=0.6365
+  [B4_fib50] τ_cls=0.003  hit@1cm=0.6444  hit@1.5cm=0.8087  Δ_1cm=+0.0124  Δ_1.5cm=+0.0054  pass=True  max_class=0.024  1576s
+  [B4_fib50] τ_cls=0.005 K=50 ...
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+    fold 0: hit@1cm=0.6460
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+    fold 1: hit@1cm=0.6370
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+    fold 2: hit@1cm=0.6408
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+    fold 3: hit@1cm=0.6416
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+    fold 4: hit@1cm=0.6325
+  [B4_fib50] τ_cls=0.005  hit@1cm=0.6396  hit@1.5cm=0.8074  Δ_1cm=+0.0076  Δ_1.5cm=+0.0041  pass=False  max_class=0.022  1504s
+  wrote analysis/plan-023/results_B4.json
+
+[plan-023 run_oof_largeN] total 4682.8s
