@@ -102,8 +102,8 @@ band: null
 | G0 | gate | smoke + tests green — 7/7 pytest pass (112s, T5 K=50 LGBM ~110s) | [DONE — 2abd988] |
 | c5 | exp G1 | F0 baseline 5-fold OOF reproduce → 0.6320 / 0.8033 (plan-020/021/022 carry exact). `analysis/plan-023/baseline_carry.json` 박제 (dataset_hash=b91502db94fab67d, n_samples=10000) | [DONE — a7198fb] |
 | G1 | gate | F0 hit@1cm=0.6320 ∈ [0.6315, 0.6325] ✓ AND hit@1.5cm=0.8033 ∈ [0.8028, 0.8038] ✓ AND dataset_hash 일치 ✓ | [DONE — a7198fb] |
-| c6 | exp G2.B1 | B1 dodeca20 — 3 τ_cls cell 측정 + `results_B1.{json,md}` 박제 | [TODO] |
-| G2.B1 | gate | 3 cell metric finite ✓ + max_class_ratio < 0.95 ✓ | [TODO] |
+| c6 | exp G2.B1 | B1 dodeca20 — 3 τ_cls cell, **τ=0.001 PASS_BOTH** (Δ_1cm +0.0193, Δ_1.5cm +0.0080 = NEW BEST 1.5cm) + τ=0.003 PASS. sum 0.0273 < plan-022 0.0279. 1093s. | [DONE — 7c83eb1] |
+| G2.B1 | gate | 3 cell metric finite ✓ + max_class_ratio < 0.95 ✓ (max 0.073) | [DONE — 7c83eb1] |
 | c7 | exp G2.B2 | B2 trunc_octa24 — 3 τ_cls cell + `results_B2.{json,md}` 박제 | [TODO] |
 | G2.B2 | gate | 3 cell metric finite ✓ + max_class_ratio < 0.95 ✓ | [TODO] |
 | c8 | exp G2.B3 | B3 icosidodec30 — 3 τ_cls cell + `results_B3.{json,md}` 박제 | [TODO] |
