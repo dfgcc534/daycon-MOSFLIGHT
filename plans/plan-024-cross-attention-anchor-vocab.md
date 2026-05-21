@@ -1,0 +1,677 @@
+---
+plan_id: 024
+version: 1.0
+date: 2026-05-21 (Asia/Seoul)
+status: draft
+based_on:
+  - 022 (winner cell A6_bcc14_tau001: K=14 BCC anchor, τ_cls=0.001, OOF hit_1cm=0.6528 / hit_1.5cm=0.8104, Δ_1cm=+0.0208, Δ_1.5cm=+0.0071, 14-anchor codebook + LGBM sample-weight expansion selector. selector-only paradigm = corrector-free `pred_world = R_wfn · Σ_k q_k · a_k + pred_F0_world`.)
+  - 021 (input augment 170D LGBM: L1=Frenet (p,v,a) 11step×9, L2=F0 residual 7step×3, L4=soft hit 7step×2, lgbm_extra 36D = macro_stat 9 + EWMA(p,v,a) 27. build_input_common / build_input_lgbm_extra / build_soft_label / build_frenet_basis_3d / to_frenet)
+  - 004 (PB framework CandidateAttentionGRUSelector arch: `forward(seq, cand_feat) → score`. GRU(seq_dim, hidden, num_layers=2, dropout=0.08) → out + h_final, MLP(cand_feat) → query, attention out·query^T/sqrt(hidden), event_ctx = attn·out, head = MLP(concat(final_ctx, event_ctx, cand_feat)) → score. `make_seq_features` 9D/step × 6 step, `make_candidate_features` 32D = par/perp/dist 3 + spec 9 + ctx 9 + interactions 4)
+  - 009 (ranking_loss G1 fail finding: oof_soft_hit=0.6482 (carry 0.65 미달), top1_ranking_acc=0.092 (base 0.126 보다 worse), gap_ranking=0.108 (base 0.0516 의 2배). listwise/pairwise loss tuning 만으로는 selector ranking 회수 불가 — *architecture* lever 가 진짜 lever 라는 직접 증거. plan-024 가 정확히 architecture 측 lever.)
+  - 008 (gap_ranking 측정 박제: base 27 = 0.0516, extended 25 = 0.1119. main_bottleneck=ranking. plan-009 의 oracle_1cm=0.7562 — corrector-free 위 oracle gap +0.10 잔존.)
+inspired_by:
+  - 사용자 narrative (2026-05-21): "plan-022 기준으로 FE 최대한 + cross-attention 구조로 구현. LB 최댓값 도전. 다음 lever (radius/F0/ensemble) 는 후일."
+  - sub-agent 4-way audit (2026-05-21): Q1+Q5 F0 residual / torsion (silent sign bug + τ_past 분리), Q2+Q3 world frame z-axis (꺾쇠 = R_wfn z-row), Q4 plan-004/022 input audit (macro_stat 9D / L1 EWMA 27D / turn_cos·curvature·direction / regime bin 누락), Q6 ideas.md 통합 (Stage 3 out-of-scope, plan-025 후보).
+code_reuse:
+  - module: analysis/plan-021/build_input.py
+    symbols: [build_frenet_basis_3d, to_frenet, build_input_common, build_input_lgbm_extra, _macro_stat_9d, _ewma_last]
+    reason: L1/L2/L4 + macro_stat 9D + EWMA 27D pipeline 그대로 carry. plan-024 의 seq input + cand_feat ③ ctx broadcast 의 source. **단 sign convention 통일** 위해 L2 의 `pred_t - actual_t` → plan-024 사용 시 negate (= `actual - pred`).
+  - module: analysis/plan-022/anchors.py
+    symbols: [ANCHORS_A6]
+    reason: 14-anchor codebook (BCC: 6 axis ±0.005m + 8 corner ±0.005/√3 m). plan-022 winner cell 의 anchor.
+  - module: analysis/plan-022/selector_only_model.py
+    symbols: [build_soft_label_with_tau]
+    reason: soft label 생성 (output target). plan-024 의 F 묶음 (per past step anchor-vocab) 도 동일 식 (per-step residual 입력) 으로 재호출 — **sign 통일 + τ_past 별도 인자**.
+  - module: analysis/plan-020/baseline_f0.py
+    symbols: [f0_baseline, D1, PAR, PERP, R_HIT, R_HIT_LOOSE]
+    reason: F0 baseline (paired Δ reference) + 1cm/1.5cm hit threshold.
+  - module: src/pb_0_6822/selector.py
+    symbols: [CandidateAttentionGRUSelector, stable_fold_id, regimes (assign_regimes 등), turn_context_features, motion_terms]
+    reason: cross-attention selector arch + 5-fold split + regime 18-bin (cand_feat ③ ctx broadcast).
+  - module: src/io.py
+    symbols: [load_all_samples, load_labels]
+    reason: data loader.
+followed_by:
+  - plan-025 (가칭): plan-024 G_final 통과 시 ideas.md priority 5 (A1 Multi-window stat / A6 WAP composite / B3 STA/LTA / Multi-Parse Input / B2 Pct-of-rolling-std) 통합 — Stage 3 lever 의 ablation.
+  - plan-026 (가칭): anchor radius 확장 (Plan B #3 lever, geometric hard cap) + F0 baseline ML 화 (#4 lever, systematic forward bias) — plan-024 의 cross-attn 위.
+  - plan-027 (가칭): plan-022 LGBM + plan-024 cross-attn ensemble (Plan C #5 lever).
+scope: plan-022 winner cell A6_bcc14 + τ_cls=0.001 carry 위에서 selector architecture 만 LGBM → CandidateAttentionGRUSelector (cross-attention GRU) 로 교체. FE max input: cand_feat 62D + seq 89D (Stage 1 누락 audit + Stage 2 강화 form). single-config 5-fold OOF + LB 회수. anchor layout sweep / radius 변경 / F0 baseline 변경 / ensemble / ideas.md Stage 3 = out-of-scope.
+exp_ids:
+  - Z024_xattn_anchor_vocab
+lb_score: null
+band: null
+---
+
+# plan-024 v1 — Cross-attention Anchor-Vocabulary Selector (FE max + PB CandidateAttentionGRUSelector arch on plan-022 winner)
+
+## §0. 한 줄 목적
+
+> **plan-022 winner cell A6_bcc14_tau001 (corrector-free 14-anchor LGBM, OOF hit_1cm=0.6528 / Δ_F0=+0.0208) 의 selector 만 PB framework `CandidateAttentionGRUSelector` 로 교체** — anchor coord 가 attention query (cand_feat) 로 직접 입력 + past seq 가 **anchor-vocabulary 로 re-encoding** (각 step 의 F0 residual 을 14 anchor 에 softmax 분해, sign 통일 + τ_past 별도) + plan-004 / plan-022 input audit 의 누락 4 family (macro_stat 9D / L1 EWMA 27D / turn·curv·direction / regime 18bin) + Frenet basis world-z 정렬 (t̂_z, b̂_z + anchor Δz_world) + Frenet torsion τ + residual 강화 form (F3 anchor-projection K-scalar, F2 log-magnitude, sign 통일) 모두 input 에 박제. **anchor 개수·loss·output head·anchor radius 모두 plan-022 carry**, *single 변수 = architecture + input FE*. single-config 5-fold OOF + LB 회수.
+>
+> **합격 기준**: OOF hit_1cm ≥ 0.6628 (= plan-022 winner +0.01) **AND** OOF hit_1.5cm ≥ plan-022 winner (0.8104) **AND** LB ≥ plan-022 carry LB (미박제 시 plan-004 LB 0.6806 floor).
+>
+> **out-of-scope**: anchor layout sweep / anchor radius 변경 / τ_cls(output) 변경 / F0 baseline 변경 / corrector reg head 재투입 / ensemble (plan-022 LGBM 과 평균) / ideas.md priority 5 추가 (= plan-025 후보) / hyperparam sweep (single config 고정).
+
+---
+
+## §0.5 Quick Reference (autonomous loop 매 turn 읽는 section)
+
+> *plan-024 의 commit chain 은 single config 라 plan-022 의 21-cell sweep 대비 단순. STAGE 0 인프라 → STAGE 1 input + label sanity → STAGE 2 model 학습 + 5-fold OOF → STAGE 3 분석 → STAGE 4 LB.*
+
+### 합격 기준 (G-gate sequence)
+
+- **G0**: 5 module (anchor_vocab / seq_builder / cand_builder / model_runner / training) import + smoke + tests green. plan-021 build_input.py + plan-022 anchors / soft_label / PB selector.py import 정상. 위반 시 `infra_drift` severe.
+- **G1**: F0 baseline 5-fold concat OOF + plan-022 winner reproduce — F0 hit@1cm ∈ [0.6315, 0.6325] AND hit@1.5cm ∈ [0.8028, 0.8038] (plan-020/021/022 carry exact) + plan-022 A6_bcc14_tau001 reproduce: OOF hit_1cm ∈ [0.6520, 0.6536] AND hit_1.5cm ∈ [0.8096, 0.8112]. 위반 시 `f0_reproduce_drift` / `plan022_reproduce_drift` severe.
+- **G2**: cross-attention selector 5-fold OOF 완료 — OOF metric finite + `max_class_ratio < 0.95` + **OOF hit_1cm ≥ 0.6528** (plan-022 winner 최소 동등). 미달 시 `xattn_no_improvement` severe (architecture lever 실패 → plan 종료, decision-note 박제 후 G_final 진입 — submission 생성 안 함).
+- **G3 (lift level)**: OOF hit_1cm ≥ **0.6628** (= plan-022 winner +0.01) AND hit_1.5cm ≥ **0.8104** (= plan-022 winner 최소 동등) AND `gap_ranking` ≤ 0.04 (plan-008 base 0.0516 의 절반). 부분 미달 = `xattn_partial_pass` warn (G_final 진입 단 LB 회수만, follow-up plan 강화 axis 박제).
+- **G_final**: dacon-submit skill 자율 호출 + 3-file frontmatter sync (status=all_complete + band + best_metric + lb_score) + LB ≥ plan-022 carry LB (미박제 시 plan-004 LB 0.6806 floor). LB 미달 시 `lb_below_floor` warn (severe 아님, results.md 박제 + follow-up axis 박제).
+
+### G-gates
+
+- G0: STAGE 0 인프라 [TODO]
+- G1: STAGE 1 F0 + plan-022 reproduce [TODO]
+- G2: STAGE 2 cross-attention 5-fold OOF (최소 동등성) [TODO]
+- G3: STAGE 3 lift + gap_ranking [TODO]
+- G_final: STAGE 4 LB 회수 + 3-file sync [TODO]
+
+### Commit chain (next-up)
+
+| # | type | spec section | status |
+|---|---|---|---|
+| c1 | docs | `plans/plan-024-cross-attention-anchor-vocab.md` v1 작성 (plan-review-master 4-iter 자동 fix 후 BLOCKER 0 도달 권장) | [TODO] |
+| c2 | code | `analysis/plan-024/anchor_vocab.py` — F 묶음 식 (per past step residual → 14-anchor softmax + magnitude + top1 one-hot + F3 projection + F2 log-magnitude). **sign 통일** (`actual − pred`) + **τ_past 별도 인자**. spec @ §4.2 | [TODO] |
+| c3 | code | `analysis/plan-024/seq_builder.py` — seq 89D per step (length=7, t=4..10 alignment) assembly. ABC + Vz + D residual + angle + pred_F0 coord + E + F/G/H + F3 + F2 + I + Δ²res + J + K time + L entropy + M 2nd-best + O speed + turn/curv/direction + torsion τ. spec @ §4.3 | [TODO] |
+| c4 | code | `analysis/plan-024/cand_builder.py` — cand_feat 62D per anchor (14 row): ① par/perp/dist 3 + ② spec 9 (Frenet coord+sign+group+idx) + ③ ctx broadcast 41 (last v/acc/res 9 + EWMA res 3 + macro_stat 9 + Bz/Tz 2 + regime 18 one-hot) + ④ interactions 9 (anchor·res / anchor·v / anchor·acc / anchor·EWMA / corner×turn / axis×forward / sign-agreement / physics-extrap·anchor / anchor·Δz_world). spec @ §4.4 | [TODO] |
+| c5 | code | `analysis/plan-024/torsion_calc.py` — Frenet torsion τ scalar per step (numerical-safe: collinear mask + sign-flip alignment + ‖v‖ clamp). spec @ §4.5 | [TODO] |
+| c6 | code | `analysis/plan-024/model.py` — `CrossAttentionAnchorSelector` (PB framework `CandidateAttentionGRUSelector` 그대로 import + thin wrapper for K=14, cand_dim=62, seq_dim=89, hidden=256). spec @ §4.6 | [TODO] |
+| c7 | code | `analysis/plan-024/run_oof.py` — 5-fold OOF runner (stable_fold_id MD5 carry). data load → seq/cand build → fit (2 layer GRU dropout 0.08 + AdamW lr 1e-3 cosine + epochs pre=10 fine=8 + batch 256) → predict → metrics. spec @ §6 | [TODO] |
+| c8 | test | `tests/test_plan024_smoke.py` — 8 pytest: anchor_vocab shape + sign sanity (axis 대칭 invariance) + seq 89D shape per step + cand 62D shape per anchor + torsion mask + model forward smoke (b=4, K=14, T=7) + 1-fold 1-epoch fit finite + G1 reproduce sanity | [TODO] |
+| G0 | gate | smoke + tests green (8/8 pytest pass) | [TODO] |
+| c9 | exp G1 | F0 + plan-022 winner reproduce → `analysis/plan-024/baseline_carry.json` 박제. F0 hit@{1, 1.5}cm ± 0.0005 / plan-022 A6_bcc14_τ001 hit ± 0.0008 | [TODO] |
+| G1 | gate | F0 carry ✓ AND plan-022 reproduce ✓ | [TODO] |
+| c10 | exp G2 | cross-attention 5-fold OOF (full config 62D cand + 89D seq + hidden=256) + `analysis/plan-024/results_xattn.json` (hit_1cm, hit_1.5cm, Δ vs F0, per-fold metric, max_class_ratio, q_true_max, KL, top1_acc, soft_CE, gap_ranking). 학습 시간 추정 ~3.5시간 (GPU, 5-fold × 18 epoch). | [TODO] |
+| G2 | gate | OOF metric finite ✓ + max_class_ratio < 0.95 ✓ + hit_1cm ≥ 0.6528 ✓ | [TODO] |
+| c11 | analysis G3 | lift 분석 + gap_ranking 분해 + per-fold variance + paradigm finding → `analysis/plan-024/results.md` (11 항목, plan-022 results.md 형식 carry) + `analysis/plan-024/per_anchor_dist.json` (cf. plan-022 의 per-anchor 분포) | [TODO] |
+| G3 | gate | hit_1cm ≥ 0.6628 ✓ AND hit_1.5cm ≥ 0.8104 ✓ AND gap_ranking ≤ 0.04 ✓ (or `xattn_partial_pass` warn 박제) | [TODO] |
+| c12 | submission | `analysis/plan-024/submission.csv` 생성 (test set inference, OOF 모델 5-fold 평균 prediction → corrector-free `Σ q · a`). schema = sample_submission.csv 와 정합. | [TODO] |
+| c13 | sub-lb | **`dacon-submit` skill 자율 호출** + `analysis/plan-024/lb_log.md` 박제 + **3 파일 frontmatter `lb_score` 동시 갱신** (`plans/plan-024-*.md` top-level + `plans/plan-024-*.results.md` + `analysis/plan-024/results.md`). spec @ §9 + §0.5 AND 조건. | [TODO] |
+| c14 | docs | 3-file frontmatter sync (status=all_complete, band, best_metric, lb_score) + follow-up plan 후보 박제 (plan-025 ideas.md priority 5 / plan-026 radius+F0 / plan-027 ensemble) | [TODO] |
+| G_final | gate | LB 박제 ✓ + 3-file sync ✓ + §0.5 c1~c14 모두 [DONE] ✓ + follow-up 3건 박제 ✓ | [TODO] |
+
+### Plan-specific severe (WORKFLOW.md §12.3 default 위 추가분)
+
+- `f0_reproduce_drift`: G1 F0 reproduce 가 plan-020/021/022 hard evidence ±0.0005 밖. → halt.
+- `plan022_reproduce_drift`: G1 plan-022 A6_bcc14_τ001 reproduce 가 0.6528 ±0.0008 밖. → halt.
+- `xattn_no_improvement`: G2 OOF hit_1cm < 0.6528 (plan-022 winner). → architecture lever 실패. plan-009 ranking_loss fail 패턴. **submission 생성 안 함** + decision-note 박제 + results.md 의 `g2_no_improvement` 박제 후 G_final 진입 (LB skip).
+- `xattn_partial_pass`: G3 의 hit_1cm ≥ 0.6528 단 < 0.6628 (lift 미달) OR hit_1.5cm < 0.8104 OR gap_ranking > 0.04. warn (severe 아님). G_final 진입 + LB 회수 단 follow-up plan 강화 axis 박제 의무.
+- `numerical_collapse`: torsion τ 의 `collinear_rate > 0.7` (sample 의 ≥ 70% 가 collinear → τ 신호 무의미). warn (severe 아님), results.md 박제 후 plan-026 의 redo 후보.
+- `lb_below_floor`: G_final LB < plan-022 carry LB OR plan-004 LB 0.6806. warn (severe 아님), results.md 의 `lb_no_improvement` 박제 후 follow-up plan 강화 axis 박제 의무.
+
+### Plan-specific paths (WORKFLOW.md §12.5/§12.6 default 위 추가/제외)
+
+- whitelist 추가: `analysis/plan-024/**`, `tests/test_plan024_*.py`, `plans/plan-024-*.{md,results.md}` (이미 default whitelist 일 가능성, plan-024 명시)
+- blacklist 추가: (없음 — plan-021/022 carry 모듈은 read-only / import 만)
+
+### Decision-note 사용 예 (자율 결정 시 commit msg 박제)
+
+- `decision-note: spec-default — GRU hidden=256 (plan-024 §4.6 default; input dim 32→62D + 14→89D 대비 capacity 보강 of PB framework default 128)`
+- `decision-note: spec-default — τ_past = 0.003 (plan-024 §4.2; anchor radius 0.005m 의 0.6×, past F0 residual magnitude 5~20mm 스케일 매칭. output τ_cls=0.001 과 분리)`
+- `decision-note: spec-default — seq length=7 (t=4..10 alignment; L2/L4 의 7-step coverage 와 일치, t<4 zero-pad/mask 회피)`
+- `decision-note: spec-default — torsion τ collinear fallback τ_t := 0 + valid_mask channel (numerical-safe form)`
+
+---
+
+## §1. 배경
+
+### §1.1 carry 박제 — plan-022 winner finding
+
+plan-022 의 21-cell sweep (7 anchor layout × 3 τ_cls) 의 winner = **A6_bcc14_tau001** (14-anchor BCC: 6 axis ±t̂/±n̂/±b̂ + 8 corner ortant, ‖a‖=0.005m 모두):
+
+- OOF hit_1cm = **0.6528** (Δ_F0 = +0.0208)
+- OOF hit_1.5cm = 0.8104 (Δ_F0 = +0.0071)
+- max_class_ratio = 0.105 (best distributed in sweep)
+- q_true_max = 0.097 (자연 분포 최대 anchor share)
+- top1_acc = 0.1707 (selector 가 17% sample 의 best anchor 정확 픽)
+- soft CE = 2.5346 (vs uniform log(14) = 2.6391)
+
+plan-022 의 paradigm = **selector-only corrector-free** — output = `Σ_k q_k · a_k` (anchor 의 soft-weighted average), corrector reg head 제거 (plan-021 finding: reg_offset ~0.01mm dead). model = LGBM multiclass classifier (170D input, K=14 output).
+
+### §1.2 사용자 narrative — architecture lever
+
+plan-022 결과 + 사용자 통찰 (2026-05-21 session "main"):
+
+1. **plan-022 의 +2pp lift 가 작은 신호** — anchor representation 이 LGBM 안에서 *implicit* 학습 완료, *explicit* anchor coord 입력 lever 가 추가 잠재.
+2. **plan-009 ranking_loss G1 fail** — listwise/pairwise *loss* 변경만으로 selector ranking 능력 회수 X (oof_soft_hit 0.6482, gap_ranking 0.108 = base 의 2배 악화). **architecture 가 진짜 lever** 라는 직접 증거.
+3. **oracle gap 잔존** — plan-009 oracle_1cm=0.7562, 현 best 0.6528, gap +0.10pp. plan-008 gap_ranking 0.0516 = selector ranking 만으로 회수 가능한 측정된 lever (architecture-extractable headroom).
+4. **plan-004 paradigm shift +8pp 증거** — polyfit (B001 LB 0.60) → PB framework (P001 LB 0.6806) 의 +8pp lift = same X, better architecture. 본 plan 의 *역사적 anchor*.
+
+→ plan-024 의 목적 = cross-attention architecture (PB framework `CandidateAttentionGRUSelector` 1:1 carry) 위 anchor coord query + anchor-vocabulary past seq + FE 최대화 (4-way audit 누락 + 강화 form 박제) 로 **+0.01 lift (G3 hit_1cm ≥ 0.6628) 시도**.
+
+### §1.3 4-way sub-agent audit finding (2026-05-21)
+
+**audit A (Q1+Q5 F0 residual / torsion)**:
+- **silent bug**: L2 (build_input.py:121) 의 residual = `pred - actual` vs build_soft_label_with_tau (selector_only_model.py:61) 의 residual = `gt - pred = actual - pred`. **opposite sign**. A6 대칭이라 *현재* silent OK, asymmetric anchor 도입 시 bug. → plan-024 구현 시 **`actual - pred`** 통일.
+- **τ_past 분리**: output τ_cls=0.001 이 past F0 residual (magnitude 5~20mm) 에 over-sharp → 거의 hard one-hot 정보 손실. → τ_past ∈ {0.002, 0.003, 0.005} 별도. **default τ_past=0.003** (anchor radius 0.5cm 의 0.6×).
+- **Frenet torsion τ**: codebase 부재. 신규 계산 모듈 (`torsion_calc.py`, c5).
+- **강화 form**: F1 sign-unified, F2 log-magnitude `log(1+‖res‖/τ_ref)`, F3 anchor-projection K-scalar `<a_k/‖a_k‖, r_t>` (softmax-free 안정).
+
+**audit B (Q2+Q3 world frame / z-axis)**:
+- Frenet basis = **full 3D Frenet-Serret** (`R = stack([t̂, n̂, b̂], axis=-1)`, build_input.py:75). b̂ = t̂ × n̂ sample-마다 계산. world-z 와 fix 정렬 X.
+- **"꺾쇠 Bz, Tz" 의미 해석**: `R_wfn[:, 2, :]` 의 z-row = `[t̂_z, n̂_z, b̂_z]` (Frenet basis 의 world-z component). 핵심: R_wfn 자체가 plan-024 input 에 없음 → **t̂_z, b̂_z 추가 = 순수 redundancy 아닌 새 정보** (gravity-aware).
+- **권장**: t̂_z + b̂_z (2D, static broadcast, cand_feat ③ ctx) + seq Vz_world (1D, per step) + cand_feat anchor Δz_world (1D, per (sample, anchor), ④ interactions).
+
+**audit C (Q4 plan-004 / plan-022 input audit)**:
+- **누락 family**:
+  1. macro_stat 9D (plan-021 `_macro_stat_9d`) — cand_feat ③ ctx broadcast.
+  2. L1 EWMA 27D (= p/v/a 의 EWMA 9D × 3α; plan-022 lgbm_extra 의 부분집합) — plan-024 outline 의 seq J 묶음은 *residual* EWMA 9D 만, 두 source 분리 필요. **L1 EWMA 는 sample-level broadcast 로 cand_feat ③ ctx** (27D 추가).
+  3. turn_cos, curvature, direction_flag per step (plan-004 make_seq_features 9D 의 부분) — seq 신규 channel.
+  4. regime bin 18-class (plan-004 `assign_regimes`) — cand_feat ③ ctx (18D one-hot).
+  5. F0-pred 자체의 Frenet 좌표 per step (현 outline 은 잔차만, pred 위치 자체 빠짐) — seq 신규 묶음.
+  6. residual angle (azimuth, elevation) — magnitude/direction decouple.
+- **L2 timing**: step i (i=0..6) 는 *t-2 시점의 80ms 예측* vs *t 시점의 실측* 의 retrospective sequence. **seq length=7 (t=4..10) alignment 권장** (t<4 zero-pad 회피).
+
+**audit D (Q6 ideas.md plan-024 통합)**:
+- **plan-024 paradigm 안 통합 가능** (priority 5): A1 Multi-window stat (+30~60D, +0.005~0.010) / A6 WAP composite (+4~8D, +0.001~0.003) / B3 STA/LTA ratio (+27D cost 0, +0.001~0.003) / Multi-Parse Input (raw/SG/EMA 3 parallel parse) / B2 Pct-of-rolling-std (+27D, +0.002~0.004).
+- **plan-024 out-of-scope** (paradigm 밖, plan-025 후보로 분리): Trajectory-CLIP / KNN pool / MDN / 3-channel ensemble / Jerk regularizer / Path×accel / SE(3) corrector / Voxel head / PointNet / TTA / OHEM / Cascade / VQ / IRM / GMM (모두 anchor pool / output head / loss / corrector / ensemble axis).
+- **결정**: priority 5 도 plan-024 의 scope 안에 *모두 박제* 시 학습 시간 + dim explosion 위험. **plan-024 = Stage 1+2 (audit 누락 + 강화 form) 만**. priority 5 = plan-025 후보로 frontmatter 박제.
+
+### §1.4 가설
+
+**H_main**: plan-022 winner (LGBM, 170D) 의 selector 를 cross-attention GRU (62D cand + 89D seq + hidden=256) 로 교체 + FE 최대화 시, **gap_ranking 의 절반 이상 회수** (= 0.0516 → ≤ 0.025) + **hit_1cm +0.01 lift** (0.6528 → 0.6628).
+
+**H_secondary**:
+- H1 (architecture lever > loss lever): plan-009 의 listwise loss fail 위에서 cross-attention 의 inner product 가 ranking 능력 직접 학습 → top1_ranking_acc ≥ 0.20 (plan-008 extended 0.17 보다 ↑).
+- H2 (anchor-vocab encoding 효과): seq F/G/H 묶음 (anchor-vocabulary re-encoding) 가 input ↔ output 어휘 통일 → soft_CE ≤ 2.50 (plan-022 winner 2.5346 보다 ↓).
+- H3 (world-z 정보 lever): t̂_z + b̂_z + Vz + anchor Δz_world 추가가 *순수 redundancy 가 아닌* 새 정보 → ablation 시 contribution ≥ +0.003 (G3 통과 후 plan-025 ablation 후보).
+- H4 (Frenet torsion τ lever): muflight low-curvature regime 에서 mostly 0 단 high-τ tail discriminator 로 가치 → contribution ≥ +0.001.
+
+---
+
+## §2. 가설 검증 paradigm (single config 원칙)
+
+plan-022 가 21-cell sweep 으로 *anchor layout* 변수 ablation 했다면, plan-024 는 **single config full FE max** — *architecture + input FE 묶음* 을 한 번에 측정. ablation (각 묶음 contribution 분해) = G3 통과 후 plan-025 영역.
+
+**한 변수 원칙**: plan-022 winner cell 기준에서 변경 = (1) selector architecture LGBM → cross-attention, (2) input dim 170D 1-vector → 62D cand + 89D seq 2-input 구조. 단 anchor / τ_cls / hit radius / F0 baseline / 5-fold split = 모두 plan-022 carry.
+
+**Out-of-scope (절대 안 함)**:
+- anchor layout 변경 (A6_bcc14 고정)
+- anchor radius 변경 (0.5cm 고정)
+- τ_cls (output) 변경 (0.001 고정, 단 τ_past 는 별도)
+- F0 baseline 변경
+- corrector reg head 재투입
+- ensemble (plan-022 LGBM 평균)
+- ideas.md priority 5 추가 (plan-025 후보)
+- hyperparam sweep (GRU hidden / lr / epoch / batch — single config 고정)
+
+---
+
+## §3. 사전 등록 (Pre-registration)
+
+### §3.1 Fold split (plan-020/021/022 carry)
+
+- 5-fold via `stable_fold_id(str(sample_id), 5)` (MD5 prefix mod 5)
+- fold distribution = [2020, 2047, 1921, 2020, 1992] (plan-022 carry 박제, N=10000)
+- F0 deterministic — fold-leakage 면제 (= plan-021/022 §3.1 carry)
+- OOF metric = 5-fold concat hit rate (per-fold 평균 아님)
+
+### §3.2 합격 기준 (정량)
+
+| Gate | 조건 (AND) | severe / warn |
+|---|---|---|
+| G0 | smoke + tests 8/8 green | `infra_drift` severe |
+| G1 | F0 hit_1cm ∈ [0.6315, 0.6325] AND hit_1.5cm ∈ [0.8028, 0.8038] AND plan-022 A6_bcc14_τ001 hit_1cm ∈ [0.6520, 0.6536] AND hit_1.5cm ∈ [0.8096, 0.8112] | `f0_reproduce_drift` / `plan022_reproduce_drift` severe |
+| G2 | OOF metric finite AND max_class_ratio < 0.95 AND OOF hit_1cm ≥ 0.6528 | `xattn_no_improvement` severe |
+| G3 | hit_1cm ≥ 0.6628 AND hit_1.5cm ≥ 0.8104 AND gap_ranking ≤ 0.04 | `xattn_partial_pass` warn |
+| G_final | LB 박제 + 3-file sync + follow-up 3건 | `lb_below_floor` warn |
+
+### §3.3 평가 점수
+
+- 1차 metric: OOF hit_1cm (= 5-fold concat OOF 의 ‖pred_world - Y‖ ≤ 0.01m 비율)
+- 2차 metric: OOF hit_1.5cm, Δ_F0 (hit_cell - hit_F0), max_class_ratio, q_true_max, KL(probs_avg ‖ q_true_avg), top1_acc, soft_CE, gap_ranking (= oracle_1cm - argmax_hit, plan-008 carry)
+- 최종 metric: dacon-submit LB score
+
+### §3.4 Anchor layout (single, plan-022 carry)
+
+- **A6_bcc14** (BCC 14): axis 6 (±t̂/±n̂/±b̂ × 0.005m) + corner 8 (±0.005/√3 m 각 component, 8 ortant). ‖a_k‖ = 0.005m all k. center 없음.
+- 정의 출처: `analysis/plan-022/anchors.py:107-119` 그대로 import.
+
+### §3.5 τ_cls (output) 및 τ_past (input F) scan
+
+- τ_cls = **0.001** (plan-022 winner carry, output soft label sharpness — 변경 X)
+- τ_past = **0.003** (default; past F0 residual magnitude 5~20mm 스케일 매칭). G1 통과 후 ablation 후보 (plan-025).
+
+---
+
+## §4. 핵심 결정 — Input + Architecture spec
+
+### §4.1 전체 input 구조
+
+| input | shape | dim | sample-conditional | anchor-conditional |
+|---|---|---|---|---|
+| **cand_feat** | (b, 14, 62) | 62D | ✓ (③ ctx broadcast) | ✓ (①②④) |
+| **seq** | (b, 7, 89) | 89D | ✓ | ✗ (anchor-agnostic time series) |
+
+### §4.2 anchor_vocab 묶음 식 (c2 `analysis/plan-024/anchor_vocab.py`)
+
+per past step t (t ∈ {4, 5, ..., 10}):
+
+```python
+# step t 의 80ms 미래 F0 잔차 (sign-unified: actual - pred)
+sub_x_t = X[:, t-4:t-1, :]                           # (N, 3, 3)
+pred_t  = f0_baseline(sub_x_t, end_idx=2)            # (N, 3) world
+actual_t = X[:, t]                                    # (N, 3) world
+residual_w_t = actual_t - pred_t                      # ★ sign 통일 (plan-021 L2 와 opposite)
+residual_t_frenet = R_wfn^T @ residual_w_t            # (N, 3) Frenet
+
+# F 묶음: soft assignment (τ_past 별도 인자)
+q_past_t = softmax(-‖a_k - residual_t_frenet‖ / τ_past)   # (N, 14)
+
+# G 묶음: magnitude
+mag_t = ‖residual_t_frenet‖                            # (N, 1)
+
+# H 묶음: top1 one-hot (argmin distance)
+top1_t = argmin_k ‖a_k - residual_t_frenet‖            # (N,)
+onehot_t = one_hot(top1_t, K=14)                       # (N, 14)
+
+# F3 묶음: anchor-projection K-scalar (softmax-free)
+proj_t = anchors @ residual_t_frenet / 0.005           # (N, 14), unit-normalized
+
+# F2 묶음: log-magnitude (decouple from G)
+log_mag_t = log(1 + mag_t / 0.005)                     # (N, 1)
+```
+
+- **sign**: `actual - pred` (plan-022 build_soft_label_with_tau 와 통일). L2 import 시 negate.
+- **τ_past**: 별도 인자 (default 0.003, hyperparam 박제).
+- **F3 unit-normalize**: anchor radius 0.005m 로 나눠 [-1, +1] 범위로 안정화 (모든 a_k 가 ‖a‖=0.005).
+
+### §4.3 seq builder (c3 `analysis/plan-024/seq_builder.py`)
+
+per past step t (t ∈ {4, ..., 10}, length=7), 89D channel:
+
+| 묶음 | source | dim | 식 |
+|:--|:--|--:|:--|
+| **A** position Frenet | L1 `[p_t, p_n, p_b]` | 3 | `R_wfn^T @ (X[:, t] − origin)` |
+| **B** velocity Frenet | L1 `[v_t, v_n, v_b]` | 3 | `R_wfn^T @ (X[:, t] − X[:, t-1])` |
+| **C** acceleration Frenet | L1 `[a_t, a_n, a_b]` | 3 | `R_wfn^T @ ((X[:, t] − X[:, t-1]) − (X[:, t-1] − X[:, t-2]))` |
+| **Vz_world** | derived | 1 | `(X[:, t, 2] − X[:, t-1, 2]) / 0.040` (gravity-aware) |
+| **D** F0 residual Frenet | sign-unified L2 | 3 | `R_wfn^T @ (actual_t − pred_t)` (audit A: sign 통일) |
+| **residual angle** | derived | 2 | `[atan2(res_n, res_t), asin(res_b / ‖res‖)]` |
+| **pred_F0 Frenet** (per step pred 좌표) | derived | 3 | `R_wfn^T @ (pred_t − origin)` |
+| **E** soft hit | L4 (plan-021 carry) | 2 | `[σ((R_HIT − d_t)/τ_loss), σ((R_HIT_LOOSE − d_t)/τ_loss)]` |
+| **F** anchor-vocab soft (τ_past) | §4.2 | 14 | `softmax(-‖a_k - r_t‖/τ_past)` |
+| **G** ‖residual_t‖ | §4.2 | 1 | `‖r_t‖` |
+| **H** anchor-vocab top1 one-hot | §4.2 | 14 | argmin one-hot |
+| **F3** anchor-projection K-scalar | §4.2 (softmax-free) | 14 | `a_k · r_t / ‖a_k‖` |
+| **F2** log-magnitude | §4.2 (G decouple) | 1 | `log(1 + ‖r_t‖ / 0.005)` |
+| **I** Δresidual | derived (audit C) | 3 | `r_t − r_{t-1}` (t=4 zero) |
+| **Δ²residual** | derived (audit A) | 3 | `r_t − 2·r_{t-1} + r_{t-2}` (t<6 zero/pad) |
+| **J** residual EWMA (3α) | plan-021 `_ewma_last` reuse | 9 | α ∈ {0.1, 0.3, 0.5} × Frenet (t̂, n̂, b̂) of r |
+| **K** time offset | positional | 1 | `t / 10` |
+| **L** F entropy | derived (uncertainty) | 1 | `H(q_past_t) = -Σ_k q log q` |
+| **M** F 2nd-best mass | derived | 1 | `sort(q_past_t)[-2]` |
+| **O** speed magnitude | derived | 1 | `‖v_t‖` |
+| **turn_cos** | plan-004 carry (audit C) | 1 | `v_t · v_{t-1} / (‖v_t‖‖v_{t-1}‖)` |
+| **curvature** | plan-004 carry | 1 | `perp_norm / speed` |
+| **direction_flag** | plan-004 carry | 1 | constant `+1.0` (or trajectory-level sign if defined upstream) |
+| **torsion τ** | §4.5 (new module) | 3 | `[τ_t, sign(τ_t)·log(1+|τ_t|), valid_mask]` |
+
+**total**: 3+3+3+1+3+2+3+2+14+1+14+14+1+3+3+9+1+1+1+1+1+1+1+3 = **89D** per step. seq shape = (N, 7, 89).
+
+### §4.4 cand_feat builder (c4 `analysis/plan-024/cand_builder.py`)
+
+per anchor k (k=0..13), per sample, 62D channel:
+
+| 묶음 | dim | source / 식 |
+|:--|--:|:--|
+| **① par/perp/dist** (sample × anchor) | 3 | `(a_k - residual_last) → Frenet 분해 par/perp + ‖.‖` |
+| **② anchor spec** (anchor-static) | 9 | Frenet coord 3 + sign 3 (sgn of coord) + group 2 (`[is_axis, is_corner]`) + idx scalar 1 (`k/14`) |
+| **③ ctx broadcast** (sample × all anchors 같은 값) | 41 | last v Frenet 3 + last acc Frenet 3 + last res Frenet 3 + EWMA(α=0.3) res 3 = 12 + macro_stat 9 (plan-021 `_macro_stat_9d` reuse) + Bz/Tz 2 (`[R_wfn[2, 2], R_wfn[2, 0]]`) + regime 18 one-hot (plan-004 assign_regimes carry) |
+| **④ interactions** (sample × anchor) | 9 | `(a) anchor · res_last`, `(b) anchor · v_last`, `(c) anchor · acc_last`, `(d) anchor · EWMA(res)`, `(e) is_corner × turn_cos`, `(f) is_axis × |v_t|/‖v‖`, `(g) sign agreement = Σ sgn(a_k,c)·sgn(res_c)`, `(h) anchor · (v·Δt + ½·acc·Δt²)` physics-extrap, `(i) anchor · Δz_world = (R_wfn @ a_k)[2]` (audit B) |
+
+**total**: 3 + 9 + 41 + 9 = **62D**. cand_feat shape = (N, 14, 62).
+
+### §4.5 torsion_calc (c5 `analysis/plan-024/torsion_calc.py`)
+
+per past step t (t ∈ {4, ..., 10}, length=7), per sample:
+
+```python
+v_t   = X[:, t]   - X[:, t-1]
+v_tm1 = X[:, t-1] - X[:, t-2]
+b_hat_t = cross(v_tm1, v_t) / ‖cross(v_tm1, v_t)‖          # binormal at step t
+                                                            # consecutive b̂ alignment
+b_hat_t = sign(b_hat_t · b_hat_{t-1}) * b_hat_t             # sign-flip detection
+
+db = b_hat_t - b_hat_{t-1}
+ds = ‖v_t‖                                                  # arc length proxy
+n_hat_t = perp(v_t, b_hat_t)                                # Frenet normal at step t
+
+# torsion scalar (Frenet-Serret 3rd formula)
+tau_t = -(db / max(ds, eps)) · n_hat_t                      # sign-aware
+
+# numerical safety
+valid_mask_t = (‖cross‖ > eps_collinear) AND (‖v_t‖ > eps_speed)
+tau_t[~valid_mask_t] = 0.0
+
+# transform for seq input (3D)
+seq_torsion_t = [tau_t, sign(tau_t) * log(1 + |tau_t|), valid_mask_t.float()]
+```
+
+- numerical thresholds: `eps_collinear = 1e-6`, `eps_speed = 1e-4`.
+- t=4, 5 (insufficient history) → seq_torsion = `[0, 0, 0]` (mask=0).
+- 측정 박제: `collinear_rate = (~valid_mask).mean()` → results.md 의 `numerical_collapse` warn trigger.
+
+### §4.6 model spec (c6 `analysis/plan-024/model.py`)
+
+```python
+# PB framework 그대로 import (src/pb_0_6822/selector.py:697)
+from src.pb_0_6822.selector import CandidateAttentionGRUSelector
+
+class CrossAttentionAnchorSelector(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.backbone = CandidateAttentionGRUSelector(
+            seq_dim=89,           # plan-024 §4.3
+            cand_dim=62,          # plan-024 §4.4
+            hidden=256,           # PB default 128 → 256 (input dim 4~5× 확장 대비)
+            cand_count=14,        # plan-022 A6_bcc14 carry
+        )
+
+    def forward(self, seq, cand_feat):
+        score = self.backbone(seq, cand_feat)              # (b, 14) logits
+        q_pred = F.softmax(score, dim=-1)                  # (b, 14) prob
+        return q_pred, score
+```
+
+Hyperparam (single config, sweep 안 함):
+
+| param | value | 비고 |
+|---|---|---|
+| GRU hidden | **256** | PB default 128 → 256, input dim 보강 (decision-note) |
+| GRU layers | 2 | PB carry |
+| GRU dropout | 0.08 | PB carry |
+| Adam optimizer | AdamW lr=1e-3 | PB carry |
+| LR schedule | warm-up 10% + cosine decay | PB carry |
+| pre-epochs | 10 | PB carry |
+| fine-epochs | 8 | PB carry |
+| batch size | 256 | PB carry |
+| seed | 20260521 | plan-024 박제 (plan-022 seed 20260519 + 2) |
+| 5-fold split | `stable_fold_id` MD5 carry | plan-020/021/022 carry |
+
+### §4.7 loss & target
+
+- **target (output soft label)**: `q_true = build_soft_label_with_tau(Y, R_wfn, pred_F0_world, ANCHORS_A6, τ_cls=0.001)` — plan-022 carry.
+- **loss**: soft cross-entropy `-(q_true · log q_pred).sum(axis=k).mean()` (per sample).
+- **prediction (final position)**: corrector-free `pred_world = R_wfn @ (q_pred @ ANCHORS_A6) + pred_F0_world`.
+
+---
+
+## §5. STAGE 0 — 인프라 (c2~c8, G0)
+
+### §5.1 모듈 layout
+
+```
+analysis/plan-024/
+├── __init__.py
+├── anchor_vocab.py          # c2 — F/G/H/F2/F3 묶음 builder
+├── seq_builder.py            # c3 — seq 89D per step assembly
+├── cand_builder.py           # c4 — cand_feat 62D per anchor assembly
+├── torsion_calc.py           # c5 — Frenet torsion τ scalar
+├── model.py                  # c6 — CrossAttentionAnchorSelector wrapper
+└── run_oof.py                # c7 — 5-fold OOF runner + metrics
+
+tests/test_plan024_smoke.py  # c8 — 8 pytest
+```
+
+### §5.2 tests (c8)
+
+| # | test | assertion |
+|---|---|---|
+| 1 | module import smoke | 6 module import 성공 |
+| 2 | `build_anchor_vocab` shape | (N=4, K=14, T=7) for F/H/F3; (N=4, T=7) for G/F2 |
+| 3 | sign convention sanity | A6 axis pair (idx 0 ↔ 1) 의 q_past mass 가 잔차 부호 따라 *역대칭* (audit A sign 통일 검증) |
+| 4 | seq 89D shape | `seq.shape == (4, 7, 89)`, no NaN |
+| 5 | cand 62D shape | `cand.shape == (4, 14, 62)`, no NaN |
+| 6 | torsion mask | random low-curvature trajectory 에서 `valid_mask.float().mean() < 0.5`, collinear fallback `tau == 0` |
+| 7 | model forward smoke | `CrossAttentionAnchorSelector()(seq, cand)` → `(q_pred, score)` shape (4, 14), `q_pred.sum(-1) ≈ 1` |
+| 8 | 1-fold 1-epoch fit | loss finite + decrease (epoch 1 loss < epoch 0 loss) |
+
+### §5.3 G0 합격
+
+- 8/8 pytest green
+- 모듈 import 시간 < 10s
+- model forward inference (b=256) < 200ms (CPU)
+
+---
+
+## §6. STAGE 1+2 — F0 + plan-022 reproduce + cross-attention OOF (c9~c10, G1~G2)
+
+### §6.1 STAGE 1 (c9, G1) — carry reproduce
+
+`analysis/plan-024/baseline_carry.json` 박제:
+
+```json
+{
+  "dataset_hash": "<sha256 of X+Y>",
+  "n_samples": 10000,
+  "fold_dist": [2020, 2047, 1921, 2020, 1992],
+  "f0_oof_hit_1cm": <float>,
+  "f0_oof_hit_1.5cm": <float>,
+  "plan022_winner_oof_hit_1cm": <float>,
+  "plan022_winner_oof_hit_1.5cm": <float>,
+  "plan022_winner_delta_1cm": <float>,
+  "plan022_winner_delta_1.5cm": <float>,
+  "g1_pass": <bool>
+}
+```
+
+**G1 합격**: 두 carry value 모두 박제된 carry tolerance 안 (§3.2 표 참고).
+
+### §6.2 STAGE 2 (c10, G2) — cross-attention 5-fold OOF
+
+per fold k (k=0..4):
+
+```python
+tr_idx = where(folds != k)
+va_idx = where(folds == k)
+
+q_true_tr = build_soft_label_with_tau(Y[tr], R_wfn[tr], pred_F0_world[tr],
+                                       ANCHORS_A6, tau_cls=0.001)
+
+# build inputs (sign-unified, τ_past=0.003)
+seq_tr  = build_seq(X[tr], R_wfn[tr], pred_F0_world[tr], ANCHORS_A6,
+                    tau_past=0.003)              # (n_tr, 7, 89)
+cand_tr = build_cand(X[tr], R_wfn[tr], pred_F0_world[tr], ANCHORS_A6,
+                     regimes[tr])                 # (n_tr, 14, 62)
+seq_va  = build_seq(X[va], ...)
+cand_va = build_cand(X[va], ...)
+
+model = CrossAttentionAnchorSelector().cuda()
+optim = AdamW(model.parameters(), lr=1e-3, weight_decay=0.01)
+scheduler = cosine_warmup(optim, warm=10%, total=epochs)
+
+# pre + fine training
+for epoch in range(10 + 8):
+    for batch in DataLoader(seq_tr, cand_tr, q_true_tr, batch_size=256):
+        q_pred, score = model(batch.seq, batch.cand)
+        loss = -(batch.q_true * log(q_pred + 1e-12)).sum(-1).mean()
+        loss.backward(); optim.step(); scheduler.step()
+
+# inference
+q_pred_va, _ = model(seq_va, cand_va)              # (n_va, 14)
+final_frenet_va = q_pred_va @ ANCHORS_A6           # (n_va, 3)
+pred_world_va = einsum("nij,nj->ni", R_wfn[va], final_frenet_va) + pred_F0_world[va]
+```
+
+OOF concat → metric computation. `analysis/plan-024/results_xattn.json` 박제 (§3.3 metric 전체).
+
+**G2 합격** (§3.2): OOF metric finite + max_class_ratio < 0.95 + hit_1cm ≥ 0.6528.
+
+---
+
+## §7. STAGE 3 — analysis (c11, G3)
+
+### §7.1 results.md 박제 (`analysis/plan-024/results.md`)
+
+11 항목 (plan-022 results.md 형식 carry):
+
+1. Frontmatter (status, best_metric, lb_score, band)
+2. § 한 줄 결론
+3. § OOF hit table (1cm / 1.5cm / Δ vs F0 / per-fold variance)
+4. § distribution-match diagnostics (max_class_ratio / q_true_max / KL / top1_acc / soft_CE / gap_ranking)
+5. § per-anchor distribution (cf. plan-022 의 per-anchor 분포 표 carry 형식)
+6. § hyperparam summary (single config 박제)
+7. § risk findings (plan-009 ranking_loss fail 패턴 비교 + numerical issue)
+8. § ablation slot (plan-025 후보 — 본 plan 은 single config 라 ablation 없음)
+9. § comparison table (plan-022 winner vs plan-024)
+10. § follow-up plan 후보 (plan-025/026/027)
+11. § paths & artifacts
+
+### §7.2 per-anchor distribution 박제
+
+`analysis/plan-024/per_anchor_dist.json` — plan-022 의 dist_per_anchor.json (2026-05-21 main session 박제, A6_bcc14_τ001) 와 *동일 schema* 로 plan-024 의 q_pred 분포 박제. 비교 측정 박제 항목:
+
+- q_true_avg (14-vector, plan-022 carry)
+- probs_avg (plan-024 새 값)
+- delta_per_anchor = probs_avg - q_true_avg
+- pred_top1_share (14-vector, plan-024 새)
+- group sum (axis 6 vs corner 8)
+
+### §7.3 G3 합격
+
+§3.2 표: hit_1cm ≥ 0.6628 AND hit_1.5cm ≥ 0.8104 AND gap_ranking ≤ 0.04. 부분 미달 시 `xattn_partial_pass` warn.
+
+---
+
+## §8. STAGE 4 — LB submission (c12~c14, G_final)
+
+### §8.1 submission 생성 (c12)
+
+```python
+# test set inference (5-fold trained model 평균)
+seq_test  = build_seq(X_test, ..., tau_past=0.003)
+cand_test = build_cand(X_test, ..., regimes_test)
+
+q_pred_test = mean([model_k(seq_test, cand_test)[0] for k in range(5)], axis=0)
+final_frenet_test = q_pred_test @ ANCHORS_A6
+pred_world_test = einsum("nij,nj->ni", R_wfn_test, final_frenet_test) + pred_F0_world_test
+
+# submission.csv = sample_submission.csv 의 ID + x, y, z columns
+```
+
+### §8.2 LB 회수 (c13)
+
+`dacon-submit` skill 자율 호출 (CLAUDE.md autonomous policy):
+
+```bash
+# 사용자 confirm 없이 자동 (DACON 일일 5회 quota 안에서 1회 사용)
+# 단 memory feedback "dacon-submit user approval required" 박제:
+# CV 좋고 (G3 pass) 만 자동 submit. G2 만 통과 G3 부분 미달 (xattn_partial_pass) 시 사용자 confirm 요청.
+```
+
+`analysis/plan-024/lb_log.md` 박제:
+- submission timestamp / file hash / DACON 응답 점수
+- 3-file frontmatter `lb_score` 동시 갱신 (top-level plan / results.md pair / analysis/results.md)
+
+### §8.3 G_final 합격
+
+LB 박제 ✓ AND 3-file sync ✓ AND §0.5 c1~c14 [DONE] ✓ AND follow-up 3건 박제 ✓.
+
+LB < plan-022 carry (미박제 시 plan-004 LB 0.6806 floor) → `lb_below_floor` warn (severe 아님).
+
+---
+
+## §9. Out of scope (명시적으로 안 함)
+
+| 항목 | 이유 |
+|---|---|
+| anchor layout 변경 (A6_bcc14 외) | plan-022 §3.4 sweep 결과 carry. plan-024 = architecture lever 만, anchor axis 별 plan-026. |
+| anchor radius ≠ 0.005m | plan-022 §3.5 carry. plan-024 = geometric cap 변경 X (Plan B #3 별 plan). |
+| τ_cls (output) ≠ 0.001 | plan-022 winner carry. τ_past 만 별도 (§4.2). |
+| F0 baseline 변경 | plan-020/021/022 carry. Plan B #4 별 plan. |
+| corrector reg head 재투입 | plan-021 finding "reg head dead" carry. selector-only 유지. |
+| ensemble (LGBM + cross-attn 평균) | Plan C #5 별 plan-027. |
+| ideas.md priority 5 (A1/A6/B3/Multi-Parse/B2) | plan-025 후보. |
+| hyperparam sweep (hidden / lr / epoch / batch / τ_past) | single config 고정 (plan-024 의 측정 power = architecture lever 단일 변수). |
+| GRU bidirectional / multi-head attention 변경 | PB framework 1:1 carry, architecture 변경 X. |
+| 12-step seq length | L2/L4 의 7-step coverage alignment (audit C). |
+
+---
+
+## §10. 작업량 총 회계
+
+| 항목 | 단위 | count |
+|---|---|---|
+| commit | 14 (c1~c14) |
+| G-gate | 5 (G0, G1, G2, G3, G_final) |
+| OOF training | 5-fold × 18 epoch ≈ ~3.5h GPU |
+| LB submission | 1회 (DACON quota 1/5) |
+| code module | 6 new (anchor_vocab / seq_builder / cand_builder / torsion_calc / model / run_oof) |
+| test | 8 pytest (1 file) |
+| artifact | results.md + results_xattn.json + baseline_carry.json + per_anchor_dist.json + lb_log.md |
+
+---
+
+## §11. results.md 필수 항목 (G_final 박제)
+
+§7.1 의 11 항목 + 다음 3 필수 박제:
+
+1. **plan-009 ranking_loss fail 패턴 비교**: plan-024 가 plan-009 의 G1 fail (oof_soft_hit 0.6482, gap_ranking 0.108) 을 *avoid* 했는지 직접 비교 표.
+2. **architecture-extractable headroom 측정**: plan-008 gap_ranking 0.0516 의 plan-024 회수율 = (0.0516 - plan-024 gap_ranking) / 0.0516. 100% 회수 시 oracle 도달 (~0.7562 hit).
+3. **LB-OOF gap 측정**: plan-004 패턴 (OOF 0.6624 → LB 0.6806 = +0.018) 와 plan-024 의 LB-OOF gap 비교. positive gap = generalization 양호, negative = overfit 신호.
+
+---
+
+## §12. 통계 함정 & caveats
+
+1. **plan-009 ranking_loss G1 fail 가능성**: cross-attention 도 같은 운명 risk. mitigation = G2 의 *최소 동등성* 조건 (hit_1cm ≥ 0.6528). fail 시 architecture lever 자체 *실패* 박제 + Plan B (radius+F0) 또는 Plan C (ensemble) 로 redirect.
+2. **single config 측정 의존**: hyperparam sweep 없음. PB framework default (hidden=128 → 256 만 변경) 가 plan-022 carry 위에서 optimum 일 가능성 미검증. **caveat 박제**: 본 plan 의 +0.01 lift 가 architecture 본질 effect 인지 vs hyperparam optimum 의 우연인지 미분리.
+3. **torsion τ numerical collapse risk**: muflight low-curvature 비행에서 `collinear_rate > 0.7` 가능 → τ feature 신호 ≈ 0 (mask 영향). G3 통과 후 plan-025 의 ablation 후보로 분리.
+4. **sign convention 통일의 backward compatibility**: plan-021 L2 의 `pred - actual` 그대로 import 시 plan-024 의 anchor-vocab encoding 이 silent bug. **반드시 negate**. tests #3 (sign sanity) 로 검증.
+5. **regime 18-class one-hot 의 high dim**: cand_feat ③ ctx 18D = anchor 14 × 18 broadcast = 252 element. GRU hidden=256 의 capacity 안 OK 단 sparsity high. scalar idx 대체 가능 (decision-note 가능).
+6. **GRU hidden 256 의 overfit risk**: N=10k small dataset. PB framework 가 N=10k 환경에서 hidden=128 로 LB 0.6806 도달 → hidden=256 이 capacity 과잉 가능. mitigation = dropout 0.08 PB carry + AdamW weight_decay 0.01 + early stop (validation loss 기준). validation = 5-fold 안 train split 의 마지막 20%.
+7. **L2 timing alignment ambiguity**: step i=0..6 의 *target time = t = 4..10* (= -160..0ms relative to end). plan-024 의 K (time offset) 묶음에 `target time / 10` 으로 표현 → positional encoding 일관.
+8. **LB-OOF gap 의 plan-004 비교 caveat**: plan-004 의 OOF 측정 framework (selector_soft_hit / boundary_soft_hit) 와 plan-024 의 OOF (corrector-free `Σ q · a` 위 hit) 가 *동일 metric 정의 아님*. plan-004 의 +0.018 gap 을 plan-024 에 직접 적용 시 metric drift caveat.
+9. **5-fold split 의 same-seed deterministic carry**: `stable_fold_id` MD5 mod 5 → plan-020/021/022 carry exact. plan-024 의 seed 20260521 은 *model init seed* 만 (data split 영향 X).
+10. **anchor_vocab encoding 의 sample-anchor row 폭증 아님**: plan-024 = cross-attention (Q · K^T softmax) — sample×K row expansion 안 필요. LGBM 의 sample-weight expansion 과 다른 paradigm. 학습 시간 ↑ 우려는 epoch 단위 (~3.5h GPU) 만.
+
+---
+
+## §13. 변경 이력
+
+- v1 (2026-05-21): 초안 작성. 4-way sub-agent audit (Q1/Q2/Q3/Q4/Q5/Q6) 결과 통합. plan-022 winner + PB framework arch + FE max input (cand 62D + seq 89D, audit 누락 4 family + 강화 form 4 + Frenet basis world-z + torsion + sign 통일 + τ_past 분리) 박제.
+
+---
+
+## §14. 참조 (read-only — path blacklist 예외)
+
+### plan reference
+- `plans/plan-022-corrector-free-anchor-layout-sweep.md` (winner cell A6_bcc14_τ001 박제)
+- `plans/plan-022-corrector-free-anchor-layout-sweep.results.md`
+- `plans/plan-021-frenet-corrector-input-augment.md` (input augment L1/L2/L4 + lgbm_extra carry)
+- `plans/plan-004-pb-0-6822-fullrun.md` (PB framework arch + CandidateAttentionGRUSelector)
+- `plans/plan-004-pb-0-6822-fullrun.results.md` (LB 0.6806 박제)
+- `plans/archive/plan-008-candidate-redefine-corrector-redesign.md` (gap_ranking 0.0516 측정)
+- `plans/archive/plan-009-selector-ranking-loss.md` (ranking_loss G1 fail 박제)
+- `plans/archive/plan-009-selector-ranking-loss.results.md`
+- `plans/archive/plan-020-f0-structural-search.md` (F0 baseline carry)
+
+### module reference (read-only)
+- `src/io.py` (load_all_samples, load_labels)
+- `src/pb_0_6822/selector.py:697-727` (CandidateAttentionGRUSelector arch)
+- `src/pb_0_6822/selector.py:259-294` (turn_context_features, motion_terms)
+- `src/pb_0_6822/selector.py:361-377` (assign_regimes 18-class)
+- `src/pb_0_6822/selector.py:406-449` (make_seq_features carry)
+- `analysis/plan-020/baseline_f0.py` (f0_baseline, D1, PAR, PERP)
+- `analysis/plan-021/build_input.py` (build_frenet_basis_3d:35-77, to_frenet, build_input_common, build_input_lgbm_extra, _macro_stat_9d:162-188, _ewma_last:194-213, build_soft_label:219-234)
+- `analysis/plan-022/anchors.py` (ANCHORS_A6:107-119)
+- `analysis/plan-022/selector_only_model.py:45-67` (build_soft_label_with_tau)
+
+### audit reference (2026-05-21 main session)
+- 4-way sub-agent audit 결과 (Q1/Q5 F0 residual+torsion, Q2/Q3 world frame z-axis, Q4 plan-004/022 input audit, Q6 ideas.md plan-024 통합) — sub-agent run output 별 박제 (본 plan §1.3 finding 그대로 carry).
+- per-anchor distribution 박제 (plan-022 winner A6_bcc14_τ001): `~/.claude/jobs/deea8ff4/dist_per_anchor.json` (2026-05-21 main session, 14 anchor × {q_true / probs / top1 share}).
+
+### external reference
+- `notes/ideas.md` (514 lines, priority 5 plan-025 후보)
+- `CLAUDE.md` (Autonomous Execution Policy)
+- `WORKFLOW.md` §1~12 (plan / results / commit / push 규약)
+- memory `~/.claude/projects/-workspace-daycon-muflight/memory/project_next_plan_direction.md` (2026-05-21 사용자 명시 고정)
