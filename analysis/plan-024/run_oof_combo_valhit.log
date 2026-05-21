@@ -1,0 +1,12 @@
+inline selector loaded: 27 candidates
+[combo + val_hit criterion] hidden=128, aug σ=0.05
+  fold 0: hit=0.6431 best_val_hit=0.6404 best_ep=24 27s
+  fold 1: hit=0.6414 best_val_hit=0.6386 best_ep=44 41s
+  fold 2: hit=0.6351 best_val_hit=0.6411 best_ep=58 56s
+  fold 3: hit=0.6371 best_val_hit=0.6366 best_ep=50 45s
+  fold 4: hit=0.6310 best_val_hit=0.6429 best_ep=49 45s
+
+[val_hit] OOF hit_1cm=0.6376 hit_1.5cm=0.8092
+[val_hit] vs plan-022 0.6528: -0.0152
+[val_hit] vs combo val_loss 0.6377: -0.0001
+[val_hit] total 216s → /workspace/daycon-muflight/.claude/worktrees/plan-024-combo/analysis/plan-024/results_combo_valhit_5fold.json
