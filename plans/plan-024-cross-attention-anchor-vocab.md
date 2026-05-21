@@ -56,10 +56,17 @@ band: null
 >
 > **합격 기준**: OOF hit_1cm ≥ 0.6628 (= plan-022 winner +0.01) **AND** OOF hit_1.5cm ≥ plan-022 winner (0.8104) **AND** LB ≥ plan-022 carry LB (미박제 시 plan-004 LB 0.6806 floor).
 >
-> **v1.1 expected lift envelope** (Tier S + Tier A 옵션 B + weighting + channel drop, independent 가정 + correlation discount):
-> - 비관: 0.6528 + 0.020 = **0.6728** (G3 +0.01 통과)
-> - 중간: 0.6528 + 0.030 = **0.6828** (LB 0.6806 침투)
-> - 낙관: 0.6528 + 0.050 = **0.7028** (LB 0.7 도달 가시권)
+> **v1.1 expected lift envelope** (Tier S + Tier A 옵션 B + weighting + channel drop):
+>
+> *산정식*: `expected_lift = Σ_lever lift_lever × correlation_discount`. correlation_discount = 0.6 (보수, 17 lever 가 부분 상관 가정). individual lever expected lift (mid-band):
+> - S1 jerk Frenet: +0.004 · S2 ω Frenet: +0.003 · S3 saccade: +0.003 · S4 Fourier PE: +0.003 · S5 sinusoidal PE: +0.003 (Tier S 합 ~+0.016 → × 0.6 = +0.010)
+> - A1 STA/LTA: +0.002 · A2 Multi-window: +0.008 · A3 BCC adj: +0.004 · A5 WAP: +0.002 · A6 wingbeat: +0.002 · A8 f0_conf: +0.003 · A9 saliency: +0.003 · A10 Pct-roll+Peak: +0.003 · A11 helicity: +0.001 · A12 autocorr: +0.002 (Tier A 합 ~+0.030 → × 0.6 = +0.018)
+> - Redundancy 제거 (F3, straightness, axis×forward): regularization 효과 ~+0.002
+> - per-channel learnable scale + channel dropout: regularization gain ~+0.005
+> - **mid 합산**: +0.010 + +0.018 + +0.002 + +0.005 ≈ **+0.035** → 0.6528 + 0.035 ≈ **0.688**
+> - 비관 (discount 0.4): 0.6528 + 0.020 = **0.6728** (G3 +0.01 통과)
+> - 중간 (discount 0.6): 0.6528 + 0.030~0.035 = **0.683~0.688** (LB 0.6806 침투)
+> - 낙관 (discount 0.8): 0.6528 + 0.050 = **0.7028** (LB 0.7 가시권)
 >
 > **out-of-scope**: anchor layout sweep / anchor radius 변경 / τ_cls(output) 변경 / F0 baseline 변경 / corrector reg head 재투입 / ensemble / **path_signature_L2 (A4)** = plan-025 후보 (signatory 의존성) / **Learnable anchor embedding (A7)** = plan-025 후보 (model parameter axis 다름) / ideas.md priority 5 추가 = plan-025 후보 / hyperparam sweep (single config 고정).
 
@@ -205,7 +212,7 @@ plan-022 결과 + 사용자 통찰 (2026-05-21 session "main"):
 
 plan-022 가 21-cell sweep 으로 *anchor layout* 변수 ablation 했다면, plan-024 는 **single config full FE max** — *architecture + input FE 묶음* 을 한 번에 측정. ablation (각 묶음 contribution 분해) = G3 통과 후 plan-025 영역.
 
-**한 변수 원칙**: plan-022 winner cell 기준에서 변경 = (1) selector architecture LGBM → cross-attention, (2) input dim 170D 1-vector → **v1.1: 162D cand + 95D seq 2-input 구조** (+ per-channel learnable scale + channel dropout). 단 anchor / τ_cls / hit radius / F0 baseline / 5-fold split = 모두 plan-022 carry.
+**Single evaluation run, multi-lever simultaneous addition** (v1.1 self-label re-cast): plan-022 winner cell 기준에서 변경 = (1) selector architecture LGBM → cross-attention GRU, (2) input dim 170D 1-vector → **v1.1: 162D cand + 95D seq 2-input 구조** (17 lever 동시 추가 — Tier S 5 + Tier A 옵션 B 10 + redundancy 제거 3 + regularizer 신규 2), (3) hidden 128 PB default → **384** + 5 hyperparam 변경 (dropout / lr / weight_decay / epoch 등). 단 anchor / τ_cls(output) / hit radius / F0 baseline / 5-fold split = 모두 plan-022 carry. **caveat #16 박제**: 17 lever 동시 → G3 fail 시 어느 lever 가 bottleneck 인지 본 plan 안에서 분해 불가, ablation = plan-025.
 
 **Out-of-scope (절대 안 함)**:
 - anchor layout 변경 (A6_bcc14 고정)
@@ -281,6 +288,42 @@ plan-022 가 21-cell sweep 으로 *anchor layout* 변수 ablation 했다면, pla
 - cand 62D → 162D (+ Fourier PE 12 + STA/LTA 3 + Multi-window 60 + WAP sample 5 + wingbeat 3 + f0_conf sample 2 + Pct-rolling+Peak 12 + v_autocorr 3 + BCC adjacency 2 − straightness 1 − axis×forward 1)
 - seq 89D → 95D (+ jerk 3 + ω 3 + saccade 2 + time PE 4 + saliency 1 + helicity 1 + WAP per-step 5 + f0_conf per-step 1 − F3 anchor-projection 14)
 - per-channel learnable scale (162 + 95 = 257 params) + channel dropout (cand ③ 128D 만, p=0.3; seq 의 EWMA+Multi-window 영역, p=0.2)
+
+### §4.1.1 build_seq / build_cand signature spec (v1.1, self-contained)
+
+```python
+# c3 seq_builder.py
+def build_seq(
+    X: np.ndarray,                # (N, 11, 3) float32, world coord
+    R_wfn: np.ndarray,            # (N, 3, 3) float32, per-sample Frenet basis (§4.0)
+    pred_F0_world: np.ndarray,    # (N, 3) float32, end_idx=10 의 80ms 미래 F0 예측
+    anchors: np.ndarray,          # (14, 3) float32, ANCHORS_A6 Frenet
+    tau_past: float,              # 0.003 (v1.1 default)
+    quantile_carry: dict,         # {'omega_p90': float, 'jerk_p90': float, ...} train fold carry
+    regimes: np.ndarray | None,   # 미사용 (seq 는 regime feature 없음, cand 만 사용)
+) -> np.ndarray:                  # (N, 7, 95) float32, t=4..10 channel ordering §4.3
+    ...
+
+# c4 cand_builder.py
+def build_cand(
+    X: np.ndarray,                # (N, 11, 3) float32
+    R_wfn: np.ndarray,            # (N, 3, 3) float32
+    pred_F0_world: np.ndarray,    # (N, 3) float32
+    anchors: np.ndarray,          # (14, 3) float32
+    regimes: np.ndarray,          # (N,) int64, regime 18-class assign (plan-004 carry)
+    macro_stat: np.ndarray,       # (N, 9) float32, plan-021 `_macro_stat_9d` carry
+                                  #   (v1.1: idx 1 straightness 제외 8 사용, build_cand 내부 slice)
+    ewma_alphas: tuple = (0.1, 0.3, 0.5),
+    multiwindow_trim_path: str,   # "analysis/plan-024/multiwindow_trim.json" path
+    quantile_carry: dict,         # train fold carry
+) -> np.ndarray:                  # (N, 14, 162) float32, anchor row × channel §4.4
+    ...
+```
+
+**호출 순서** (run_oof.py §6.2 안):
+1. STAGE 0 (c5.5 quantile_carry.py + c4 cand_builder.py 와 별도 build): `multiwindow_trim_build.py` 실행 → `multiwindow_trim.json` 박제 (per §4.4.1).
+2. STAGE 1 (G1 reproduce): macro_stat / EWMA / regime 미리 계산 → cache.
+3. STAGE 2 (G2 OOF): per fold k 의 train 위 `quantile_carry.build(...)` → train-only quantile dict 박제 → `build_seq` / `build_cand` 호출 (train + valid fold 동일 quantile_carry 사용, fold-leakage 차단).
 
 ### §4.2 anchor_vocab 묶음 식 (c2 `analysis/plan-024/anchor_vocab.py`)
 
@@ -363,7 +406,7 @@ per past step t (t ∈ {4, ..., 10}, length=7), **95D** channel:
 | **A9 anchor-saliency prior** ⭐ | derived (A4 Deformable DETR mimic) | 1 | `max_k <a_k/‖a_k‖, r_t>` | **+ v1.1** |
 | **A11 helicity** ⭐ | derived (A3) | 1 | `v_t · ω_t` (corkscrew indicator) | **+ v1.1** |
 | **A5 WAP per-step** ⭐ | derived (A2 Optiver WAP) | 5 | `[‖v‖²·κ, ‖j‖/(‖a‖+ε), ½‖v‖², ‖v_perp‖·τ, dist·‖a_perp‖]` | **+ v1.1** |
-| **A8 f0_conf per-step** ⭐ | derived (A1 PBP) | 1 | `polyfit_residual_norm / step_spread` | **+ v1.1** |
+| **A8 f0_conf per-step** ⭐ | derived (A1 PBP) | 1 | `polyfit_residual_norm_t / step_spread_t` — step t 의 *local polyfit* (window = 마지막 3 step, degree=1, 즉 linear extrap residual) divided by step_spread (= `‖v_{t-1} - v_{t-2}‖ / Δt`, 가속도 magnitude proxy). **per-step time-varying**, *cand ③ A8 sample-level 과 구분* (sample-level = end_idx=10 1 시점, per-step = t∈{4..10} 7 시점) | **+ v1.1** |
 | **S3 saccade binary** ⭐ | derived (A1+A3) | 2 | `[1{‖ω_t‖ > q90_train}, 1{turn_cos_t < cos(60°)}]` | **+ v1.1 (cross-confirmed)** |
 | **turn_cos** | plan-004 carry | 1 | `v_t · v_{t-1} / (‖v_t‖‖v_{t-1}‖)` | — |
 | **curvature** | plan-004 carry | 1 | `perp_norm / speed` | — |
@@ -399,9 +442,10 @@ per anchor k (k=0..13), per sample, **162D** channel:
 3. Greedy column drop: corr > 0.95 인 쌍 중 *variance 작은 column* 제거. drop 후 남은 column 수 ≤ 60 까지 반복. drop 못 해도 60 column 이상 남으면 추가로 variance 낮은 column 부터 drop.
 4. 최종 60-col index list 를 `analysis/plan-024/multiwindow_trim.json` 박제: `{"kept_indices": [int × 60], "drop_indices": [int × 84], "corr_threshold": 0.95}`.
 
-**fold-leakage check**: full train (N=10000) 위 계산 → *모든 fold 의 train+test 데이터 모두 포함* → 엄밀히는 *test-set 정보 leakage* 가능. 단 trim 결정은 *correlation structure* (각 column 의 sample variance) 만 활용하고 *label* (Y) 안 사용 → leakage scale 미미 (LANL Singer pattern carry). 보수적 mitigation 옵션 = train fold 4 (sample ~8000) 위 계산 + 5-fold 별 trim 동일 — single config 원칙상 *모든 fold 동일 trim* 권장.
-
-**decision-note**: trim 자체가 fold-invariant deterministic 함수라 single config 안에서 *재실행 시 동일 결과* 보장. ablation 없음.
+**fold-leakage 결정** (단일 path 박제, 결정 미루기 X):
+- **채택**: full train (N=10000) 위 계산. trim 결정은 *correlation structure* (각 column 의 sample variance) 만 활용하고 *label* (Y) 안 사용 → leakage scale 미미 (LANL Singer 1st pattern carry, Kaggle PLAsTiCC writeup 의 cross-fold deterministic transform 패턴 일치).
+- **mitigation 옵션** (train fold-별 분리 trim) = **거부** — single config 원칙상 *모든 fold 동일 trim* 강제, fold-별 분리 trim 은 (a) 5개 다른 trim_indices → 5개 model 학습 시 input dim 불일치 → ensemble 비교 불가능, (b) decision-note 박제는 *deterministic single trim* 만.
+- **carry**: trim 자체가 deterministic 함수라 single config 안에서 *재실행 시 동일 결과* 보장. ablation 없음.
 
 ### §4.5 torsion_calc (c5 `analysis/plan-024/torsion_calc.py`)
 
@@ -802,11 +846,17 @@ else:  # g2_fail
 - submission timestamp / file hash / DACON 응답 점수
 - 3-file frontmatter `lb_score` 동시 갱신 (top-level plan / results.md pair / analysis/results.md)
 
-### §8.3 G_final 합격
+### §8.3 G_final 합격 (v1.1, 3-branch 분기)
 
-LB 박제 ✓ AND 3-file sync ✓ AND §0.5 c1~c14 [DONE] ✓ AND follow-up 3건 박제 ✓.
+G_final 의 *최소 합격* = **§0.5 c1~c11 [DONE] AND 3-file frontmatter sync AND follow-up 3건 박제** (G2/G3 결과와 무관 기본). 추가 분기:
 
-LB < plan-022 carry (미박제 시 plan-004 LB 0.6806 floor) → `lb_below_floor` warn (severe 아님).
+| G2 / G3 결과 | c12/c13 | LB | G_final state |
+|:--|:--|:--|:--|
+| **G2 fail** (xattn_no_improvement) | **c12 [SKIPPED]** + **c13 [SKIPPED]** + decision-note "submission skip 사유: xattn_no_improvement (hit_1cm=<value> < 0.6528)" 박제 | LB 미회수 | **G_final ✓ pass** (band=`negative`, lb_score=null, results.md 의 `g2_no_improvement_skip` 박제, follow-up plan B/C 강화 axis 권고) |
+| **G2 pass + G3 partial** (xattn_partial_pass) | c12 [DONE] + c13 [DONE] (사용자 confirm 후) — 사용자 reject 시 c13 [SKIPPED] | LB 박제 또는 null | **G_final ✓ pass** (band=`partial`, lb_score=value or null, `xattn_partial_pass` warn 박제) |
+| **G2 + G3 모두 pass** | c12 [DONE] + c13 [DONE] (자율) | LB 박제 | **G_final ✓ pass** (band=`positive`, lb_score=value) |
+
+LB < plan-022 carry (미박제 시 plan-004 LB 0.6806 floor) → `lb_below_floor` warn (severe 아님, G_final 합격 영향 X).
 
 ---
 
@@ -858,7 +908,7 @@ LB < plan-022 carry (미박제 시 plan-004 LB 0.6806 floor) → `lb_below_floor
 3. **torsion τ numerical collapse risk**: muflight low-curvature 비행에서 `collinear_rate > 0.7` 가능 → τ feature 신호 ≈ 0 (mask 영향). G3 통과 후 plan-025 의 ablation 후보로 분리.
 4. **sign convention 통일의 backward compatibility**: plan-021 L2 의 `pred - actual` 그대로 import 시 plan-024 의 anchor-vocab encoding 이 silent bug. **반드시 negate**. tests #3 (sign sanity) 로 검증.
 5. **regime 18-class one-hot 의 high dim**: cand_feat ③ ctx 18D = anchor 14 × 18 broadcast = 252 element. GRU hidden=**384** 의 capacity 안 OK 단 sparsity high. **v1.1 default = one-hot 18D 박제** (§4.4 ③ ctx 의 "regime 18" 표기 그대로). scalar `regime_idx/18` 대체는 decision-note 자율 변경 가능 단 default 는 one-hot.
-6. **GRU hidden 256 의 overfit risk**: N=10k small dataset. PB framework 가 N=10k 환경에서 hidden=128 로 LB 0.6806 도달 → hidden=256 이 capacity 과잉 가능. mitigation = dropout 0.08 PB carry + AdamW weight_decay 0.01 + early stop (validation loss 기준). validation = 5-fold 안 train split 의 마지막 20%.
+6. **GRU hidden 384 의 overfit risk (v1.1)**: N=10k small dataset. PB framework 가 N=10k 환경에서 hidden=128 로 LB 0.6806 도달 → v1.1 hidden=384 (3배) 가 capacity 과잉 가능. mitigation = GRU dropout 0.10 (v1.1) + Head MLP dropout 0.15 (v1.1) + per-channel learnable scale clamp(0.1, 10) + channel dropout (cand ③ 128D p=0.3 + seq redundant slice p=0.2) + AdamW weight_decay 0.02 (v1.1) + early stop (validation loss 기준, train fold 의 마지막 20% holdout deterministic ordering by sample_id, patience=3).
 7. **L2 timing alignment ambiguity**: step i=0..6 의 *target time = t = 4..10* (= -160..0ms relative to end). plan-024 의 K (time offset) 묶음에 `target time / 10` 으로 표현 → positional encoding 일관.
 8. **LB-OOF gap 의 plan-004 비교 caveat**: plan-004 의 OOF 측정 framework (selector_soft_hit / boundary_soft_hit) 와 plan-024 의 OOF (corrector-free `Σ q · a` 위 hit) 가 *동일 metric 정의 아님*. plan-004 의 +0.018 gap 을 plan-024 에 직접 적용 시 metric drift caveat.
 9. **5-fold split 의 same-seed deterministic carry**: `stable_fold_id` MD5 mod 5 → plan-020/021/022 carry exact. plan-024 의 seed 20260521 은 *model init seed* 만 (data split 영향 X).
