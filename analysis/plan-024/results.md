@@ -182,6 +182,64 @@ per-fold std ≈ 0.0034 (낮은 variance OK). 단 *모든 fold* 가 plan-022 car
 ### 5.7 sign convention 변경 효과 미검증
 - L2 의 sign 통일 (pred-actual → actual-pred) 이 plan-022 LGBM 의 학습 패턴과 mismatch 가능. 단 plan-022 의 selector_only_model.build_soft_label_with_tau 와 정합이라 가설 약함.
 
+### 5.11 v8 OPT-A2 (physics_bias + regime_bias logits 추가, 학습 중 + inference) — **marginal lift**
+
+사용자 통찰 follow:
+> "plan-004 의 candidate_physics_bias (K-vec) + candidate_regime_bias (18×K matrix) 가 학습 후 더하는 거 아냐? OPT-A2 (학습 중 logits 에 둘 다 더함) 적용해서 v8 돌려봐."
+
+**식** (Bayesian posterior, 학습 중 + inference 동일):
+```
+final_logits[i, k] = model_score[i, k] + s1 × physics_bias[k] + s2 × regime_table[regime[i], k]
+q_pred = softmax(final_logits)
+```
+
+**config**: plan-024 v1 base (hidden=384, drop 0.3/0.2, lr 7e-4, wd 0.02) + epoch 50 + constant lr + best epoch tracking + prior_strength=1.0, regime_prior_strength=1.0.
+
+**구현 식**:
+- bias 계산 (train fold 만, fold-leakage 차단):
+  - `anchors_world = einsum("nij,kj->nki", R_wfn, anchors) + pred_F0_world[:, None, :]`
+  - `physics_bias[k] = log(global_hit_rate[k] + 1e-4) − 18 × global_mean_err[k]`, zero-mean
+  - `regime_table[r, k] = α × local_bias + (1-α) × global_bias`, α = N_r/(N_r+18) EB shrunk
+- 학습 + inference 시 `softmax(model_score + physics_bias + regime_table[regime])`
+
+**v8 결과** (5-fold OOF, 새 worktree `worktree-plan-024-v8-opta2`):
+
+| metric | v1 spec | **v8 OPT-A2** | Δ vs v1 | vs plan-022 carry |
+|:--|--:|--:|--:|--:|
+| **hit_1cm** | 0.6370 | **0.6385** | **+0.0015** (marginal) | **−0.0143** |
+| hit_1.5cm | 0.8092 | 0.8095 | +0.0003 | -0.0009 |
+| Δ_F0 (1cm) | +0.0050 | +0.0065 | +0.0015 | — |
+| **top1_acc** | 0.1227 | **0.1397** | **+0.0170** | -0.031 (vs 0.1707) |
+| **soft_CE** | 2.566 | **2.558** | **-0.008** | +0.023 (vs 2.535) |
+| **gap_ranking** | 0.1934 | **0.1865** | **-0.0069** | (LGBM 미측정) |
+| max_class_ratio | 0.1047 | 0.0982 | -0.007 | (collapse X) |
+| 학습 시간 | 167s | 698s | 4.2× (epoch 50 + 5-fold) | — |
+| best_epoch (per-fold avg) | ~18 (early stop) | ~16 (constant lr) | ≈ — | — |
+
+**per-fold breakdown** (v8):
+
+| fold | hit_1cm | best_epoch | best_val_loss | time |
+|:--|--:|--:|--:|--:|
+| 0 | 0.6441 | 14 | 2.5650 | 76s |
+| 1 | 0.6414 | 18 | 2.5551 | 74s |
+| 2 | 0.6361 | 15 | 2.5502 | 175s |
+| 3 | 0.6386 | 16 | 2.5571 | 242s |
+| 4 | 0.6320 | 19 | 2.5500 | 130s |
+| **OOF** | **0.6385** | — | — | 699s |
+
+**finding**:
+- (a) **bias add 의 lift = +0.0015** — 수학적 의미 있음 단 magnitude 작음.
+- (b) **physics_bias range [-0.048, 0.030]** = 14 anchor 의 hit rate 차이가 *원래 작음* → bias 의 prior shift 자체 magnitude 작음. plan-004 의 27 physics candidate (다양한 dynamics 후보) 에선 bias range 더 클 가능성, plan-024 의 14 BCC static anchor 환경에선 *anchor 별 hit rate 차이 자체 작음*.
+- (c) **best_epoch ~16** → epoch 22 spec default 가 이미 catch (long-diag finding 확인).
+- (d) top1_acc +0.0170 + soft_CE -0.008 + gap_ranking -0.0069 = secondary metric 들이 **모두 mild improvement** — bias 가 *prior shift* 로 ranking 능력 약간 ↑.
+- (e) **plan-022 carry 0.6528 여전히 -0.0143 미달** — bias add 가 paradigm ceiling 변경 못 함.
+
+**결론**:
+- v8 OPT-A2 = plan-024 paradigm 안 cheap try, *수학적으로 정확한 lever* 단 lift marginal.
+- plan-004 vs plan-024 의 fail 분해 추가 evidence: bias add 가 마진만 회복 → **arch+input mismatch 가 진짜 cause** (bias prior shift 로 fix 안 됨).
+- 5-fold OOF best = v8 의 **0.6385** (long-diag 의 1-fold best 0.6505 단 5-fold concat 아님).
+- plan-024 framework 안 *cross-attn paradigm 의 5-fold OOF ceiling ≈ 0.64* 확정.
+
 ## §6 measurable architecture-extractable headroom
 
 | metric | plan-024 측정 | plan-008 carry | meaning |

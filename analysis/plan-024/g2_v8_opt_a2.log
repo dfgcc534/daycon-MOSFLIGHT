@@ -1,0 +1,18 @@
+inline selector loaded: 27 candidates
+[v8 OPT-A2] PyTorch=2.8.0+cu128 threads=48 device=cpu
+[v8] EPOCHS=50 prior_strength=1.0 regime_prior_strength=1.0
+  fold 0: physics_bias [-0.048, 0.030] regime_table mean=0.000
+    fold 0: hit@1cm=0.6441 best_epoch=14 best_val_loss=2.5650 time=76s
+  fold 1: physics_bias [-0.043, 0.021] regime_table mean=-0.000
+    fold 1: hit@1cm=0.6414 best_epoch=18 best_val_loss=2.5551 time=74s
+  fold 2: physics_bias [-0.043, 0.023] regime_table mean=-0.000
+    fold 2: hit@1cm=0.6361 best_epoch=15 best_val_loss=2.5502 time=175s
+  fold 3: physics_bias [-0.043, 0.020] regime_table mean=-0.000
+    fold 3: hit@1cm=0.6386 best_epoch=16 best_val_loss=2.5571 time=242s
+  fold 4: physics_bias [-0.042, 0.020] regime_table mean=-0.000
+    fold 4: hit@1cm=0.6320 best_epoch=19 best_val_loss=2.5500 time=130s
+
+[v8] hit_1cm=0.6385 hit_1.5cm=0.8095 Δ_1cm=+0.0065 gap_ranking=0.1865
+[v8] vs plan-022 winner 0.6528: Δ = -0.0143
+[v8] vs plan-024 v1 0.6370: Δ = +0.0015
+[v8] total 698.7s → /workspace/daycon-muflight/.claude/worktrees/plan-024-v8-opta2/analysis/plan-024/results_v8_opt_a2.json

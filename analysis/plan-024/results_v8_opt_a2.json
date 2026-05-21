@@ -1,0 +1,63 @@
+{
+  "config": {
+    "epochs": 50,
+    "batch": 256,
+    "lr": 0.0007,
+    "weight_decay": 0.02,
+    "prior_strength": 1.0,
+    "regime_prior_strength": 1.0,
+    "scheduler": "constant_no_decay",
+    "best_epoch_tracking": true
+  },
+  "N": 10000,
+  "hit_1cm": 0.6385,
+  "hit_1.5cm": 0.8095,
+  "delta_1cm": 0.00649999999999995,
+  "delta_1.5cm": 0.006199999999999983,
+  "f0_hit_1cm": 0.632,
+  "f0_hit_1.5cm": 0.8033,
+  "max_class_ratio": 0.09821879118680954,
+  "oracle_1cm": 0.7928,
+  "argmax_hit": 0.6063,
+  "gap_ranking": 0.1865,
+  "top1_acc": 0.1397,
+  "soft_CE": 2.5579756014587027,
+  "fold_meta": [
+    {
+      "fold": 0,
+      "hit_1cm": 0.6440594059405941,
+      "best_epoch": 14,
+      "best_val_loss": 2.565007209777832,
+      "time_s": 76.4512209892273
+    },
+    {
+      "fold": 1,
+      "hit_1cm": 0.6414264777723497,
+      "best_epoch": 18,
+      "best_val_loss": 2.555119514465332,
+      "time_s": 74.32271671295166
+    },
+    {
+      "fold": 2,
+      "hit_1cm": 0.6361270171785528,
+      "best_epoch": 15,
+      "best_val_loss": 2.550208330154419,
+      "time_s": 175.19697904586792
+    },
+    {
+      "fold": 3,
+      "hit_1cm": 0.6386138613861386,
+      "best_epoch": 16,
+      "best_val_loss": 2.557135581970215,
+      "time_s": 242.0975947380066
+    },
+    {
+      "fold": 4,
+      "hit_1cm": 0.6320281124497992,
+      "best_epoch": 19,
+      "best_val_loss": 2.550009250640869,
+      "time_s": 129.7277009487152
+    }
+  ],
+  "elapsed_sec": 698.6720230579376
+}
