@@ -104,7 +104,7 @@ band: null
 
 ### G-gates
 
-- G0: STAGE 0 인프라 [TODO]
+- G0: STAGE 0 인프라 [DONE — a3646dd] 12/12 pytest pass (3.33s)
 - G1: STAGE 1 F0 + plan-022 winner reproduce [TODO]
 - G2.C1: C1 default hparam 5-fold OOF [TODO]
 - G2.C2: C2 adjusted hparam 5-fold OOF [TODO]
@@ -119,8 +119,8 @@ band: null
 | c2 | chore | plan-024 **8 file** cherry-pick (= code 6 module + data 1 + __init__.py) from `worktree-plan-024-combo` (commit 915dd26 이후 최신) → main `analysis/plan-024/` : `__init__.py` + `anchor_vocab.py` + `cand_builder.py` + `seq_builder.py` + `torsion_calc.py` + `quantile_carry.py` + `multiwindow_trim_build.py` + `multiwindow_trim.json`. **code only**, results / log / `model.py` (cross-attention) / `run_oof*.py` / `diagnose_*.py` / `feature_weighted_dropout.py` 는 *cherry-pick 제외*. | [DONE — 91b02a0] |
 | c3 | code | `analysis/plan-025/build_feat_1080.py` (block ① + ② + ③ + ④ concat + 8-stat 압축 + 1080D per row 출력 + smoke test) | [DONE — 2eb8485] |
 | c4 | code | `analysis/plan-025/run_oof.py` (5-fold OOF runner + C1/C2 cell config + plan-022 `run_oof_cell` carry import + CLI: `--cell {C1, C2}`) | [DONE — 62d138e] |
-| c5 | test | `tests/test_plan025_smoke.py` (≥ 8 pytest: import / block dim / 8-stat 산식 / row-expand / LgbmSelectorOnly K=14 + 1080D fit/predict smoke / F0 carry / soft label sum=1 / plan-024 module import) | [TODO] |
-| G0 | gate | smoke + tests green — ≥ 8/8 pytest pass (예상 < 300s) | [TODO] |
+| c5 | test | `tests/test_plan025_smoke.py` (≥ 8 pytest: import / block dim / 8-stat 산식 / row-expand / LgbmSelectorOnly K=14 + 1080D fit/predict smoke / F0 carry / soft label sum=1 / plan-024 module import) | [DONE — a3646dd] |
+| G0 | gate | smoke + tests green — 12/12 pytest pass (3.33s) | [DONE — a3646dd] |
 | c6 | exp G1 | F0 baseline reproduce → 0.6320 / 0.8033 + plan-022 winner A6_bcc14_tau001 reproduce → 0.6528 / 0.8104. `analysis/plan-025/baseline_carry.json` 박제 (dataset_hash + plan-022 carry hash) | [TODO] |
 | G1 | gate | F0 hit ∈ tight band ✓ AND plan-022 winner hit ∈ tight band ✓ AND dataset_hash 일치 ✓ | [TODO] |
 | c7 | exp G2.C1 | C1 default hparam (n_estimators=500, lr=0.05, num_leaves=63) — 5-fold OOF, K=14 BCC + τ=0.001 fix, 1080D input. `results_C1.json` 박제. 예상 runtime 1.5~3h CPU | [TODO] |
