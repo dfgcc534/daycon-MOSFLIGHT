@@ -1,0 +1,20 @@
+{
+  "n_samples": 10000,
+  "fold_dist": [
+    2020,
+    2047,
+    1921,
+    2020,
+    1992
+  ],
+  "f0_oof_hit_1cm": 0.632,
+  "f0_oof_hit_1.5cm": 0.8033,
+  "f0_carry_pass": true,
+  "plan022_winner_oof_hit_1cm": 0.6528,
+  "plan022_winner_oof_hit_1.5cm": 0.8102,
+  "plan022_winner_delta_1cm": 0.02080000000000004,
+  "plan022_winner_delta_1.5cm": 0.006900000000000017,
+  "plan022_carry_pass": true,
+  "g1_pass": true,
+  "elapsed_sec": 240.93171763420105
+}
