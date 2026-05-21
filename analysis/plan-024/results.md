@@ -87,8 +87,23 @@ per-fold std ≈ 0.0034 (낮은 variance OK). 단 *모든 fold* 가 plan-022 car
 - → channel dropout off 효과 없음. over-regularization 가설 기각.
 - 단 top1_acc: 0.1227 → 0.1273 (+0.0046 mild) — channel drop off 가 ranking 능력 약간 ↑ 단 hit rate 변화 없음.
 
-### 5.1+5.4 종합 — **architecture + FE max lever 자체의 inherent fail**
-v1/v2/v3 모두 ~0.6370 ± 0.0003 = **systematic underperformance vs plan-022 LGBM 0.6528**. *재현 가능* 한 −0.0158 gap. plan-009 의 listwise loss fail 패턴 (architecture lever 자체가 LGBM 보다 약함) 의 *재발견*.
+### 5.1+5.4+5.6 종합 — **architecture + FE max lever 자체의 inherent fail (4 variant 확정)**
+
+| variant | hit_1cm | top1_acc | gap_ranking | time | 핵심 변경 |
+|:--|--:|--:|--:|--:|:--|
+| v1 spec default | 0.6370 | 0.1227 | 0.1934 | 167s | hidden=384, drop 0.3/0.2, lr 7e-4, wd 0.02 |
+| v2 | 0.6370 | 0.1227 | 0.1934 | 171s | + patience 999 (under-converged 가설 기각) |
+| v3 | 0.6373 | 0.1273 | 0.1950 | 170s | + channel drop 0/0 (over-reg 가설 기각) |
+| **v4 PB-default** | **0.6375** | **0.1355** | **0.1919** | **78s** | hidden=128, lr 1e-3, wd 0.01, drop 0 (PB framework default carry) |
+
+모든 variant 가 0.6370~0.6375 = **systematic ~0.6373 ± 0.0003** OOF hit_1cm. plan-022 LGBM 0.6528 보다 **−0.0153 ~ −0.0158** below. *재현 가능* 한 systematic underperformance.
+
+**결론**:
+- (a) under-converged 가설 (5.1) **기각** — patience 변경 효과 0.
+- (b) over-regularization 가설 (5.4) **기각** — channel drop off 효과 0.
+- (c) hyperparam tuning 가설 (5.6) **부분 기각** — PB default carry 도 fail. 단 top1_acc 0.1227 → 0.1355 mild lift, hit rate 변화 없음.
+- (d) **architecture + FE max lever 자체 inherent fail** — plan-024 의 cross-attention + 16 lever FE input 가 plan-022 LGBM sample-weight expansion 보다 *약함* 확정. plan-009 의 listwise loss fail 패턴 의 *재발견*.
+- (e) plan-025 영역으로 분리 권장 axis: (i) Tier S/A 일부 lever 제거 ablation, (ii) path_signature_L2 / Learnable embedding 추가, (iii) anchor pool 변경 (plan-026), (iv) ensemble (plan-027).
 
 ### 5.2 dim 폭증 (caveat #11)
 - cand 14×150 = 2100 element + seq 7×95 = 665 element = sample 당 ~2800 element. N=10k → ratio ~3.6 sample/dim.
