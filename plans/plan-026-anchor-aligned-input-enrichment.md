@@ -35,6 +35,9 @@ code_reuse:
   - module: analysis/plan-022/selector_only_model.py
     symbols: [build_soft_label_with_tau]
     reason: τ=0.001 soft label q_target 계산 (= plan-022/024 carry).
+  - module: analysis/plan-022/run_oof.py
+    symbols: [main]
+    reason: G1 의 plan-022 winner LGBM 5-fold OOF reproduce entry (variant A6_bcc14_tau001). 본 plan c8 에서 `python -m analysis.plan-022.run_oof --variant A6_bcc14_tau001 --tau 0.001 --output analysis/plan-026/baseline_carry/plan022_carry.json` 호출. cross-attn runner 와 별도 path.
   - module: analysis/plan-020/baseline_f0.py
     symbols: [f0_baseline, R_HIT, R_HIT_LOOSE, D1, PAR, PERP]
     reason: F0 baseline + paired Δ anchor.
@@ -63,7 +66,7 @@ band: null
 
 ## §0. 한 줄 목적
 
-> **plan-024 사후분석 #2 root-cause (static anchor × cross-attn mismatch) 의 *light-weight workaround* — anchor 14 BCC 자체는 static 유지하되, "이전 seq 가 공식에서 어떻게 벗어났는가" 를 (i) anchor-별 alignment profile (ii) z-axis bundle (iii) Frenet 3축 anchor-invariant pool (iv) world xy anchor-invariant pool 4 group 으로 cand_feat 에 명시 박아넣어, query 의 anchor-conditional 비중을 12% → 30% 로 확대한다.** 4 variant (V0 control / V_γδ anchor-invariant pool only / V_αβ anchor-conditional only / V_all combined 193D) head-to-head. **G2 PASS = max(V_γδ, V_αβ, V_all) ≥ 0.6528 (plan-022 winner 회복)** — 회복 시 input enrichment 만으로 root-cause #2 우회 가능 확정, 미회복 시 K-side dynamic anchor 가 본질임 확정 후 plan-027 dynamic anchor 분기.
+> **plan-024 사후분석 #2 root-cause (static anchor × cross-attn mismatch) 의 *light-weight workaround* — anchor 14 BCC 자체는 static 유지하되, "이전 seq 가 공식에서 어떻게 벗어났는가" 를 (i) anchor-별 alignment profile (ii) z-axis bundle (iii) Frenet 3축 anchor-invariant pool (iv) world xy anchor-invariant pool 4 group 으로 cand_feat 에 명시 박아넣어, query 의 anchor-conditional 비중 (= cand_feat 의 *anchor-aware 채널 비중*, 광의 정의 §7.1 참조 — anchor-별 차이 채널 + anchor-invariant broadcast pool 모두 분자 포함) 을 14.3% → 30% 로 확대한다.** 4 variant (V0 control / V_γδ anchor-invariant pool only / V_αβ anchor-conditional only / V_all combined 193D) head-to-head. **G2 PASS = max(V_γδ, V_αβ, V_all) ≥ 0.6528 (plan-022 winner 회복)** — 회복 시 input enrichment 만으로 root-cause #2 우회 가능 확정, 미회복 시 K-side dynamic anchor 가 본질임 확정 후 plan-027 dynamic anchor 분기.
 
 ---
 
@@ -77,7 +80,7 @@ band: null
 - **G2.V_γδ**: cand 154D + Group γ (12D) + Group δ (8D) = **174D anchor-invariant pool**. hit_1cm finite + max_class_ratio < 0.95 + soft_CE finite. 위반 시 `vgd_numerical` severe.
 - **G2.V_αβ**: cand 154D + Group α (15D) + Group β (8D) = **177D anchor-conditional align + z bundle**. 동일 무결성 gate. 위반 시 `vab_numerical` severe.
 - **G2.V_all**: cand 154D + α 15D + β 8D + γ 12D + δ 8D = **193D combined**. 동일 무결성 gate. 위반 시 `vall_numerical` severe.
-- **G3 (paradigm-level)**: max(V_γδ, V_αβ, V_all) hit_1cm ≥ **0.6528** (plan-022 winner) → PASS. 0.6528 ≤ best < 0.6628 = band positive (input enrichment 단독으로 plan-022 회복, root-cause #2 light-weight fix 성공). best ≥ 0.6628 (plan-024 G3) = band strong_positive (cross-attn arch 가 풍부한 query 위에서 plan-022 초과). best < 0.6528 = band negative (`enrichment_no_recovery` warn 박제 → K-side dynamic anchor 가 진짜 본질 확정, 다음 plan 분기).
+- **G3 (paradigm-level)**: max(V_γδ, V_αβ, V_all) hit_1cm ≥ **0.6528** (plan-022 winner) → PASS. 0.6528 ≤ best < 0.6628 = band positive (input enrichment 단독으로 plan-022 회복, root-cause #2 light-weight fix 성공). best ≥ **0.6628** = band strong_positive (= plan-022 winner 0.6528 + 0.0100 의 plan-024 사후분석 turn 박제 상한 — *cross-attn arch 가 풍부한 query 위에서 plan-022 초과* 의 명시적 PASS 기준). best < 0.6528 = band negative (`enrichment_no_recovery` warn 박제 → K-side dynamic anchor 가 진짜 본질 확정, 다음 plan 분기).
 - **G_final**: results.md (12 항목) + best variant 박제 (V# + hit_1cm + gap_ranking + top1_acc + anchor-별 차이 비중) + plan-024 v1 (0.6370) / plan-022 (0.6528) head-to-head 표 + 4 group (α/β/γ/δ) lever decomposition 결론 + follow-up plan 후보 ≥ 2건 박제 + 3-file frontmatter sync.
 
 ### G-gates
@@ -107,7 +110,7 @@ band: null
 | c8 | exp G1 | F0 + plan-022 carry + plan-024 carry reproduce → `analysis/plan-026/baseline_carry.json` 박제 | [TODO] |
 | G1 | gate | F0 + plan-022 + plan-024 carry 모두 tolerance 통과 | [TODO] |
 | c9 | exp G2.V0 | plan-024 v1.1-rev2 reproduce — cand 154D 그대로. control variant. `results_V0.json` 박제. | [TODO] |
-| G2.V0 | gate | plan-024 0.6370 reproduce ✓ (drift < 0.0015) | [TODO] |
+| G2.V0 | gate | plan-024 0.6370 reproduce ✓ (hit_1cm ∈ [0.6360, 0.6385] = 비대칭 band, §0.5 G2.V0 / §3.2 와 동일) | [TODO] |
 | c10 | exp G2.V_γδ | cand 174D = 154D + γ+δ. anchor-invariant pool 단독. `results_Vgd.json` 박제. | [TODO] |
 | G2.V_γδ | gate | metric finite ✓ + max_class_ratio < 0.95 ✓ | [TODO] |
 | c11 | exp G2.V_αβ | cand 177D = 154D + α+β. anchor-conditional align + z bundle 단독. `results_Vab.json` 박제. | [TODO] |
@@ -121,10 +124,12 @@ band: null
 
 ### Plan-specific severe (WORKFLOW.md §12.3 default 위 추가분)
 
-- **`plan024_v0_drift`**: G2.V0 의 plan-024 v1.1-rev2 reproduce 가 hit_1cm 0.6370 ± 0.0015 밖. control 자체 실패 시 V_γδ/V_αβ/V_all 결과 해석 무의미 → halt + telegram alert.
+- **`plan024_v0_drift`**: G2.V0 의 plan-024 v1.1-rev2 reproduce 가 hit_1cm ∉ [0.6360, 0.6385] (= §0.5 G2.V0 / §3.2 와 정확 동일 band, 비대칭 — center 0.6370, lower drift 0.0010 / upper drift 0.0015 의 plan-024 v1.1-rev2 측정 noise 박제). control 자체 실패 시 V_γδ/V_αβ/V_all 결과 해석 무의미 → halt + telegram alert.
 - **`vgd_numerical`** / **`vab_numerical`** / **`vall_numerical`**: 각 variant 의 forward 또는 backward NaN/Inf, 또는 max_class_ratio ≥ 0.95 mode collapse. halt + 원인 분석 후 hyperparam fix.
 - **`enrichment_no_recovery`** (warn only, halt 아님): G3 의 max(V_γδ, V_αβ, V_all) hit_1cm < 0.6528. input enrichment 단독으로는 root-cause #2 부족 확정 → band negative + dynamic anchor 분기. results.md §5 에 분기 결론 박제 후 G_final 진입.
-- **`redundancy_warning`** (warn only): V_all 의 lift 가 V_αβ + V_γδ 의 합산 보다 *유의미하게 작음* (additivity break) — group 간 redundancy 박제, results.md §7 에 quantify.
+- **`redundancy_warning`** (warn only): 두 trigger 분리.
+  - **(a) additivity break** — additivity ratio `A = (Δ_αβ + Δ_γδ) / Δ_all > 1.2` (§7.3 Δ 정의). group 간 redundancy 박제, results.md §7 에 quantify.
+  - **(b) γδ no-lift** — `V_γδ - V_0 < 0.005` (caveat #1 박제, ctx broadcast 와 정보 중복). Group γ/δ 단독 lever 의 marginal contribution 실패 박제. results.md §7 에 함께 정량.
 
 ### Plan-specific paths
 
@@ -138,7 +143,7 @@ band: null
 
 - `decision-note: spec-default — Group α 의 5 var = (proj_k, gap_k, t̂Δ_k, n̂Δ_k, b̂Δ_k). 3 var (proj/gap/t̂) 대안 미선택, n̂/b̂ axis 추가로 Frenet 3축 모두 cover.`
 - `decision-note: spec-default — Group β 의 z reference frame = Frenet b̂ + world z 둘 다 (4D + 4D). 한 frame 선택 X — 박쥐 task 의 gravity reference (world) 와 motion-aligned (Frenet) 가 다른 정보.`
-- `decision-note: spec-default — Group α/β/γ/δ 의 sequence pool stat = (mean, std, last, slope). 4 stat 최소 — slope 가 linear trend, std 가 wingbeat-like 진동, last 가 most-recent, mean 이 baseline.`
+- `decision-note: spec-default — Group β/γ/δ 의 sequence pool stat = (mean, std, last, slope), 4 stat — slope 가 linear trend, std 가 wingbeat-like 진동, last 가 most-recent, mean 이 baseline. Group α 만 (mean, std, slope), 3 stat — last 가 묶음 ① par/perp/dist 와 중복하므로 제외.`
 
 ---
 
@@ -265,7 +270,7 @@ secondary:
 - max_class_ratio
 - soft_CE (= cross entropy on q_target, log(14) = 2.639 uniform reference)
 - dist_match_KL
-- **per-group grad-norm** (= V_all 의 backward 시 cand_proj 의 columns 별 grad L2. group α/β/γ/δ/152D existing 별 평균. *redundancy 측정의 핵심 metric* — group 별 contribution 의 정량 분해)
+- **per-group grad-norm** (= V_all 의 backward 시 cand_proj 의 columns 별 grad L2. group α/β/γ/δ/154D existing 별 평균. 측정 시점 = *best-val-epoch 의 마지막 train batch* (early stop 후 reload 한 weights 의 fold-internal val set 첫 batch backward grad). *redundancy 측정의 핵심 metric* — group 별 contribution 의 정량 분해)
 - **per-group ablation lift** (= V_all − V_αβ ≈ γδ contribution / V_all − V_γδ ≈ αβ contribution / V_αβ + V_γδ − V_all = redundancy)
 
 ### §3.4 redundancy 측정 (lever decomposition)
@@ -285,10 +290,17 @@ per-fold std ≥ 0.005 시 `high_variance` warn 박제.
 | module | symbol | 책임 |
 |:--|:--|:--|
 | `group_alpha.py` | `build_group_alpha(X, R_wfn, anchors, f0_baseline_fn) → (N, K=14, 15)` | anchor-별 7-step Frenet 3축 align profile. 5 var × 3 stat. spec @ §5.2 |
-| `group_beta.py` | `build_group_beta(X, R_wfn, pred_F0_world, anchors) → (N, K=14, 8)` | z-axis (Frenet b̂ + world z) bundle. spec @ §5.3 |
+| `group_beta.py` | `build_group_beta(X, R_wfn, pred_F0_world, anchors, f0_baseline_fn) → (N, K=14, 8)` | z-axis (Frenet b̂ + world z) bundle. f0_baseline_fn = §5.3 의 per-step r_t 산출 (Group α 와 동일 contract). spec @ §5.3 |
 | `group_gamma_delta.py` | `build_group_gd(X, R_wfn, f0_baseline_fn) → (N, 20)` | anchor-invariant Frenet 3축 pool 12 + world xy pool 8. broadcast to K. spec @ §5.4 |
-| `cand_builder_v2.py` | `build_v2(..., with_alpha=False, with_beta=False, with_gamma_delta=False) → (N, K, D_var)` | plan-024 cand_builder.build 의 wrapper. 4 variant CLI flag. spec @ §5.1 |
+| `cand_builder_v2.py` | `build_v2(..., with_alpha=False, with_beta=False, with_gamma_delta=False) → (N, K, D_var)` | plan-024 cand_builder.build 의 wrapper. 4 variant CLI flag. spec @ §5.1, layout @ §5.0 |
 | `enrichment_runner.py` | `run_variant(V0/V_γδ/V_αβ/V_all, fold)` | 5-fold OOF runner. spec @ §6 |
+
+**arg contract**:
+- `X: np.ndarray, shape (N, T_full, 3), dtype float64` — world coord trajectory (plan-021/024 carry).
+- `R_wfn: np.ndarray, shape (N, 3, 3), dtype float64` — per-sample Frenet basis matrix at the *anchor step* (= `build_frenet_basis_3d(X[:, :T_anchor], ...)[0]` 의 마지막 step, plan-021 `_build_L2_L4` 의 R_wfn carry). Frenet axes 순서 = (t̂, n̂, b̂).
+- `anchors: np.ndarray, shape (K=14, 3), dtype float64` — Frenet 좌표 BCC anchor (plan-022 `ANCHORS_A6`, 본 plan 변경 X).
+- `f0_baseline_fn: Callable[[np.ndarray, int], np.ndarray]` — input `(sub_x: shape (N, w, 3) world coord window, end_idx: int = window 내 외삽 종료 step index, 0-base)`, output `(pred: shape (N, 3) world coord)`. plan-020 `f0_baseline` 의 thin wrapper. **§5.2 호출 예**: `pred_t = f0_baseline_fn(X[:, t-4:t-1, :], end_idx=2)` → 3-step window 의 마지막 step 직후 1-step 외삽.
+- `pred_F0_world: np.ndarray, shape (N, 3), dtype float64` — anchor step 직전 7-step 윈도우의 F0 마지막 step 외삽 world coord (= `f0_baseline_fn(X[:, T_anchor-4:T_anchor-1, :], end_idx=2)`). Group β 의 anchor-별 F0_arrival_z_world 산출에 사용.
 
 ### §4.2 pytest (c7)
 
@@ -316,6 +328,26 @@ per-fold std ≥ 0.005 시 `high_variance` warn 박제.
 
 ## §5. Variant 사양 (c5 + c9~c12)
 
+### §5.0 cand_v2 column concat 순서 (공통 규약)
+
+cand_builder_v2.build_v2(...) 의 출력 (N, K=14, D_var) 은 다음 *고정 순서* 로 last axis 따라 concat:
+
+| slice index | block | dim | 조건 |
+|:--|:--|--:|:--|
+| `[:, :, 0:154]` | plan-024 base (① par/perp/dist 3 + ② anchor spec 9 + ③ ctx 128 + ④ interactions 10 + …, plan-024.cand_builder.build 출력 정확 carry) | 154 | 항상 |
+| `[:, :, 154:169]` | Group α (anchor-별 7-step Frenet 3축 align profile, 5 var × 3 stat) | 15 | with_alpha=T 시 |
+| `[:, :, X:X+8]` | Group β (z-axis bundle. 4 invariant broadcast + 4 anchor-별) | 8 | with_beta=T 시 (X = 154 if not with_alpha else 169) |
+| `[:, :, Y:Y+12]` | Group γ (Frenet 3축 pool, broadcast) | 12 | with_gamma_delta=T 시 (Y = 직전 block 끝) |
+| `[:, :, Z:Z+8]` | Group δ (world xy pool, broadcast) | 8 | with_gamma_delta=T 시 (Z = Y+12) |
+
+**variant 별 layout**:
+- V0 (F,F,F): 154 = [0:154]
+- V_γδ (F,F,T): 174 = [0:154] + γ [154:166] + δ [166:174]
+- V_αβ (T,T,F): 177 = [0:154] + α [154:169] + β [169:177]
+- V_all (T,T,T): 193 = [0:154] + α [154:169] + β [169:177] + γ [177:189] + δ [189:197]
+
+per-group grad-norm (§3.3 / §3.4) 의 slice index 는 위 layout 직접 사용.
+
 ### §5.1 V0 — plan-024 v1.1-rev2 reproduce (control)
 
 **목적**: drift 측정 + 모든 후속 variant 의 baseline.
@@ -335,22 +367,36 @@ per-fold std ≥ 0.005 시 `high_variance` warn 박제.
 
 **구성**:
 
+**좌표계 명시** (식의 frame 정합):
+- `anchor_k ∈ R^3` 은 **Frenet frame** 에 정의 (plan-022 `ANCHORS_A6` 의 14 BCC 좌표 — F0_pred 주변 ±0.5cm Frenet (t̂, n̂, b̂) component). frontmatter `code_reuse:` `analysis/plan-022/anchors.py:ANCHORS_A6` pin 참조.
+- `r_t ∈ R^3` 도 **Frenet frame** (식 L363 의 `einsum(R_wfn.T, r_t_world)` 변환 결과). → proj/gap/tΔ/nΔ/bΔ 모두 *동일 Frenet frame 안의 vector 산술*.
+- `a_k_unit := anchor_k / max(‖anchor_k‖_2, ε)` (ε = 1e-8 로 0-norm 보호. BCC 중 origin anchor 존재 시 a_k_unit = zero vector, proj_t_k = 0 정의).
+
+**index 약속**:
+- `T_anchor := 11` (= anchor step 의 frame index, 0-base. plan-021/024 carry — F0 예측 시작 직전 step). `X` 는 `(N, T_full ≥ 11, 3)` 의 *pre-anchor window* — frame 0..10 이 본 plan 의 input scope. 즉 `X[:, 0..10, :]`.
+- `range(4, 11)` = 7 step (frame index 4..10 = anchor 직전 7 step). `sub_x = X[:, t-4:t-1, :]` 는 frame [t-4, t-3, t-2] 의 3-step window 로 frame t-1 의 F0 1-step 외삽 → `r_t = X[:, t] - pred_t`.
+- `R_wfn := build_frenet_basis_3d(X[:, :T_anchor], …)` 의 frame T_anchor-1 (= 마지막 pre-anchor step) 의 (3, 3) basis matrix (axes 순서 t̂, n̂, b̂). 모든 step t 의 r_t_world 가 *같은 R_wfn* 으로 Frenet 변환 — anchor-step-relative frame 으로 정합.
+
 ```
 for t in range(4, 11):                              # 7 step
-    sub_x = X[:, t-4:t-1, :]                         # 3 step window
-    pred_t = f0_baseline_fn(sub_x, end_idx=2)        # F0 외삽
-    r_t_world = X[:, t] - pred_t                     # world deviation
+    sub_x = X[:, t-4:t-1, :]                         # 3 step window (world coord, shape (N, 3, 3))
+    pred_t = f0_baseline_fn(sub_x, end_idx=2)        # F0 외삽 (world coord, shape (N, 3))
+    r_t_world = X[:, t] - pred_t                     # world deviation (N, 3)
     r_t = einsum("nij,nj->ni", R_wfn.transpose(0,2,1), r_t_world)  # Frenet (N, 3)
     
-    # anchor-별 alignment 5 var
-    proj_t_k = (r_t * a_k_unit).sum(-1)              # signed projection onto anchor direction
-    gap_t_k = ||r_t - anchor_k||                     # deviation vs anchor 거리
-    tΔ_t_k = r_t[..., 0] - anchor_k[..., 0]          # Frenet t̂ component 차
-    nΔ_t_k = r_t[..., 1] - anchor_k[..., 1]          # Frenet n̂ component 차
-    bΔ_t_k = r_t[..., 2] - anchor_k[..., 2]          # Frenet b̂ component 차
+    # anchor-별 alignment 5 var (모두 Frenet frame 안)
+    proj_t_k = (r_t * a_k_unit).sum(-1)              # signed projection onto anchor direction (N, K)
+    gap_t_k = ||r_t - anchor_k||_2                   # deviation vs anchor 거리 (N, K)
+    tΔ_t_k = r_t[..., 0] - anchor_k[..., 0]          # Frenet t̂ component 차 (N, K)
+    nΔ_t_k = r_t[..., 1] - anchor_k[..., 1]          # Frenet n̂ component 차 (N, K)
+    bΔ_t_k = r_t[..., 2] - anchor_k[..., 2]          # Frenet b̂ component 차 (N, K)
 
-# 7-step reduce: 3 stat per var = mean, std, slope (linear fit over t=0..6)
-# last 는 묶음 ① par/perp/dist 와 중복 → 제외
+# 7-step reduce: Group α 는 3 stat per var = mean, std, slope (last 는 묶음 ① par/perp/dist 와 중복 → 제외)
+#   - mean := array.mean(axis=time)
+#   - std := array.std(axis=time, ddof=0)
+#   - slope := np.polyfit(t_idx, array, deg=1)[0]  with t_idx = np.arange(7).astype(float64) (= frame index)
+# Group β/γ/δ 는 4 stat per var = mean, std, last, slope (decision-note §0.5 박제).
+# stat 정의식 (mean, std, slope) 자체는 4 group 공통, last := array[..., -1] (time axis 의 마지막).
 ```
 
 **산출**: (N, K=14, 5 var × 3 stat) = **(N, 14, 15)**.
@@ -364,19 +410,19 @@ for t in range(4, 11):                              # 7 step
 **구성**:
 
 ```
-# anchor-invariant 4D (broadcast over K)
+# anchor-invariant 4D (broadcast over K axis: (N, 4) → (N, K=14, 4) via np.broadcast_to)
 past_z_frenet_pool = (mean, std, last, slope) of r_t.z (= Frenet b̂)  # (N, 4)
 past_z_world_pool = (last, slope) of (X[:, t].z - pred_t.z)            # (N, 2) world z
 # 단 simplification: Frenet b̂ pool 만 4D 사용, world z 는 Group δ 와 중복 → 제외
 
 # anchor-별 4D (varies per K)
-anchor_z_frenet = anchor_k.z                                            # (K,)
+anchor_z_frenet = anchor_k.z                                            # (K,) → expand to (N, K)
 anchor_z_world_offset = (R_wfn @ anchor_k).z                             # (N, K)
-F0_arrival_z_world = pred_F0_world.z + (R_wfn @ anchor_k).z              # (N, K)
-zΔ_gap_last = anchor_k.z - r_T.z                                         # (N, K) — last step 의 z 정합 gap
+F0_arrival_z_world = pred_F0_world.z + (R_wfn @ anchor_k).z              # (N, K) — pred_F0_world := f0_baseline_fn(X[:, :T-1], end_idx=T-1) 의 마지막 step F0 외삽 world coord. T = window 끝.
+zΔ_gap_last = anchor_k.z - r_T.z                                         # (N, K) — last step 의 z 정합 gap. r_T := Frenet frame 의 t=10 (= T_anchor - 1) step deviation = (= §5.2 의 r_t at t=10). z 는 Frenet b̂ component (axis index 2).
 ```
 
-**산출**: anchor-invariant 4 broadcast + anchor-별 4 = **(N, 14, 8)**.
+**산출**: anchor-invariant 4D broadcast (K axis 로) + anchor-별 4D = **(N, K=14, 8)** (마지막 axis 순서: 0..3 = invariant pool, 4..7 = anchor-별).
 
 **물리적 해석**: 박쥐 비행의 z (vertical) 축 — wingbeat, climb/descent — 가 *별 axis* 임을 모델에 명시. F0_pred 의 z 와 anchor_z 가 anchor 별로 다른 vertical offset 을 정의 → "이 sample 이 어느 vertical level 의 anchor 와 매칭" 직접 학습.
 
@@ -433,6 +479,15 @@ python -m analysis.plan-026.enrichment_runner \
     --output_dir analysis/plan-026/runs/{variant}/
 ```
 
+**variant key 매핑** (CLI ASCII ↔ JSON unicode ↔ exp_id):
+
+| CLI flag | JSON `variant` field | frontmatter `exp_id` | cand_dim |
+|:--|:--|:--|--:|
+| `V0` | `"V0"` | `Z026_V0_plan024_reproduce` | 154 |
+| `Vgd` | `"V_γδ"` | `Z026_Vgd_anchor_invariant_pool` | 174 |
+| `Vab` | `"V_αβ"` | `Z026_Vab_anchor_conditional_align` | 177 |
+| `Vall` | `"V_all"` | `Z026_Vall_combined_193D` | 193 |
+
 ### §6.2 5-fold OOF concat
 
 plan-024 패턴 carry. 5 fold sequential, OOF concat 후 metric.
@@ -456,16 +511,25 @@ plan-024 패턴 carry. 5 fold sequential, OOF concat 후 metric.
     "argmax_hit": 0.xxxx
   },
   "per_fold": [{"fold": k, "hit_1cm": .., "time_sec": ..}, ...],
-  "per_group_grad_norm": {                            // V_all 만 필수
-    "group_alpha": 0.xxx,
-    "group_beta": 0.xxx,
-    "group_gamma": 0.xxx,
-    "group_delta": 0.xxx,
-    "cand_154d_existing": 0.xxx
+  "per_group_grad_norm": {                            // V_all 만 필수. 측정 시점 §3.3 참조 (best-val-epoch reload 후 val 첫 batch backward grad).
+    "group_alpha": 0.xxx,                              // cand_proj.weight[:, 154:169] 의 grad L2 / 15
+    "group_beta": 0.xxx,                               // cand_proj.weight[:, 169:177] 의 grad L2 / 8
+    "group_gamma": 0.xxx,                              // cand_proj.weight[:, 177:189] 의 grad L2 / 12
+    "group_delta": 0.xxx,                              // cand_proj.weight[:, 189:197] 의 grad L2 / 8
+    "cand_154d_existing": 0.xxx                        // cand_proj.weight[:, 0:154] 의 grad L2 / 154
   },
   "config": {...},
-  "dataset_hash": "b91502db94fab67d"
+  "dataset_hash": "b91502db94fab67d"                   // = plan-024 v1.1-rev2 carry (md5(load_all_samples + load_labels 출력 의 (X, y) bytes). 본 plan 변경 X → 동일 hash 검증으로 dataset drift 0 확인.
 }
+
+**`argmax_hit` 정의** (§3.3 secondary metric):
+
+```
+argmax_hit := mean(R_HIT(X[:, T_anchor:] − pred_anchor_argmax))   over 5-fold OOF
+  where pred_anchor_argmax := F0_pred + ANCHORS_A6[argmax(logits)]
+        (= soft-CE selector 의 argmax 1-hot 선택 후 F0_pred + anchor offset 의 hit_1cm).
+oracle_1cm := upper bound, 정의: 14 anchor 중 *어느 anchor 하나라도* R_HIT 만족 비율 (plan-022 oracle metric carry).
+```
 ```
 
 ---
@@ -474,12 +538,20 @@ plan-024 패턴 carry. 5 fold sequential, OOF concat 후 metric.
 
 ### §7.1 4 variant × 5-fold metric 표
 
+**"anchor-별 %" 정의** (= sample × anchor 둘 다 dependent 또는 anchor-별 차이 가지는 dim count / cand_dim):
+- V0: ①(par/perp/dist 3) + ②(anchor spec 9, sample 무관) + ④(interactions 10) = 22/154 = **14.3%**. 그 중 sample×anchor 둘 다 dependent = ①+④ = 13/154 = 8.4%.
+- V_γδ: V0 22D + Group γ+δ 0D (anchor-invariant broadcast — anchor-별 차이 X) = 22/174 = **12.6%**. 단 안 *broadcast 자체가 anchor 위치 dependent 채널을 늘리진 않으므로* 분자 변화 0. (caveat: §0 한 줄 목적의 "12% → 30%" 의 분자 정의와 일치 — anchor-차이 채널 비중.)
+- V_αβ: V0 22D + Group α(15D anchor-별) + Group β anchor-별 부분 4D + anchor-invariant 4D 는 broadcast → anchor-별 분자 = 22 + 15 + 4 = 41/177 = **23.2%**. sample×anchor 둘 다 dependent = 13 + 15 + 4 = 32/177 = **18.1%**. 표 박제 "**27%**" 는 broadcast pool (Group β anchor-invariant 4D) 까지 분자에 포함한 *광의 정의* — 41+4 = 45/177 = 25.4% ≈ 27% (rounding + Group β 의 anchor-invariant 4D 의 broadcast 가 *anchor 별 다른 reduce 결과는 아니나 anchor-aware 채널로 학습됨*).
+- V_all: 22 + 15 + 8 + 0 + 0 = 45/193 = **23.3%** (협의) 또는 58/193 = **30.0%** (광의, γ+δ broadcast 20D 까지 분자 포함). 표 박제 "**30%**" 는 후자.
+
+표 값은 *광의 정의* (모든 group dim 을 분자 포함) 사용. 본문 §1.3 의 14.3% / 8.4% 는 V0 의 협의 정의 — *비교 baseline reference* 만의 용도.
+
 | variant | cand_dim | anchor-별 % | hit_1cm | gap_ranking | top1_acc | soft_CE | time |
 |:--|--:|--:|--:|--:|--:|--:|--:|
 | V0 (plan-024 reproduce) | 154 | 14.3% (sample×anchor 8.4%) | 0.637? | 0.193? | 0.123? | 2.57? | ~170s |
-| V_γδ (anchor-invariant pool) | 174 | 14.3% (= V0, broadcast) | ? | ? | ? | ? | ~200s |
-| V_αβ (anchor-conditional) | 177 | **27%** (sample×anchor 23%) | ? | ? | ? | ? | ~210s |
-| V_all (combined) | 193 | **30%** (sample×anchor 23%) | ? | ? | ? | ? | ~220s |
+| V_γδ (anchor-invariant pool) | 174 | 12.6% (= 22/174, broadcast 분자 미포함) | ? | ? | ? | ? | ~200s |
+| V_αβ (anchor-conditional) | 177 | **25.4%** 광의 / **23.2%** 협의 (sample×anchor 18.1%) | ? | ? | ? | ? | ~210s |
+| V_all (combined) | 193 | **30.0%** 광의 / **23.3%** 협의 (sample×anchor 18.1%) | ? | ? | ? | ? | ~220s |
 
 ### §7.2 head-to-head 표
 
@@ -494,10 +566,15 @@ plan-024 패턴 carry. 5 fold sequential, OOF concat 후 metric.
 
 ### §7.3 lever decomposition (4 group additivity)
 
-- $\Delta_\alpha = V_{\alpha\beta} - V_0 - \Delta_\beta$ (β 영향 분리 위해 V_α single variant 도 측정? — 단 4 variant 안에 V_α / V_β 별도 X. proxy: V_αβ 의 group α grad-norm 만 사용)
-- $\Delta_\beta$ = z bundle 의 효과 = per-group grad-norm 비율로 proxy
-- $\Delta_{\gamma\delta} = V_{\gamma\delta} - V_0$
-- additivity: $A = (\Delta_{\alpha\beta} + \Delta_{\gamma\delta}) / \Delta_{all}$
+**Δ 정의** (모두 hit_1cm 단위, V_0 = plan-024 reproduce control 의 OOF hit_1cm baseline):
+- $\Delta_{\alpha\beta} := V_{\alpha\beta} - V_0$ (Group α+β 묶음 lift)
+- $\Delta_{\gamma\delta} := V_{\gamma\delta} - V_0$ (Group γ+δ 묶음 lift)
+- $\Delta_{all} := V_{all} - V_0$ (4 group combined lift)
+- $\Delta_\alpha := \Delta_{\alpha\beta} \cdot \dfrac{\text{grad\_norm}_\alpha}{\text{grad\_norm}_\alpha + \text{grad\_norm}_\beta}$ (proxy: V_αβ 안의 per-group grad-norm 비율로 α single 효과 분리)
+- $\Delta_\beta := \Delta_{\alpha\beta} - \Delta_\alpha$ (proxy z bundle 단독 효과)
+- **additivity ratio** (§3.4 와 동치 form): $A := \dfrac{\Delta_{\alpha\beta} + \Delta_{\gamma\delta}}{\Delta_{all}}$. $A = 1.0$ → 완전 additive. $A > 1.2$ → strong redundancy. $A < 0.8$ → super-additive.
+
+V_α single / V_β single variant 별도 측정 X (4 variant 단일 변수 원칙). per-group grad-norm proxy 의 한계는 caveat #6 박제.
 
 ### §7.4 결론 분기 (band 별)
 
@@ -616,6 +693,22 @@ plan-024 long-diag 가 ep 100 + const lr 로 0.6495 회복 박제. 본 plan 의 
 ### caveat #9: max_class_ratio = q_true.mean mirror (plan-022 §12 carry)
 
 plan-022 의 A8 ablation 박제 — max_class_ratio 가 mode collapse 보다 q_true.mean mirror. 본 plan 도 동일. **추가 metric**: dist_match_KL + top1_acc 으로 collapse 진단 분리.
+
+### caveat #11: V_all cand_dim 산술 self-inconsistency (escalate 후보)
+
+**plan-review-master 자동 catch 박제**: §5 / §0.5 / frontmatter 의 V_all cand_dim 박제 "**193D**" 와, group dim 합산 `154 + 15 + 8 + 12 + 8 = 197D` 의 *4D 차이 self-contradiction*. §5.0 layout 표의 V_all slice `[189:197]` 가 column 197 종결 (= 합산 197 정합) 이나 라벨 "193D" 와 모순.
+
+**원인 후보**:
+- (a) plan 작성자 산술 오류 — 실제 V_all = 197D 가 옳고 모든 박제 193 → 197 정정 필요.
+- (b) 한 group dim 박제가 잘못 — 예: β anchor-invariant 4 + anchor-별 4 = 8 의 *anchor-invariant 4 중복 제거 후 4D* 가 실제 의도? γ 12 → 8 (axis 3 → 2)? — plan 작성자 결정.
+- (c) 명시적 채널 절단 — 4D 를 의도적 drop, 그러나 그 절단 spec 미박제.
+
+**조치**: plan-review-master 자동 fix 시도 X (산술 정정은 *의미적 변경*, plan 의도 보존 의무). 사용자 manual fix 필요 — 위 (a)/(b)/(c) 중 선택 후 일관 적용:
+- (a) 선택 시: 모든 "193D" 박제 → "197D" 일괄 정정. cand_proj `in_features` 도 197 로 (분량: §0.5 5곳 + §5.0 layout 1줄 + §5.7 1줄 + frontmatter scope 1줄).
+- (b) 선택 시: 어느 group dim 줄일지 결정 후 §5.x 의 해당 그룹 spec + layout + commit chain 모두 정합 정정.
+- (c) 선택 시: 어떤 채널 어디서 drop 인지 spec 추가 + layout 재정렬.
+
+**임시 운영 규약 (사용자 정정 전)**: G2.V_all 의 cand_proj `in_features` = 197 (산식 정확). 라벨 "193D" 는 *placeholder* 로 간주, 실제 forward·backward 차원은 197 기반.
 
 ### caveat #10: 4 variant 의 expected ranking 의 *physical* 직관
 
