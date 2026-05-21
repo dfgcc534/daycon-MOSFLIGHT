@@ -16,7 +16,7 @@ lb_score: null
 
 # plan-024.results pair (WORKFLOW.md §11)
 
-핵심 결과는 `analysis/plan-024/results.md` 의 11 항목 (G_final 시점 박제) 에 박제 예정. 본 pair file 은 frontmatter 4-way 토큰 일치 (WORKFLOW.md §4 / §11) 의무 충족용 stub. 현재 status=draft (c1 spec 박제 단계).
+핵심 결과는 `analysis/plan-024/results.md` 의 11 항목 (G_final 시점 박제) 에 박제 예정. 본 pair file 은 frontmatter 4-way 토큰 일치 (WORKFLOW.md §4 / §11) 의무 충족용 stub. 현재 status=draft (c1.5 spec v1.1 박제 단계 — 4-way ML expert review 결과 반영).
 
 ## 진행 상태 (G_final 미도달 — placeholder)
 
