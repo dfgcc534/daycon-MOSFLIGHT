@@ -1,0 +1,29 @@
+inline selector loaded: 27 candidates
+[combo h128+aug] hidden=128, noise_σ=0.05×std, epoch=100, lr=0.0005
+[combo] params=273,782
+[combo] ep   0: train=2.7128 val=2.6315 hit_1cm=0.6421
+[combo] ep   5: train=2.6522 val=2.6233 hit_1cm=0.6436
+[combo] ep  10: train=2.6163 val=2.5974 hit_1cm=0.6411
+[combo] ep  15: train=2.5803 val=2.5803 hit_1cm=0.6436
+[combo] ep  20: train=2.5606 val=2.5759 hit_1cm=0.6465
+[combo] ep  25: train=2.5493 val=2.5743 hit_1cm=0.6460
+[combo] ep  30: train=2.5366 val=2.5665 hit_1cm=0.6465
+[combo] ep  35: train=2.5264 val=2.5648 hit_1cm=0.6421
+[combo] ep  40: train=2.5099 val=2.5664 hit_1cm=0.6455
+[combo] ep  45: train=2.4834 val=2.5821 hit_1cm=0.6475
+[combo] ep  50: train=2.4704 val=2.5929 hit_1cm=0.6465
+[combo] ep  55: train=2.4566 val=2.6125 hit_1cm=0.6460
+[combo] ep  60: train=2.4196 val=2.6171 hit_1cm=0.6480
+[combo] ep  65: train=2.4099 val=2.6330 hit_1cm=0.6505
+[combo] ep  70: train=2.3826 val=2.6716 hit_1cm=0.6515
+[combo] ep  75: train=2.3557 val=2.6940 hit_1cm=0.6495
+[combo] ep  80: train=2.3370 val=2.7225 hit_1cm=0.6480
+[combo] ep  85: train=2.3107 val=2.7682 hit_1cm=0.6416
+[combo] ep  90: train=2.2998 val=2.7596 hit_1cm=0.6475
+[combo] ep  95: train=2.2657 val=2.7932 hit_1cm=0.6460
+[combo] ep  99: train=2.2672 val=2.8010 hit_1cm=0.6455
+
+[combo] best hit_1cm=0.6515 @ epoch 70
+[combo] vs plan-022 0.6528: -0.0013
+[combo] vs poss 3 0.6505: +0.0010
+[combo] total 102s → /workspace/daycon-muflight/.claude/worktrees/plan-024-combo/analysis/plan-024/diagnose_long_combo.json

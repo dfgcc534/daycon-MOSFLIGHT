@@ -1,0 +1,11 @@
+inline selector loaded: 27 candidates
+[combo 5fold] hidden=128, aug σ=0.05×std, epoch=100 max, patience=10
+  fold 0: hit@1cm=0.6421 val_loss=2.5648 time=46s
+  fold 1: hit@1cm=0.6409 val_loss=2.5587 time=47s
+  fold 2: hit@1cm=0.6356 val_loss=2.5413 time=48s
+  fold 3: hit@1cm=0.6386 val_loss=2.5642 time=35s
+  fold 4: hit@1cm=0.6310 val_loss=2.5398 time=53s
+
+[combo 5fold] hit_1cm=0.6377 hit_1.5cm=0.8088 Δ_F0=+0.0057 gap_ranking=0.1914
+[combo 5fold] vs plan-022 0.6528: -0.0151
+[combo 5fold] total 229s → /workspace/daycon-muflight/.claude/worktrees/plan-024-combo/analysis/plan-024/results_combo_5fold.json

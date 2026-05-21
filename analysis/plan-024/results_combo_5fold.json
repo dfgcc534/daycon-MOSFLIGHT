@@ -1,0 +1,21 @@
+{
+  "config": {
+    "hidden": 128,
+    "epochs": 100,
+    "lr": 0.0005,
+    "wd": 0.02,
+    "noise_sigma_ratio": 0.05,
+    "patience": 10
+  },
+  "N": 10000,
+  "hit_1cm": 0.6377,
+  "hit_1.5cm": 0.8088,
+  "delta_1cm": 0.005700000000000038,
+  "delta_1.5cm": 0.005499999999999949,
+  "f0_hit_1cm": 0.632,
+  "oracle_1cm": 0.7928,
+  "argmax_hit": 0.6014,
+  "gap_ranking": 0.1913999999999999,
+  "top1_acc": 0.1417,
+  "elapsed_sec": 229.37127995491028
+}

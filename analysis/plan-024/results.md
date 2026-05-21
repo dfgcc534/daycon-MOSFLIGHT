@@ -21,7 +21,39 @@ xattn_no_improvement: true
 
 ## 한 줄 결론
 
-plan-024 의 **architecture lever 실패** (band=negative). 단 *사용자 통찰 (overfit) 후 ablation 으로 paradigm ceiling 0.6505 발견* (5-fold default 0.6370 + 0.0135 lift). plan-022 LGBM winner (0.6528) 의 -0.0023 까지 도달. *최선 config* = hidden 384 + input Gaussian noise aug + constant lr + best epoch tracking. 단 *유의미 lift X*, paradigm 자체 limit 확정.
+plan-024 의 **architecture lever 실패 (band=negative)**. 사용자 통찰 (overfit) 후 ablation:
+- **1-fold best epoch tracking** (combo h128+aug, ep 70): **0.6515** (plan-022 -0.0013) — fold-specific lucky catch
+- **5-fold OOF (honest, val_loss criterion)**: **0.6377** — v1 0.6370 의 +0.0007 만 lift (noise band 안)
+- → plan-024 paradigm 의 honest ceiling ≈ 0.637-0.638, plan-022 carry 0.6528 못 넘김.
+
+### 5.12 combo (poss 1 + poss 3) — best 1-fold 0.6515 단 5-fold OOF 0.6377 (정직)
+
+새 worktree (`worktree-plan-024-combo`) 에서 시도:
+
+**1-fold (epoch 100, hit_1cm 기준 best epoch tracking)** = best 0.6515 @ epoch 70:
+- hidden 128 + input aug σ=0.05×std + constant lr + 1 fold
+- 1-fold best of all variants. plan-022 carry -0.0013.
+
+**5-fold OOF (patience 10 best val_loss state)** = **0.6377**:
+| fold | hit_1cm | val_loss |
+|:--|--:|--:|
+| 0 | 0.6421 | 2.5648 |
+| 1 | 0.6409 | 2.5587 |
+| 2 | 0.6356 | 2.5413 |
+| 3 | 0.6386 | 2.5642 |
+| 4 | 0.6310 | 2.5398 |
+| **OOF concat** | **0.6377** | — |
+
+**1-fold 0.6515 vs 5-fold 0.6377 = -0.0138 gap 의 원인**:
+- 1-fold best 은 *hit_1cm 기준 best epoch 추적* (= valid set hit metric 으로 model selection = leakage 형태)
+- 5-fold OOF 는 *val_loss 기준 best state* (정직, fold-internal val split 만 사용)
+- val_loss best epoch ≠ hit_1cm best epoch (decoupled) → 5-fold 가 honest 추정
+
+**최종 conclusion (5-fold OOF 기준)**:
+- v1 default 0.6370 → combo 0.6377 = **+0.0007 lift만** (noise band 0.003 안, 사실상 무의미)
+- plan-024 paradigm 의 honest 5-fold OOF ceiling ≈ **0.637-0.638**
+- plan-022 LGBM carry 0.6528 미달 -0.0151. **모든 시도 (hyperparam + augmentation + capacity reduce) 5-fold OOF lift 무의미**
+- 1-fold best epoch tracking 의 0.6515 는 *fold-specific lucky catch*, paradigm 의 진짜 ceiling 아님
 
 ## §1 OOF metric table
 
