@@ -21,10 +21,28 @@ xattn_no_improvement: true
 
 ## 한 줄 결론
 
-plan-024 의 **architecture lever 실패 (band=negative)**. 사용자 통찰 (overfit) 후 ablation:
-- **1-fold best epoch tracking** (combo h128+aug, ep 70): **0.6515** (plan-022 -0.0013) — fold-specific lucky catch
-- **5-fold OOF (honest, val_loss criterion)**: **0.6377** — v1 0.6370 의 +0.0007 만 lift (noise band 안)
-- → plan-024 paradigm 의 honest ceiling ≈ 0.637-0.638, plan-022 carry 0.6528 못 넘김.
+plan-024 의 **architecture lever 실패 (band=negative)**. 사용자 통찰 (overfit) 후 4 ablation variant 의 *정직한 5-fold OOF* 종합:
+- **모든 variant (poss 1/2/3 + combo)** 5-fold OOF hit_1cm ∈ **[0.6372, 0.6379]** (range 0.0007 noise band 안)
+- v1 default 0.6370 보다 +0.0002 ~ +0.0009 만 lift = **사실상 무의미**
+- 1-fold best (0.6490-0.6515) 는 *hit_1cm 기준 best epoch tracking 의 fold-specific lucky catch* (leakage 형태)
+- → plan-024 paradigm 의 honest 5-fold OOF ceiling **0.6375 ± 0.0004**, plan-022 carry 0.6528 보다 **-0.0150** 미달, **모든 paradigm 안 시도 lift 무의미**
+
+### 5.13 4-way 5-fold OOF 정직 평가 — plan-024 paradigm honest ceiling 확정
+
+| variant | config | 5-fold OOF hit_1cm | 1-fold best | gap (1-fold - 5-fold) |
+|:--|:--|--:|--:|--:|
+| v1 default | spec, h384, drop 0.3/0.2 | 0.6370 | — | — |
+| poss 1 (h128 no aug) | h128, drop 0.3/0.2, wd 0.02 | **0.6379** | 0.6490 | **-0.0111** |
+| poss 2 (strong reg) | h384, drop 0.5/0.3, wd 0.1 | 0.6372 | 0.6480 | -0.0108 |
+| poss 3 (h384 aug) | h384, aug σ=0.05, drop 0.3/0.2 | 0.6374 | 0.6505 | -0.0131 |
+| combo (h128+aug) | h128, aug σ=0.05, drop 0.3/0.2 | 0.6377 | 0.6515 | -0.0138 |
+| **plan-022 carry** | LGBM, sample-weight expansion | **0.6528** | — | — |
+
+**핵심 메타 finding**:
+- 4 variant 모두 5-fold OOF 0.6372-0.6379 plateau (range 0.0007 noise band 안)
+- 1-fold best 가 5-fold OOF 보다 *모두* 0.011-0.014 높음 = **systematic lucky catch** (hit_1cm 기준 best epoch tracking = valid set test 정보 사용한 model selection)
+- plan-024 paradigm 의 honest ceiling = **0.6375 ± 0.0004** (plan-022 carry 의 -0.0153 미달)
+- → 모든 시도 (hyperparam tuning + capacity reduce + augmentation + strong regularization + combo) 5-fold OOF lift 무의미. paradigm 자체 fundamental limit.
 
 ### 5.12 combo (poss 1 + poss 3) — best 1-fold 0.6515 단 5-fold OOF 0.6377 (정직)
 

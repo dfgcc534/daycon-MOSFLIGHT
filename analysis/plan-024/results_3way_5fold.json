@@ -1,0 +1,91 @@
+{
+  "configs": [
+    {
+      "name": "poss1_h128_noaug",
+      "hidden": 128,
+      "noise": 0.0,
+      "drop_p": 0.3,
+      "seq_drop_p": 0.2,
+      "wd": 0.02
+    },
+    {
+      "name": "poss2_strong_reg",
+      "hidden": 384,
+      "noise": 0.0,
+      "drop_p": 0.5,
+      "seq_drop_p": 0.3,
+      "wd": 0.1
+    },
+    {
+      "name": "poss3_h384_aug",
+      "hidden": 384,
+      "noise": 0.05,
+      "drop_p": 0.3,
+      "seq_drop_p": 0.2,
+      "wd": 0.02
+    }
+  ],
+  "results": [
+    {
+      "name": "poss1_h128_noaug",
+      "config": {
+        "name": "poss1_h128_noaug",
+        "hidden": 128,
+        "noise": 0.0,
+        "drop_p": 0.3,
+        "seq_drop_p": 0.2,
+        "wd": 0.02
+      },
+      "per_fold_hits": [
+        0.6460396039603961,
+        0.6399609184171959,
+        0.635606454971369,
+        0.6381188118811881,
+        0.6295180722891566
+      ],
+      "hit_1cm": 0.6379,
+      "hit_1.5cm": 0.8096
+    },
+    {
+      "name": "poss2_strong_reg",
+      "config": {
+        "name": "poss2_strong_reg",
+        "hidden": 384,
+        "noise": 0.0,
+        "drop_p": 0.5,
+        "seq_drop_p": 0.3,
+        "wd": 0.1
+      },
+      "per_fold_hits": [
+        0.6410891089108911,
+        0.6404494382022472,
+        0.6350858927641854,
+        0.6400990099009901,
+        0.6290160642570282
+      ],
+      "hit_1cm": 0.6372,
+      "hit_1.5cm": 0.8095
+    },
+    {
+      "name": "poss3_h384_aug",
+      "config": {
+        "name": "poss3_h384_aug",
+        "hidden": 384,
+        "noise": 0.05,
+        "drop_p": 0.3,
+        "seq_drop_p": 0.2,
+        "wd": 0.02
+      },
+      "per_fold_hits": [
+        0.6435643564356436,
+        0.638495359062042,
+        0.6371681415929203,
+        0.6396039603960396,
+        0.6280120481927711
+      ],
+      "hit_1cm": 0.6374,
+      "hit_1.5cm": 0.8083
+    }
+  ],
+  "elapsed_sec": 687.1898357868195
+}

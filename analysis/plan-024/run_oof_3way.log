@@ -1,0 +1,36 @@
+inline selector loaded: 27 candidates
+[3way 5-fold] 3 configs × 5-fold OOF, epoch=100 max patience=10
+
+=== poss1_h128_noaug ===  hidden=128 noise=0.0 drop=0.3/0.2 wd=0.02
+  [poss1_h128_noaug] fold 0: hit=0.6460 val=2.5684 29s
+  [poss1_h128_noaug] fold 1: hit=0.6400 val=2.5596 27s
+  [poss1_h128_noaug] fold 2: hit=0.6356 val=2.5506 34s
+  [poss1_h128_noaug] fold 3: hit=0.6381 val=2.5590 35s
+  [poss1_h128_noaug] fold 4: hit=0.6295 val=2.5432 46s
+  [poss1_h128_noaug] OOF hit_1cm=0.6379 hit_1.5cm=0.8096
+
+=== poss2_strong_reg ===  hidden=384 noise=0.0 drop=0.5/0.3 wd=0.1
+  [poss2_strong_reg] fold 0: hit=0.6411 val=2.5621 51s
+  [poss2_strong_reg] fold 1: hit=0.6404 val=2.5649 47s
+  [poss2_strong_reg] fold 2: hit=0.6351 val=2.5470 55s
+  [poss2_strong_reg] fold 3: hit=0.6401 val=2.5586 45s
+  [poss2_strong_reg] fold 4: hit=0.6290 val=2.5605 69s
+  [poss2_strong_reg] OOF hit_1cm=0.6372 hit_1.5cm=0.8095
+
+=== poss3_h384_aug ===  hidden=384 noise=0.05 drop=0.3/0.2 wd=0.02
+  [poss3_h384_aug] fold 0: hit=0.6436 val=2.5786 44s
+  [poss3_h384_aug] fold 1: hit=0.6385 val=2.5524 52s
+  [poss3_h384_aug] fold 2: hit=0.6372 val=2.5445 59s
+  [poss3_h384_aug] fold 3: hit=0.6396 val=2.5674 44s
+  [poss3_h384_aug] fold 4: hit=0.6280 val=2.5574 49s
+  [poss3_h384_aug] OOF hit_1cm=0.6374 hit_1.5cm=0.8083
+
+[3way 5-fold] total 687s → /workspace/daycon-muflight/.claude/worktrees/plan-024-combo/analysis/plan-024/results_3way_5fold.json
+
+=== SUMMARY ===
+  poss1_h128_noaug         : hit_1cm=0.6379  per-fold=['0.6460', '0.6400', '0.6356', '0.6381', '0.6295']
+  poss2_strong_reg         : hit_1cm=0.6372  per-fold=['0.6411', '0.6404', '0.6351', '0.6401', '0.6290']
+  poss3_h384_aug           : hit_1cm=0.6374  per-fold=['0.6436', '0.6385', '0.6372', '0.6396', '0.6280']
+
+plan-022 carry: 0.6528 (reference)
+combo 5-fold (carry, h128+aug): 0.6377
