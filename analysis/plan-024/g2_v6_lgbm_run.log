@@ -1,0 +1,23 @@
+inline selector loaded: 27 candidates
+[v6 LGBM+p024input] load data ...
+[v6] Multi-window 60D shape=(10000, 60)
+[v6] X_lgbm shape=(10000, 230) (plan-022 base 170 + Multi-window 60 = 230)
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+  fold 0: hit@1cm=0.6594 time=54s
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+  fold 1: hit@1cm=0.6522 time=58s
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+  fold 2: hit@1cm=0.6554 time=58s
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+  fold 3: hit@1cm=0.6500 time=57s
+/home/ahn/.local/lib/python3.11/site-packages/sklearn/utils/validation.py:2691: UserWarning: X does not have valid feature names, but LGBMClassifier was fitted with feature names
+  warnings.warn(
+  fold 4: hit@1cm=0.6486 time=57s
+
+[v6] hit_1cm=0.6531 hit_1.5cm=0.8095 Δ_1cm=+0.0211 gap_ranking=0.1695
+[v6] vs plan-022 winner 0.6528: Δ = +0.0003
+[v6] total 285.0s → /workspace/daycon-muflight/.claude/worktrees/plan-024-spec/analysis/plan-024/results_lgbm_p024input.json

@@ -87,7 +87,31 @@ per-fold std ≈ 0.0034 (낮은 variance OK). 단 *모든 fold* 가 plan-022 car
 - → channel dropout off 효과 없음. over-regularization 가설 기각.
 - 단 top1_acc: 0.1227 → 0.1273 (+0.0046 mild) — channel drop off 가 ranking 능력 약간 ↑ 단 hit rate 변화 없음.
 
-### 5.1+5.4+5.6+5.8 종합 — **architecture + FE max lever 자체의 inherent fail (5 variant + diagnose 확정)**
+### 5.9 v6 (LGBM + plan-024 input) — **input lever 가 carry 와 redundant 확정**
+
+사용자 통찰 follow: "plan-004 → plan-024 변경 = 후보 + input 만, regime/corrector 영향 작음 입증". → arch (PB cross-attn) carry vs LGBM 짝짓기 비교 시 **LGBM 이 14 BCC 에서 더 잘함** → plan-024 framework 의 input lever 만 LGBM 환경에서 시도.
+
+| variant | model | input | hit_1cm | Δ vs plan-022 |
+|:--|:--|:--|--:|--:|
+| plan-022 winner | LGBM | 170D base | 0.6528 | — |
+| plan-024 v1~v5 | cross-attn | 250D | 0.6370~0.6375 | **−0.0156** |
+| **v6** | **LGBM** | **170D + Multi-window 60D = 230D** | **0.6531** | **+0.0003** |
+
+**Multi-window 60D 추가 효과 = +0.0003** — 거의 무효 (Multi-window 가 plan-024 의 가장 큰 단일 lever).
+
+**메타 finding**:
+- plan-024 의 16-lever FE max 가 plan-022 carry 와 **대부분 redundant** (information 흡수 측면)
+- 4-way ML expert review 의 expected lift 추정 (Multi-window +0.005~+0.010) → 실제 +0.0003 = **over-estimate**
+- 외부 reference (Singer LANL ~1000D, nyanp Optiver) 의 lift 추정이 **muflight 도메인에 transfer X**
+- plan-021 carry 의 170D (L1+L2+L4+lgbm_extra) 가 이미 *대부분의 information* 잡음, plan-024 의 Multi-window/STA-LTA/WAP/Pct-rolling/v_autocorr 등이 *trajectory macro stat* 차원에서 redundant
+
+→ **fail 의 진짜 분해** (사용자 통찰 + v6 종합):
+1. plan-004 → plan-024 변경 = (a) 후보 27 physics → 14 BCC + (b) input FE max
+2. (a) 후보 변경의 cost = plan-004 (PB arch + 27 cand) 0.6624 → plan-022 (LGBM + 14 BCC) 0.6528 의 -0.0096 = **후보 변경 자체 cost** (PB arch 의 LGBM 변경으로 부분 회복)
+3. (b) FE max input 의 lift = v6 결과 +0.0003 ≈ **0** (carry 와 redundant)
+4. plan-024 cross-attn (PB arch carry + 14 BCC) 의 -0.0156 = **arch-후보 mismatch cost** (cross-attn 이 14 static anchor 환경에서 LGBM 보다 못함)
+
+### 5.1+5.4+5.6+5.8+5.9 종합 — **architecture + FE max lever 자체의 inherent fail (6 variant + diagnose 확정)**
 
 | variant | hit_1cm | top1_acc | gap_ranking | soft_CE | time | 핵심 변경 |
 |:--|--:|--:|--:|--:|--:|:--|

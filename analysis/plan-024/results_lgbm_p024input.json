@@ -1,0 +1,18 @@
+{
+  "N": 10000,
+  "hit_1cm": 0.6531,
+  "hit_1.5cm": 0.8095,
+  "delta_1cm": 0.021100000000000008,
+  "delta_1.5cm": 0.006199999999999983,
+  "f0_hit_1cm": 0.632,
+  "f0_hit_1.5cm": 0.8033,
+  "max_class_ratio": 0.10433948785066605,
+  "oracle_1cm": 0.7928,
+  "argmax_hit": 0.6233,
+  "gap_ranking": 0.16949999999999998,
+  "top1_acc": 0.1665,
+  "soft_CE": 2.535559298940965,
+  "elapsed_sec": 284.99469661712646,
+  "input_dim": 230,
+  "config": "plan-022 LGBM 170D base + plan-024 Multi-window 60D = 230D"
+}
