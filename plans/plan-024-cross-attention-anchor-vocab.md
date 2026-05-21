@@ -52,7 +52,7 @@ band: null
 
 ## §0. 한 줄 목적
 
-> **plan-022 winner cell A6_bcc14_tau001 (corrector-free 14-anchor LGBM, OOF hit_1cm=0.6528 / Δ_F0=+0.0208) 의 selector 만 PB framework `CandidateAttentionGRUSelector` (hidden=384) 로 교체** — anchor coord 가 attention query (cand_feat 162D) 로 직접 입력 + past seq (95D × 7step) 가 **anchor-vocabulary 로 re-encoding** + **4-way ML expert review (v1.1 patch) 의 cross-confirmed/single-strong finding 모두 박제** — (a) plan-004/022 audit 누락 (macro_stat / L1 EWMA / turn·curv·direction / regime / F0-pred coord / residual angle), (b) world-z 정렬 (t̂_z, b̂_z, Vz, anchor Δz_world), (c) Frenet torsion τ, (d) residual 강화 form (F2 log-magnitude, sign 통일, τ_past 별도), (e) **v1.1 Tier S** (jerk Frenet, angular velocity ω, saccade binary, Anchor coord Fourier PE, Sinusoidal time PE), (f) **v1.1 Tier A 옵션 B** (STA/LTA ratio, Multi-window stat grid, BCC adjacency, WAP composite, wingbeat-jitter, f0_confidence, anchor-saliency, helicity, Pct-rolling+Peak, v_autocorr — A4 path_sig + A7 learnable embed 제외), (g) **redundancy 제거** (F3 anchor-projection 14D + macro_stat straightness 1D + axis×forward 1D = 16D), (h) **per-channel learnable scale + channel dropout** (LGBM feature_fraction NN 등가, ③ ctx broadcast 140D 만 적용). **anchor 개수·anchor radius·τ_cls(output)·F0 baseline·5-fold split = 모두 plan-022 carry**. *single 변수 = architecture + input FE*. single-config 5-fold OOF + LB 회수.
+> **plan-022 winner cell A6_bcc14_tau001 (corrector-free 14-anchor LGBM, OOF hit_1cm=0.6528 / Δ_F0=+0.0208) 위 selector architecture + input FE pipeline 동시 교체 (17 lever, single evaluation run, plan-025 ablation 분리)** — PB framework `CandidateAttentionGRUSelector` (hidden=384)** — anchor coord 가 attention query (cand_feat 162D) 로 직접 입력 + past seq (95D × 7step) 가 **anchor-vocabulary 로 re-encoding** + **4-way ML expert review (v1.1 patch) 의 cross-confirmed/single-strong finding 모두 박제** — (a) plan-004/022 audit 누락 (macro_stat / L1 EWMA / turn·curv·direction / regime / F0-pred coord / residual angle), (b) world-z 정렬 (t̂_z, b̂_z, Vz, anchor Δz_world), (c) Frenet torsion τ, (d) residual 강화 form (F2 log-magnitude, sign 통일, τ_past 별도), (e) **v1.1 Tier S** (jerk Frenet, angular velocity ω, saccade binary, Anchor coord Fourier PE, Sinusoidal time PE), (f) **v1.1 Tier A 옵션 B** (STA/LTA ratio, Multi-window stat grid, BCC adjacency, WAP composite, wingbeat-jitter, f0_confidence, anchor-saliency, helicity, Pct-rolling+Peak, v_autocorr — A4 path_sig + A7 learnable embed 제외), (g) **redundancy 제거** (F3 anchor-projection 14D + macro_stat straightness 1D + axis×forward 1D = 16D), (h) **per-channel learnable scale + channel dropout** (LGBM feature_fraction NN 등가, ③ ctx broadcast 140D 만 적용). **anchor 개수·anchor radius·τ_cls(output)·F0 baseline·5-fold split = 모두 plan-022 carry**. *single 변수 = architecture + input FE*. single-config 5-fold OOF + LB 회수.
 >
 > **합격 기준**: OOF hit_1cm ≥ 0.6628 (= plan-022 winner +0.01) **AND** OOF hit_1.5cm ≥ plan-022 winner (0.8104) **AND** LB ≥ plan-022 carry LB (미박제 시 plan-004 LB 0.6806 floor).
 >
@@ -198,7 +198,7 @@ plan-022 결과 + 사용자 통찰 (2026-05-21 session "main"):
 
 ### §1.4 가설
 
-**H_main**: plan-022 winner (LGBM, 170D) 의 selector 를 cross-attention GRU (**v1.1: 162D cand + 95D seq + hidden=384**) 로 교체 + FE 최대화 시, **gap_ranking 의 절반 이상 회수** (= 0.0516 → ≤ 0.025) + **hit_1cm +0.01 lift** (0.6528 → 0.6628).
+**H_main**: plan-022 winner (LGBM, 170D) 의 selector 를 cross-attention GRU (**v1.1: 162D cand + 95D seq + hidden=384**) 로 교체 + FE 최대화 시, **gap_ranking 회수** (= 0.0516 → ≤ **0.04**, §3.2 G3 gate 와 통일 — partial 회수 0.012pp 이상) + **hit_1cm +0.01 lift** (0.6528 → 0.6628).
 
 **H_secondary**:
 - H1 (architecture lever > loss lever): plan-009 의 listwise loss fail 위에서 cross-attention 의 inner product 가 ranking 능력 직접 학습 → top1_ranking_acc ≥ 0.20 (plan-008 extended 0.17 보다 ↑).
@@ -387,7 +387,7 @@ per past step t (t ∈ {4, ..., 10}, length=7), **95D** channel:
 | **S2 angular velocity ω Frenet** ⭐ | derived (A3) | 3 | `ω_t = R_wfn^T · (v_{t-1} × v_t) / ‖v_t‖²` | **+ v1.1 (Top-1)** |
 | **Vz_world** | derived | 1 | `(X[:, t, 2] − X[:, t-1, 2]) / 0.040` (gravity-aware) | — |
 | **D** F0 residual Frenet | sign-unified L2 | 3 | `R_wfn^T @ (actual_t − pred_t)` | — |
-| **residual angle** | derived | 2 | `[atan2(res_n, res_t), asin(res_b / ‖res‖)]` | — |
+| **residual angle** | derived | 2 | `[atan2(res_n, res_t), asin(clip(res_b / max(‖res‖, 1e-9), -1.0, 1.0))]` (eps guard + clip for asin domain) | — |
 | **pred_F0 Frenet** | derived | 3 | `R_wfn^T @ (pred_t − origin)` | — |
 | **E** soft hit | L4 (plan-021 carry) | 2 | `[σ((R_HIT − d)/τ), σ((R_HIT_LOOSE − d)/τ)]` | — |
 | **F** anchor-vocab soft (τ_past) | §4.2 | 14 | `softmax(-‖a_k - r_t‖/τ_past)` | — |
@@ -425,8 +425,8 @@ per anchor k (k=0..13), per sample, **162D** channel:
 |:--|--:|:--|:--|
 | **① par/perp/dist** (sample × anchor) | 3 | `(a_k - residual_last) → Frenet 분해 par/perp + ‖.‖` | — |
 | **② anchor spec** (anchor-static) | **21** | base 9 (Frenet coord 3 + sign 3 + group 2 + idx 1) + **S4 Anchor coord Fourier PE 12** (`[sin(2π·a_t/r), cos(2π·a_t/r), sin(2π·a_n/r), cos, sin(2π·a_b/r), cos, sin(4π·a_t/r), cos, sin(4π·a_n/r), cos, sin(4π·a_b/r), cos]` with `r = 0.005m`) | **+12 (A4 Tancik 2020)** |
-| **③ ctx broadcast** (sample × all anchors 같은 값) | **128** | **모두 Frenet frame, last step 기준** (audit B + §4.0 convention). base 12 (last v Frenet 3 + last acc Frenet 3 + last F0 res Frenet 3 + EWMA(α=0.3) of res Frenet 3) + macro_stat **8** (~~straightness~~ 제거, A2 redundancy R4 — plan-021 `_macro_stat_9d` 중 idx 1 straightness 제외 9→8) + Bz/Tz 2 (`[R_wfn[:, 2, 2], R_wfn[:, 2, 0]]` per §4.0) + regime 18 (one-hot) + **A1 STA/LTA ratio 3** (EWMA α=0.5 / EWMA α=0.1 ratio per Frenet axis t̂/n̂/b̂, of F0 residual) + **A2 Multi-window stat grid 60** (`[전체 11, 뒤 7, 뒤 5, 뒤 3] sub-window × [mean, std, slope, max] × 9 channel` = 4×4×9 = 144D 후보, **trim 60D** — 9 channel = Frenet `[p_t, p_n, p_b, v_t, v_n, v_b, a_t, a_n, a_b]`, **trim 절차** §4.4.1 박제) + **A5 WAP sample-level 5** (last-step Frenet `[‖v‖²·κ, ‖j‖/‖a‖, ½‖v‖², ‖v_perp‖·τ_frenet, dist·‖a_perp‖]`) + **A6 wingbeat-jitter envelope 3** (std of `(p_Frenet - EWMA_{α=0.6}(p_Frenet))` per Frenet axis) + **A8 f0_conf sample-level 2** (polyfit residual norm `‖F0_pred - last_step_world_extrap‖` + `step_spread = std(consecutive_speed)`) + **A10 Pct-rolling+Peak 12** (`[pct_{20,50,80}(rolling_std(‖v_Frenet‖, w∈{3,5,7})) → 3×3=9, count(‖j_Frenet‖>quantile_carry.jerk_p90), sign_flip(v_t_Frenet), sharp_turn(turn_cos<0.5)]` → 9+1+1+1=12) + **A12 v_autocorr 3** (`corr(v_t_Frenet, v_{t-k}_Frenet)` 의 단일 scalar per lag k∈{1,2,3}, 3개) | **+88 (A1+A2+A5+A6+A8+A10+A12), -1 straightness** |
-| **④ interactions** (sample × anchor) | **10** | base 9: anchor·res / anchor·v / anchor·acc / anchor·EWMA / corner×turn / ~~axis×forward~~ (A1 redundancy 제거) / sign-agreement / physics-extrap·anchor / anchor·Δz_world + **A3 BCC adjacency neighbor pool 2** (`[mean_{j∈N(k)}<a_j, r_last>, std_{j∈N(k)}<a_j, r_last>]`, N(k) = anchor k 의 BCC 3-4 nearest neighbor, adjacency precompute static) | **+2 (A3 Set Transformer ISAB mimic), -1 axis×forward** |
+| **③ ctx broadcast** (sample × all anchors 같은 값) | **128** | **모두 Frenet frame, last step 기준** (audit B + §4.0 convention). base 12 (last v Frenet 3 + last acc Frenet 3 + last F0 res Frenet 3 + EWMA(α=0.3) of res Frenet 3) + macro_stat **8** (~~straightness~~ 제거, A2 redundancy R4 — plan-021 `_macro_stat_9d` 중 idx 1 straightness 제외 9→8) + Bz/Tz 2 (`[R_wfn[:, 2, 2], R_wfn[:, 2, 0]]` per §4.0) + regime 18 (one-hot) + **A1 STA/LTA ratio 3** (EWMA α=0.5 / EWMA α=0.1 ratio per Frenet axis t̂/n̂/b̂, of F0 residual) + **A2 Multi-window stat grid 60** (`[전체 11, 뒤 7, 뒤 5, 뒤 3] sub-window × [mean, std, slope, max] × 9 channel` = 4×4×9 = 144D 후보, **trim 60D** — 9 channel = Frenet `[p_t, p_n, p_b, v_t, v_n, v_b, a_t, a_n, a_b]`, **trim 절차** §4.4.1 박제) + **A5 WAP sample-level 5** (last-step Frenet `[‖v‖²·κ, ‖j‖/‖a‖, ½‖v‖², ‖v_perp‖·τ_frenet, dist·‖a_perp‖]`) + **A6 wingbeat-jitter envelope 3** (std of `(p_Frenet - EWMA_{α=0.6}(p_Frenet))` per Frenet axis) + **A8 f0_conf sample-level 2** (polyfit residual norm `‖F0_pred - last_step_world_extrap‖` + `step_spread = std(consecutive_speed)`) + **A10 Pct-rolling+Peak 12** (`[pct_{20,50,80}(rolling_std(‖v_Frenet‖, w∈{3,5,7})) → 3×3=9, count_{t=4..10}(‖j_Frenet[t]‖ > quantile_carry.jerk_p90)  // sample-level scalar 1, count_{t=5..10}(sgn(v_Frenet[t, 0]) · sgn(v_Frenet[t-1, 0]) < 0)  // t̂-axis sign flip scalar 1, count_{t=5..10}(turn_cos[t] < 0.5)  // sharp turn scalar 1]` → 9+1+1+1=12) + **A12 v_autocorr 3** (per lag k∈{1,2,3}: `corr(stack([v_Frenet[t, c] for t in range(7)]), stack([v_Frenet[t-k, c] for t in range(k, 7)]))` 의 *3축 (t̂/n̂/b̂) 평균* — `mean_c(Pearson(v_c[k:], v_c[:-k]))` 단일 scalar per k = 3개) | **+88 (A1+A2+A5+A6+A8+A10+A12), -1 straightness** |
+| **④ interactions** (sample × anchor) | **10** | base **8**: anchor·res / anchor·v / anchor·acc / anchor·EWMA / corner×turn / ~~axis×forward~~ (A1 redundancy 제거) / sign-agreement / physics-extrap·anchor / anchor·Δz_world (= 8 항목, v1 의 axis×forward 제거 후 net 8) + **A3 BCC adjacency neighbor pool 2** (`[mean_{j∈N(k)}<a_j, r_last>, std_{j∈N(k)}<a_j, r_last>]`, N(k) = anchor k 의 BCC 3-4 nearest neighbor, adjacency precompute static) | **+2 (A3 Set Transformer ISAB mimic), -1 axis×forward** |
 
 **total**: 3 + **21** + **128** + **10** = **162D**. cand_feat shape = (N, 14, 162). (v1: 62D, Δ = +99 추가 − 2 redundancy 제거 + 11 = +100)
 
@@ -454,20 +454,31 @@ per past step t (t ∈ {4, ..., 10}, length=7), per sample:
 ```python
 v_t   = X[:, t]   - X[:, t-1]
 v_tm1 = X[:, t-1] - X[:, t-2]
-b_hat_t = cross(v_tm1, v_t) / ‖cross(v_tm1, v_t)‖          # binormal at step t
-                                                            # consecutive b̂ alignment
-b_hat_t = sign(b_hat_t · b_hat_{t-1}) * b_hat_t             # sign-flip detection
+cross_t = cross(v_tm1, v_t)                                 # (N, 3) world
+cross_norm = ‖cross_t‖                                       # (N,)
+# eps-guarded normalize (collinear NaN guard *before* mask)
+b_hat_t = cross_t / max(cross_norm, eps_collinear)[:, None]  # (N, 3)
 
-db = b_hat_t - b_hat_{t-1}
-ds = ‖v_t‖                                                  # arc length proxy
+# consecutive b̂ alignment (first valid step initialization)
+if t == 4 or b_hat_prev is None:
+    pass                                                     # no flip on first step (init carry)
+else:
+    b_hat_t = sign(dot(b_hat_t, b_hat_prev))[:, None] * b_hat_t   # sign-flip detection
+
+db = b_hat_t - b_hat_prev if b_hat_prev is not None else zeros_like(b_hat_t)
+ds = max(‖v_t‖, eps_speed)                                  # arc length proxy (eps guard)
 n_hat_t = perp(v_t, b_hat_t)                                # Frenet normal at step t
+                                                             # perp(v, b) := normalize(b × v) — n̂ = b̂ × t̂ convention
 
 # torsion scalar (Frenet-Serret 3rd formula)
-tau_t = -(db / max(ds, eps)) · n_hat_t                      # sign-aware
+tau_t = -dot(db / ds[:, None], n_hat_t)                     # sign-aware scalar (N,)
 
-# numerical safety
-valid_mask_t = (‖cross‖ > eps_collinear) AND (‖v_t‖ > eps_speed)
-tau_t[~valid_mask_t] = 0.0
+# numerical safety (post-hoc mask, eps guard 후 NaN 발생 X)
+valid_mask_t = (cross_norm > eps_collinear) & (‖v_t‖ > eps_speed) & (b_hat_prev is not None)
+tau_t = where(valid_mask_t, tau_t, 0.0)
+
+# carry b_hat for next step alignment
+b_hat_prev = b_hat_t                                         # for sign-flip + db at t+1
 
 # transform for seq input (3D)
 seq_torsion_t = [tau_t, sign(tau_t) * log(1 + |tau_t|), valid_mask_t.float()]
@@ -632,16 +643,17 @@ Hyperparam (v1.1, single config, sweep 안 함):
 ```
 analysis/plan-024/
 ├── __init__.py
-├── anchor_vocab.py             # c2 — F/G/H/F2 묶음 builder (v1.1: F3 제거)
-├── seq_builder.py               # c3 — seq 95D per step assembly (v1.1)
-├── cand_builder.py              # c4 — cand_feat 162D per anchor assembly (v1.1)
-├── torsion_calc.py              # c5 — Frenet torsion τ scalar
-├── quantile_carry.py            # c5.5 — train fold quantile 박제 (v1.1, fold-leakage 차단)
-├── feature_weighted_dropout.py  # c5.7 — per-channel scale + channel dropout (v1.1)
-├── model.py                     # c6 — CrossAttentionAnchorSelector wrapper (v1.1 hidden=384)
-└── run_oof.py                   # c7 — 5-fold OOF runner + metrics
+├── anchor_vocab.py                # c2 — F/G/H/F2 묶음 builder (v1.1: F3 제거)
+├── seq_builder.py                  # c3 — seq 95D per step assembly (v1.1)
+├── cand_builder.py                 # c4 — cand_feat 162D per anchor assembly (v1.1)
+├── torsion_calc.py                 # c5 — Frenet torsion τ scalar
+├── quantile_carry.py               # c5.5 — train fold quantile 박제 (v1.1, fold-leakage 차단)
+├── feature_weighted_dropout.py     # c5.7 — per-channel scale + channel dropout (v1.1)
+├── multiwindow_trim_build.py       # c5.8 — Multi-window 144→60 trim list 생성 (v1.1, §4.4.1)
+├── model.py                        # c6 — CrossAttentionAnchorSelector wrapper (v1.1 hidden=384)
+└── run_oof.py                      # c7 — 5-fold OOF runner + metrics
 
-tests/test_plan024_smoke.py     # c8 — 10 pytest (v1.1: weight + channel mask 추가)
+tests/test_plan024_smoke.py        # c8 — 10 pytest (v1.1: weight + channel mask 추가)
 ```
 
 ### §5.2 tests (c8) — v1.1 (10 pytest)
@@ -657,7 +669,7 @@ tests/test_plan024_smoke.py     # c8 — 10 pytest (v1.1: weight + channel mask 
 | 7 | **quantile_carry fold-leakage** (v1.1) | 5-fold quantile 박제, test fold quantile 사용 X (assert keys = 5 fold) |
 | 8 | **FeatureWeightedDropout weight + mask** (v1.1) | (a) `cand_scale.shape == (162,)` init=1.0, (b) training=True 시 cand 의 ①+②+④ 영역 (0..23 + 152..161) 은 *항상* 동일 값 (보호 영역 drop X), (c) cand ③ 영역 (24..151) 의 mask 가 random Bernoulli(0.7), (d) eval mode 시 mask 없이 scale 만 적용 |
 | 9 | model forward smoke | `CrossAttentionAnchorSelector()(seq, cand)` → `(q_pred, score)` shape (4, 14), `q_pred.sum(-1) ≈ 1` |
-| 10 | 1-fold 1-epoch fit | loss finite + decrease (epoch 1 loss < epoch 0 loss) |
+| 10 | **2-epoch fit** | (a) 모든 epoch loss finite (no NaN/Inf), (b) `train_loss(epoch=1) < train_loss(epoch=0) − 1e-4` (1e-4 margin = numerical noise floor). 의미: backward path 정상 + gradient descent 일관 |
 
 ### §5.3 G0 합격
 
