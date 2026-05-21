@@ -1,0 +1,31 @@
+inline selector loaded: 27 candidates
+[combo 3-seed ensemble] hidden=128, aug=0.05, seeds=[20260521, 20260522, 20260523]
+  fold 0 seed 20260521: hit=0.6421 val=2.5648
+  fold 0 seed 20260522: hit=0.6465 val=2.5544
+  fold 0 seed 20260523: hit=0.6475 val=2.5604
+  fold 0 done 109s
+  fold 1 seed 20260521: hit=0.6409 val=2.5587
+  fold 1 seed 20260522: hit=0.6385 val=2.5455
+  fold 1 seed 20260523: hit=0.6385 val=2.5490
+  fold 1 done 95s
+  fold 2 seed 20260521: hit=0.6356 val=2.5413
+  fold 2 seed 20260522: hit=0.6377 val=2.5391
+  fold 2 seed 20260523: hit=0.6398 val=2.5333
+  fold 2 done 120s
+  fold 3 seed 20260521: hit=0.6386 val=2.5642
+  fold 3 seed 20260522: hit=0.6391 val=2.5561
+  fold 3 seed 20260523: hit=0.6371 val=2.5526
+  fold 3 done 89s
+  fold 4 seed 20260521: hit=0.6310 val=2.5398
+  fold 4 seed 20260522: hit=0.6325 val=2.5319
+  fold 4 seed 20260523: hit=0.6335 val=2.5335
+  fold 4 done 147s
+
+[3-seed ensemble] per-seed:
+  seed 20260521: hit_1cm=0.6377
+  seed 20260522: hit_1cm=0.6389
+  seed 20260523: hit_1cm=0.6393
+[3-seed ensemble] OOF (avg probs) hit_1cm=0.6387
+  vs combo single-seed 0.6377: +0.0010
+  vs plan-022 0.6528: -0.0141
+[3-seed] total 561s → /workspace/daycon-muflight/.claude/worktrees/plan-024-combo/analysis/plan-024/results_combo_3seed.json

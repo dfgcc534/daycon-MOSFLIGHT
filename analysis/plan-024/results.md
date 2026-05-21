@@ -21,11 +21,30 @@ xattn_no_improvement: true
 
 ## 한 줄 결론
 
-plan-024 의 **architecture lever 실패 (band=negative)**. 사용자 통찰 (overfit) 후 4 ablation variant 의 *정직한 5-fold OOF* 종합:
-- **모든 variant (poss 1/2/3 + combo)** 5-fold OOF hit_1cm ∈ **[0.6372, 0.6379]** (range 0.0007 noise band 안)
-- v1 default 0.6370 보다 +0.0002 ~ +0.0009 만 lift = **사실상 무의미**
-- 1-fold best (0.6490-0.6515) 는 *hit_1cm 기준 best epoch tracking 의 fold-specific lucky catch* (leakage 형태)
-- → plan-024 paradigm 의 honest 5-fold OOF ceiling **0.6375 ± 0.0004**, plan-022 carry 0.6528 보다 **-0.0150** 미달, **모든 paradigm 안 시도 lift 무의미**
+plan-024 의 **architecture lever 실패 (band=negative)**. 사용자 통찰 (overfit) 후 6 ablation variant + 3-seed ensemble *정직한 5-fold OOF* 종합:
+- **모든 single-seed variant** 5-fold OOF hit_1cm ∈ **[0.6370, 0.6379]** (range 0.0009 noise band 안)
+- **3-seed ensemble (마지막 lever)**: **0.6387** = +0.0017 lift vs v1 (paradigm 안 honest best)
+- plan-022 carry 0.6528 보다 **-0.0141** 미달 — 모든 시도 paradigm 한계 못 깸
+- 1-fold best (0.6490-0.6515) 는 *hit_1cm 기준 best epoch tracking 의 fold-specific lucky catch*
+- → plan-024 paradigm 의 honest ceiling **0.6387 (3-seed)** 또는 **0.6377 (single-seed)**, plan-022 carry **-0.0141 ~ -0.0151 미달**
+
+### 5.14 3-seed ensemble (plan-024 paradigm 마지막 lever) — 0.6387
+
+variance reduction 마지막 시도. combo config (hidden 128 + aug σ=0.05) × 3 seeds (20260521/2/3).
+
+per-seed 5-fold OOF:
+| seed | hit_1cm |
+|:--|--:|
+| 20260521 | 0.6377 |
+| 20260522 | 0.6389 |
+| 20260523 | 0.6393 |
+| **avg probs (ensemble)** | **0.6387** |
+
+- vs combo single-seed: **+0.0010** (mild variance reduction lift)
+- vs plan-022 carry: **-0.0141** (여전히 미달)
+- ensemble hit_1.5cm: 0.8096
+
+**plan-024 paradigm honest best = 0.6387 (3-seed ensemble)**. paradigm 안 *모든 미시도 lever 소진*, 그중 가장 높은 결과. plan-022 carry 0.6528 까지 -0.0141 여전 미달.
 
 ### 5.13 4-way 5-fold OOF 정직 평가 — plan-024 paradigm honest ceiling 확정
 
