@@ -258,6 +258,18 @@ plan-022 가 21-cell sweep 으로 *anchor layout* 변수 ablation 했다면, pla
 
 ## §4. 핵심 결정 — Input + Architecture spec
 
+### §4.0 frame / R_wfn convention 박제 (v1.1)
+
+본 plan 의 모든 `R_wfn` 참조는 다음 convention 으로 통일 (plan-021 `build_frenet_basis_3d` carry):
+
+- **shape**: `(N, 3, 3)`, float32.
+- **column convention**: `R_wfn = np.stack([t̂, n̂, b̂], axis=-1)` — *columns = Frenet basis vectors (in world frame)*. 즉 `R_wfn[:, :, 0] = t̂_world`, `R_wfn[:, :, 1] = n̂_world`, `R_wfn[:, :, 2] = b̂_world`.
+- **z-row 추출** (audit B의 `t̂_z, b̂_z`): `R_wfn[:, 2, 0]` = `t̂_world[:, 2]` = `t̂_z`. `R_wfn[:, 2, 2]` = `b̂_z`. *row 2 = world-z component of each Frenet basis vector*.
+- **world → Frenet 변환**: `frenet_vec = R_wfn^T @ world_vec` (= `einsum("nij,nj->ni", R_wfn.transpose(0,2,1), world_vec)`).
+- **Frenet → world 변환**: `world_vec = R_wfn @ frenet_vec`.
+- **per-sample 단일 frame**: `R_wfn` 은 *sample 당 1개* (= `end_idx=10` 기준 *마지막 step 의 Frenet basis*). seq 의 7 step 모두 *같은 R_wfn* 사용 (per-step alignment 아님, audit C 의 timing alignment 와 일관). plan-021 `build_input_common` 의 carry 그대로 (`R_wfn = build_frenet_basis_3d(X, end_idx=X.shape[1]-1)`).
+- **origin**: seq A 묶음 `X[:, t] − origin` 의 `origin = X[:, end_idx]` (= `X[:, 10]` 마지막 step 의 world 좌표). plan-021 `build_input_common` 의 carry.
+
 ### §4.1 전체 input 구조 (v1.1)
 
 | input | shape | dim | sample-conditional | anchor-conditional |
@@ -271,6 +283,22 @@ plan-022 가 21-cell sweep 으로 *anchor layout* 변수 ablation 했다면, pla
 - per-channel learnable scale (162 + 95 = 257 params) + channel dropout (cand ③ 128D 만, p=0.3; seq 의 EWMA+Multi-window 영역, p=0.2)
 
 ### §4.2 anchor_vocab 묶음 식 (c2 `analysis/plan-024/anchor_vocab.py`)
+
+**f0_baseline 시그너처 박제** (plan-020 carry, self-contained):
+
+```python
+# analysis/plan-020/baseline_f0.py 의 인터페이스 (carry, 변경 X)
+def f0_baseline(sub_x: np.ndarray, end_idx: int) -> np.ndarray:
+    """sub_x: (N, T_sub, 3) float64 world coord. end_idx ∈ [2, T_sub-1].
+    return: (N, 3) float64 — sub_x 의 end_idx 시점에서 80ms (= 2 step × 40ms) 미래 위치 예측.
+    공식: pred = sub_x[:, end_idx] + D1 · (sub_x[:, end_idx] - sub_x[:, end_idx-1]) · PAR
+         + perp 보정 (D1=1.98, PAR=1.20, PERP=−0.20, plan-020 §3 carry)."""
+```
+
+본 plan-024 사용 패턴 (§4.2 의 anchor_vocab 식 안):
+- `sub_x_t = X[:, t-4:t-1, :]` → shape `(N, 3, 3)` (3 past step 의 world 좌표).
+- `f0_baseline(sub_x_t, end_idx=2)` → `(N, 3)` world 좌표 (sub_x_t 의 step index 2 = `X[:, t-2]` 시점의 80ms 미래 = `X[:, t]` 의 예측).
+- import 시 signature drift 시 G0 smoke test #1 의 `f0_baseline` interface check 로 catch (예: `assert f0_baseline(...).shape == (N, 3)`).
 
 per past step t (t ∈ {4, 5, ..., 10}):
 
@@ -354,12 +382,26 @@ per anchor k (k=0..13), per sample, **162D** channel:
 |:--|--:|:--|:--|
 | **① par/perp/dist** (sample × anchor) | 3 | `(a_k - residual_last) → Frenet 분해 par/perp + ‖.‖` | — |
 | **② anchor spec** (anchor-static) | **21** | base 9 (Frenet coord 3 + sign 3 + group 2 + idx 1) + **S4 Anchor coord Fourier PE 12** (`[sin(2π·a_t/r), cos(2π·a_t/r), sin(2π·a_n/r), cos, sin(2π·a_b/r), cos, sin(4π·a_t/r), cos, sin(4π·a_n/r), cos, sin(4π·a_b/r), cos]` with `r = 0.005m`) | **+12 (A4 Tancik 2020)** |
-| **③ ctx broadcast** (sample × all anchors 같은 값) | **128** | base 12 (last v 3 + last acc 3 + last res 3 + EWMA(α=0.3) res 3) + macro_stat **8** (~~straightness~~ 제거, A2 redundancy R4) + Bz/Tz 2 + regime 18 + **A1 STA/LTA ratio 3** (EWMA α=0.5 / α=0.1 per Frenet axis) + **A2 Multi-window stat grid 60** (`[전체 11, 뒤 7, 뒤 5, 뒤 3] sub-window × [mean, std, slope, max] × 9 channel` trim) + **A5 WAP sample-level 5** (last-step `[‖v‖²·κ, ‖j‖/‖a‖, ½‖v‖², ‖v_perp‖·τ, dist·‖a_perp‖]`) + **A6 wingbeat-jitter envelope 3** (std of EWMA-detrended Frenet position per axis) + **A8 f0_conf sample-level 2** (polyfit residual norm + step spread) + **A10 Pct-rolling+Peak 12** (`[pct_{20,50,80}(rolling_std(speed, w∈{3,5,7})), count(|jerk|>p90_train), sign_flip(v_x), sharp_turn(cos<0.5)]`) + **A12 v_autocorr 3** (`corr(v_t, v_{t-k}), k∈{1,2,3}`) | **+88 (A1+A2+A5+A6+A8+A10+A12), -1 straightness** |
+| **③ ctx broadcast** (sample × all anchors 같은 값) | **128** | **모두 Frenet frame, last step 기준** (audit B + §4.0 convention). base 12 (last v Frenet 3 + last acc Frenet 3 + last F0 res Frenet 3 + EWMA(α=0.3) of res Frenet 3) + macro_stat **8** (~~straightness~~ 제거, A2 redundancy R4 — plan-021 `_macro_stat_9d` 중 idx 1 straightness 제외 9→8) + Bz/Tz 2 (`[R_wfn[:, 2, 2], R_wfn[:, 2, 0]]` per §4.0) + regime 18 (one-hot) + **A1 STA/LTA ratio 3** (EWMA α=0.5 / EWMA α=0.1 ratio per Frenet axis t̂/n̂/b̂, of F0 residual) + **A2 Multi-window stat grid 60** (`[전체 11, 뒤 7, 뒤 5, 뒤 3] sub-window × [mean, std, slope, max] × 9 channel` = 4×4×9 = 144D 후보, **trim 60D** — 9 channel = Frenet `[p_t, p_n, p_b, v_t, v_n, v_b, a_t, a_n, a_b]`, **trim 절차** §4.4.1 박제) + **A5 WAP sample-level 5** (last-step Frenet `[‖v‖²·κ, ‖j‖/‖a‖, ½‖v‖², ‖v_perp‖·τ_frenet, dist·‖a_perp‖]`) + **A6 wingbeat-jitter envelope 3** (std of `(p_Frenet - EWMA_{α=0.6}(p_Frenet))` per Frenet axis) + **A8 f0_conf sample-level 2** (polyfit residual norm `‖F0_pred - last_step_world_extrap‖` + `step_spread = std(consecutive_speed)`) + **A10 Pct-rolling+Peak 12** (`[pct_{20,50,80}(rolling_std(‖v_Frenet‖, w∈{3,5,7})) → 3×3=9, count(‖j_Frenet‖>quantile_carry.jerk_p90), sign_flip(v_t_Frenet), sharp_turn(turn_cos<0.5)]` → 9+1+1+1=12) + **A12 v_autocorr 3** (`corr(v_t_Frenet, v_{t-k}_Frenet)` 의 단일 scalar per lag k∈{1,2,3}, 3개) | **+88 (A1+A2+A5+A6+A8+A10+A12), -1 straightness** |
 | **④ interactions** (sample × anchor) | **10** | base 9: anchor·res / anchor·v / anchor·acc / anchor·EWMA / corner×turn / ~~axis×forward~~ (A1 redundancy 제거) / sign-agreement / physics-extrap·anchor / anchor·Δz_world + **A3 BCC adjacency neighbor pool 2** (`[mean_{j∈N(k)}<a_j, r_last>, std_{j∈N(k)}<a_j, r_last>]`, N(k) = anchor k 의 BCC 3-4 nearest neighbor, adjacency precompute static) | **+2 (A3 Set Transformer ISAB mimic), -1 axis×forward** |
 
 **total**: 3 + **21** + **128** + **10** = **162D**. cand_feat shape = (N, 14, 162). (v1: 62D, Δ = +99 추가 − 2 redundancy 제거 + 11 = +100)
 
 ⭐ = v1.1 추가 (4-way ML expert review 결과 박제).
+
+### §4.4.1 Multi-window stat grid 144→60 trim 절차 (v1.1)
+
+**Stage**: STAGE 0 (인프라) 안에서 c4 cand_builder 와 별도 module `analysis/plan-024/multiwindow_trim_build.py` 의 **deterministic** 절차 (random 없음, fold-leakage 없음 — full train set 144D 계산 후 *모든 sample 합산* 위 correlation 추출).
+
+**식**:
+1. Full train set (N=10000) 의 144D Multi-window stat 계산 = (N, 144) 행렬.
+2. 144×144 absolute Pearson correlation matrix `C` 계산.
+3. Greedy column drop: corr > 0.95 인 쌍 중 *variance 작은 column* 제거. drop 후 남은 column 수 ≤ 60 까지 반복. drop 못 해도 60 column 이상 남으면 추가로 variance 낮은 column 부터 drop.
+4. 최종 60-col index list 를 `analysis/plan-024/multiwindow_trim.json` 박제: `{"kept_indices": [int × 60], "drop_indices": [int × 84], "corr_threshold": 0.95}`.
+
+**fold-leakage check**: full train (N=10000) 위 계산 → *모든 fold 의 train+test 데이터 모두 포함* → 엄밀히는 *test-set 정보 leakage* 가능. 단 trim 결정은 *correlation structure* (각 column 의 sample variance) 만 활용하고 *label* (Y) 안 사용 → leakage scale 미미 (LANL Singer pattern carry). 보수적 mitigation 옵션 = train fold 4 (sample ~8000) 위 계산 + 5-fold 별 trim 동일 — single config 원칙상 *모든 fold 동일 trim* 권장.
+
+**decision-note**: trim 자체가 fold-invariant deterministic 함수라 single config 안에서 *재실행 시 동일 결과* 보장. ablation 없음.
 
 ### §4.5 torsion_calc (c5 `analysis/plan-024/torsion_calc.py`)
 
@@ -394,6 +436,36 @@ seq_torsion_t = [tau_t, sign(tau_t) * log(1 + |tau_t|), valid_mask_t.float()]
 ### §4.6 model spec (c6 `analysis/plan-024/model.py`) — v1.1
 
 **PB framework arch 의 anchor-vocab task fit 정합**: PB framework `CandidateAttentionGRUSelector` 의 원래 task = 27 physics candidate 의 selector (plan-004 LB 0.6822). plan-024 의 task = 14 BCC anchor 의 corrector-free `Σ q · a` (plan-022 carry). 둘 다 **K-cand softmax classifier with GRU-attended past-seq + per-cand spec query** 의 동일 abstraction — PB 의 `cand_count=27, cand_dim=32` 가 plan-024 의 `cand_count=14, cand_dim=162` 로 *parametric swap* 만 필요, *gradient path / loss form / output 구조* 모두 fit. 단 plan-024 의 anchor-vocab encoding (input ↔ output 같은 anchor 어휘) + per-channel learnable scale + channel dropout 은 PB framework 위 *추가 input adaptor 층* 으로 박제 (model.py 안 thin wrapper).
+
+**PB `CandidateAttentionGRUSelector` forward 식 self-contained 박제** (src/pb_0_6822/selector.py:697-727 carry — 본 plan-024 의 구현자가 외부 file read 없이 자족적으로 구현 가능하도록):
+
+```python
+class CandidateAttentionGRUSelector(nn.Module):
+    def __init__(self, seq_dim, cand_dim, hidden, cand_count):
+        self.gru = nn.GRU(seq_dim, hidden, num_layers=2, dropout=0.08, batch_first=True)
+        self.query_mlp = nn.Sequential(nn.Linear(cand_dim, hidden), nn.GELU(),
+                                        nn.Linear(hidden, hidden))
+        self.head = nn.Sequential(nn.Linear(2*hidden + cand_dim, hidden), nn.GELU(),
+                                   nn.Dropout(0.10), nn.Linear(hidden, 1))
+        self.cand_count = cand_count
+
+    def forward(self, seq, cand_feat):
+        # seq: (b, T=7, seq_dim=95). cand_feat: (b, K=14, cand_dim=162).
+        out, h = self.gru(seq)            # out: (b, T, hidden=384), h: (2, b, hidden)
+        h_final = h[-1]                    # (b, hidden) — last GRU layer final hidden
+        query = self.query_mlp(cand_feat) # (b, K, hidden)
+        # attention: softmax over T axis (per-cand temporal weight)
+        attn_logits = einsum("bth,bkh->bkt", out, query) / sqrt(hidden)  # (b, K, T)
+        attn = softmax(attn_logits, dim=-1)                              # (b, K, T)
+        event_ctx = einsum("bkt,bth->bkh", attn, out)                    # (b, K, hidden)
+        # head: concat(global ctx, per-cand attended ctx, raw cand_feat)
+        h_final_broadcast = h_final.unsqueeze(1).expand(-1, cand_count, -1)  # (b, K, hidden)
+        head_in = cat([h_final_broadcast, event_ctx, cand_feat], dim=-1)     # (b, K, 2*hidden + cand_dim)
+        score = self.head(head_in).squeeze(-1)                               # (b, K)
+        return score   # (b, K) logits, softmax(score, dim=-1) → q_pred
+```
+
+본 forward 식은 PB framework 의 *exact carry* — plan-024 v1.1 의 `hidden=384` 만 변경, 다른 모든 layer 시그너처 / dim flow 정합. v1.1 의 input adaptor (FeatureWeightedDropout, 위 정의) 는 backbone 의 `forward(seq, cand_feat)` 호출 *직전* 에 (seq, cand_feat) 변환만 추가.
 
 ```python
 # PB framework 그대로 import (src/pb_0_6822/selector.py:697)
@@ -606,8 +678,11 @@ optim = AdamW(model.parameters(), lr=7e-4, weight_decay=0.02)   # v1.1: lr 1e-3 
 scheduler = cosine_warmup(optim, warm=10%, total=epochs)         # total = 12 pre + 10 fine = 22
 
 # v1.1: validation early stop (§12.6 carry, train fold 의 마지막 20% holdout)
-val_split_idx = int(len(tr) * 0.8)
-tr_train, tr_val = tr[:val_split_idx], tr[val_split_idx:]
+# *deterministic ordering*: tr 은 sample_id ascending sort (`sorted(tr, key=lambda i: ids[i])`)
+# → split key = sample_id 순. random_state 영향 없음 (fold-leakage 차단 + reproducibility).
+tr_sorted = sorted(tr, key=lambda i: ids[i])
+val_split_idx = int(len(tr_sorted) * 0.8)
+tr_train, tr_val = tr_sorted[:val_split_idx], tr_sorted[val_split_idx:]
 best_val_loss = float('inf')
 best_state = None
 patience = 3
