@@ -116,10 +116,10 @@ def train_one_fold(
     pre_epochs: int = 12,
     fine_epochs: int = 10,
     batch_size: int = 256,
-    lr: float = 7e-4,         # v5: original v1 spec carry
-    weight_decay: float = 0.02,  # v5: original v1 spec carry
+    lr: float = 7e-4,         # v7 spec default carry
+    weight_decay: float = 0.02,  # v7 spec default carry
     val_frac: float = 0.2,
-    patience: int = 999,   # G2 재학습 (under-converged fix): early stop 사실상 disable
+    patience: int = 3,   # v7: spec default 복원 (overfit 가설 + hidden ↓ 시도)
     seed: int = SEED,
     device: str = DEVICE,
 ) -> np.ndarray:
@@ -137,9 +137,9 @@ def train_one_fold(
     cand_val = torch.from_numpy(cand_tr[val_split:]).float().to(device)
     q_val = torch.from_numpy(q_true_tr[val_split:]).float().to(device)
 
-    # G2 ablation v5 (A7 Learnable anchor embedding): cross-attention 의 anchor
-    # identity capacity 부족 fix — nn.Parameter(14, 8) 학습 추가. v1 default config 유지.
-    model = model_mod.CrossAttentionAnchorSelector(anchor_embed_dim=8).to(device)
+    # v7 (overfit fix): hidden 384 → 64 만 변경, 나머지 spec default carry
+    # (drop 0.3/0.2 + lr 7e-4 + wd 0.02 + 22 epoch + patience 3 그대로)
+    model = model_mod.CrossAttentionAnchorSelector(hidden=64).to(device)
     optim = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
     total_steps = (pre_epochs + fine_epochs) * (val_split // batch_size + 1)
     warm_steps = max(1, total_steps // 10)
