@@ -71,6 +71,13 @@ band: null
 
 ### §1.4 분기 decision rule (진입 시 자동 적용)
 
+> **band 라벨 정의**: 본 §1.4 의 `positive / strong / negative` 는 plan-025/026 의 G3 band 5종 (`super_additive / additive / partial_redundancy / mild_redundancy / interference`) 의 *축약 roll-up*. 매핑:
+> - `strong` ⊃ {`super_additive`}
+> - `positive` ⊃ {`additive`} (plan-025/026 의 G3 PASS criterion = best variant hit_1cm ≥ V0 + 0.003)
+> - `negative` ⊃ {`partial_redundancy`, `mild_redundancy`, `interference`} (lever 효과가 carry threshold 미달)
+>
+> 매핑 결정 시점 = c1.5 commit (post-plan-025/026 [DONE]) — plan-025/026 의 `band` frontmatter 값을 읽고 자동 roll-up. 기준 = best variant 의 V0 대비 lift 가 0.003 이상이면 `positive` 이상, 미만이면 `negative`.
+
 | plan-025 band | plan-026 band | 본 plan 진입? | 액션 |
 |:-:|:-:|:-:|:--|
 | positive / strong | positive / strong | **✅ 정상 진입** | W0/W1/W2 전부 실행 |
@@ -85,12 +92,12 @@ band: null
 - **G2.W0**: plan-025 best variant 단독 reproduce — best_hit_1cm ± 0.0015 drift. 위반 시 `w0_drift` severe.
 - **G2.W1**: plan-026 best variant 단독 reproduce — best_hit_1cm ± 0.0015 drift. 위반 시 `w1_drift` severe.
 - **G2.W2**: combo — plan-025 best 의 loss/forward + plan-026 best 의 cand_feat. metric finite + max_class_ratio < 0.95 + soft_CE finite. 위반 시 `combo_numerical` severe.
-- **G3 (additivity 판정)**: $\Delta_{combo} = W_2 - V_0$, $\Delta_{025} = W_0 - V_0$, $\Delta_{026} = W_1 - V_0$. additivity $A = \Delta_{combo} / (\Delta_{025} + \Delta_{026})$.
+- **G3 (additivity 판정)**: V0 = plan-024 v1 baseline hit_1cm = 0.6370 (5-fold OOF concat, fold split = stable_fold_id MD5 — §2.3/§7.1 carry). $\Delta_{combo} = W_2 - V_0$, $\Delta_{025} = W_0 - V_0$, $\Delta_{026} = W_1 - V_0$. additivity $A = \Delta_{combo} / (\Delta_{025} + \Delta_{026})$.
   - $A \geq 1.2$ → **band super_additive** (synergy 확정 — 가장 좋은 결과)
   - $1.0 \leq A < 1.2$ → **band additive** (두 lever 직교 ✓)
   - $0.7 \leq A < 1.0$ → **band partial_redundancy** (정보 일부 중복)
-  - $A < 0.7$ → **band destructive** (두 lever 간섭)
-  - $W_2 < \max(W_0, W_1)$ → **band interference** (combo 가 단독보다 못함 — alert + 원인 분석)
+  - $A < 0.7$ → **band mild_redundancy** (큰 redundancy 단 winner 확정 — §3.4/§6.2/§7.2/§7.3/§8 enum 과 일치, 종전 `destructive` 오기 정정)
+  - $W_2 < \max(W_0, W_1)$ → **band interference** (모든 A 와 무관하게 우선 — combo 가 단독보다 못함, alert + 원인 분석)
 - **G_final**: results.md (10 항목) + best W# + additivity ratio + plan-024/022/025/026 head-to-head + per-fold variance + follow-up plan ≥ 2건 박제 + 3-file frontmatter sync.
 
 ### G-gates
@@ -100,7 +107,7 @@ band: null
 - G2.W0: plan-025 best 단독                                      [TODO]
 - G2.W1: plan-026 best 단독                                      [TODO]
 - G2.W2: combo (★ 핵심)                                          [TODO]
-- G3: additivity 판정 (super / additive / partial / destructive / interference) [TODO]
+- G3: additivity 판정 (super_additive / additive / partial_redundancy / mild_redundancy / interference) [TODO]
 - G_final: results + 3-file sync + follow-up                     [TODO]
 
 ### Commit chain (next-up)
@@ -122,7 +129,7 @@ band: null
 | G2.W1 | gate | drift < 0.0015 ✓ | [TODO] |
 | c8 | exp G2.W2 | combo — plan-025 best loss × plan-026 best cand_feat. `results_W2.json` 박제. | [TODO] |
 | G2.W2 | gate | metric finite ✓ + max_class_ratio < 0.95 ✓ | [TODO] |
-| c9 | analysis | 3 variant × 5-fold metric 표 + additivity ratio A 계산 + plan-024/022/025/026 head-to-head + band 판정 (super/additive/partial/destructive/interference) → `paradigm_analysis.{json,md}` | [TODO] |
+| c9 | analysis | 3 variant × 5-fold metric 표 + additivity ratio A 계산 + plan-024/022/025/026 head-to-head + band 판정 (super_additive / additive / partial_redundancy / mild_redundancy / interference) → `paradigm_analysis.{json,md}` | [TODO] |
 | G3 | gate | band 판정 + super/additive 시 W2 ≥ max(W0, W1) + 0.003 추가 확인 | [TODO] |
 | c10 | docs | `analysis/plan-027/results.md` 10 항목 + pair file + follow-up 2건 박제 (plan-028 ensemble / dynamic anchor) + 3-file frontmatter sync | [TODO] |
 | G_final | gate | 3-file sync ✓ + §0.5 c1~c10 [DONE] ✓ + follow-up 2+ 박제 ✓ | [TODO] |
@@ -175,7 +182,7 @@ band: null
 - *additive*: $\Delta_{combo} = \Delta_{025} + \Delta_{026}$ (= A=1.0)
 - *super-additive*: $\Delta_{combo} > \Delta_{025} + \Delta_{026}$ (= A>1.0, *synergy* — 한 lever 가 다른 lever 의 효과를 *증폭*. e.g. input 풍부화가 expansion 으로 늘어난 grad signal 의 *각 unit* 에 더 유의미한 학습 가능)
 - *sub-additive*: $A < 1.0$ (정보 중복, 한 lever 가 이미 부분 fix 한 영역을 다른 lever 가 또 fix)
-- *destructive*: $\Delta_{combo} < \max(\Delta_{025}, \Delta_{026})$ (간섭, 두 lever 의 학습 dynamics 가 충돌)
+- *destructive* (= G3 band `interference` — §0.5/§3.4): $\Delta_{combo} < \max(\Delta_{025}, \Delta_{026})$ (= $W_2 < \max(W_0, W_1)$, 두 lever 의 학습 dynamics 가 충돌. 본 §1.2 의 *destructive* 는 §1.2 hypothesis-level 개념어, G3 operational band 이름은 `interference`)
 
 ### §1.3 사용자 통찰 (turn 박제)
 
