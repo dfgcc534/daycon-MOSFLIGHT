@@ -1,0 +1,33 @@
+inline selector loaded: 27 candidates
+[poss1 hidden=128] EPOCHS=50, lr=0.0005 constant, batch=256
+[poss1] params=273,782
+[poss1] ep   0: train=2.7196 val=2.6314 hit_1cm=0.6416
+[poss1] ep   2: train=2.6628 val=2.6276 hit_1cm=0.6411
+[poss1] ep   4: train=2.6600 val=2.6236 hit_1cm=0.6426
+[poss1] ep   6: train=2.6541 val=2.6188 hit_1cm=0.6426
+[poss1] ep   8: train=2.6332 val=2.6098 hit_1cm=0.6436
+[poss1] ep  10: train=2.6162 val=2.5956 hit_1cm=0.6426
+[poss1] ep  12: train=2.5939 val=2.5856 hit_1cm=0.6436
+[poss1] ep  14: train=2.5817 val=2.5811 hit_1cm=0.6460
+[poss1] ep  16: train=2.5730 val=2.5776 hit_1cm=0.6436
+[poss1] ep  18: train=2.5692 val=2.5786 hit_1cm=0.6421
+[poss1] ep  20: train=2.5611 val=2.5731 hit_1cm=0.6436
+[poss1] ep  22: train=2.5568 val=2.5864 hit_1cm=0.6485
+[poss1] ep  24: train=2.5452 val=2.5690 hit_1cm=0.6436
+[poss1] ep  26: train=2.5400 val=2.5720 hit_1cm=0.6450
+[poss1] ep  28: train=2.5379 val=2.5713 hit_1cm=0.6460
+[poss1] ep  30: train=2.5328 val=2.5693 hit_1cm=0.6460
+[poss1] ep  32: train=2.5240 val=2.5730 hit_1cm=0.6480
+[poss1] ep  34: train=2.5170 val=2.5740 hit_1cm=0.6455
+[poss1] ep  36: train=2.5144 val=2.5693 hit_1cm=0.6470
+[poss1] ep  38: train=2.5046 val=2.5708 hit_1cm=0.6455
+[poss1] ep  40: train=2.5004 val=2.5963 hit_1cm=0.6446
+[poss1] ep  42: train=2.4951 val=2.5801 hit_1cm=0.6460
+[poss1] ep  44: train=2.4990 val=2.5901 hit_1cm=0.6465
+[poss1] ep  46: train=2.4833 val=2.5968 hit_1cm=0.6460
+[poss1] ep  48: train=2.4645 val=2.6052 hit_1cm=0.6485
+[poss1] ep  49: train=2.4606 val=2.6103 hit_1cm=0.6490
+
+[poss1] best hit_1cm=0.6490 @ epoch 49
+[poss1] vs plan-022 0.6528: -0.0038
+[poss1] total 36s → /workspace/daycon-muflight/.claude/worktrees/plan-024-spec/analysis/plan-024/diagnose_long_hidden128.json

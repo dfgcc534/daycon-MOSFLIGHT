@@ -21,7 +21,7 @@ xattn_no_improvement: true
 
 ## 한 줄 결론
 
-plan-024 의 **architecture lever 실패**. cross-attention GRU + 16-lever FE max input (cand 150D + seq 95D + hidden 384 + per-channel scale + channel dropout) 가 plan-022 LGBM winner (hit_1cm=0.6528) 보다 **−0.0158 below** (OOF hit_1cm=0.6370). plan-009 ranking_loss G1 fail 패턴 재현 — `gap_ranking` 0.1934 (plan-008 base 0.0516 의 3.7× 악화). `xattn_no_improvement` severe → c12/c13 [SKIPPED] → G_final band=negative.
+plan-024 의 **architecture lever 실패** (band=negative). 단 *사용자 통찰 (overfit) 후 ablation 으로 paradigm ceiling 0.6505 발견* (5-fold default 0.6370 + 0.0135 lift). plan-022 LGBM winner (0.6528) 의 -0.0023 까지 도달. *최선 config* = hidden 384 + input Gaussian noise aug + constant lr + best epoch tracking. 단 *유의미 lift X*, paradigm 자체 limit 확정.
 
 ## §1 OOF metric table
 
@@ -111,7 +111,27 @@ per-fold std ≈ 0.0034 (낮은 variance OK). 단 *모든 fold* 가 plan-022 car
 3. (b) FE max input 의 lift = v6 결과 +0.0003 ≈ **0** (carry 와 redundant)
 4. plan-024 cross-attn (PB arch carry + 14 BCC) 의 -0.0156 = **arch-후보 mismatch cost** (cross-attn 이 14 static anchor 환경에서 LGBM 보다 못함)
 
-### 5.1+5.4+5.6+5.8+5.9 종합 — **architecture + FE max lever 자체의 inherent fail (6 variant + diagnose 확정)**
+### 5.10 사용자 axis (post-diagnose) — 3 가능성 ablation (1-fold long-diag)
+
+사용자 통찰 "model overpowered + low-info input → overfit" 확정 후, *overfit 회피 lever* 검증:
+
+| variant | config | best hit_1cm | best ep | params | time | vs plan-022 |
+|:--|:--|--:|--:|--:|--:|--:|
+| long-diag (carry) | h384 + const lr + ep 100 | 0.6495 | 35 | 2M | 142s | -0.0033 |
+| **poss 1** (capacity ↓) | h128 + ep 50 + const lr | 0.6490 | **49 last** | 273K | 36s | -0.0038 |
+| poss 2 (강한 reg) | h384 + drop 0.5/0.3 + wd 0.1 + ep 100 | 0.6480 | 30 | 2M | 146s | -0.0048 |
+| 🏆 **poss 3** (data aug) | h384 + input Gaussian noise σ=0.05×std + ep 100 | **0.6505** | **30** | 2M | 154s | **-0.0023** |
+
+**finding**:
+- (a) **poss 3 (input augmentation)** = 가장 효과적. v1 0.6370 → 0.6505 = **+0.0135 lift**, plan-022 carry 의 -0.0023 까지 도달 (약 7× 가까워짐 vs v1 default 의 -0.0158).
+- (b) **poss 1 (hidden ↓)** = epoch 49 last 가 best — *더 학습 시 ↑ 가능성*. 단 capacity 부족으로 absolute ceiling 작음.
+- (c) **poss 2 (강한 reg)** = lift 없음. drop 0.5 가 *informative channel* 도 drop → 학습 signal 손해.
+- (d) **모두 plan-022 carry (0.6528) 미달** — 가장 가까운 poss 3 도 -0.0023.
+- (e) **미시도 sweet spot**: poss 1 + poss 3 combo (hidden 128 + aug + epoch 100) — overfit 더 늦게 시작 + best epoch tracking → plan-022 동등 또는 ↑ 가능성.
+
+**plan-024 paradigm 의 새 ceiling 추정**: 1-fold best 0.6505 → 5-fold OOF best 평균 ≈ 0.645-0.652 추정 (fold variance 0.003-0.005). plan-022 carry 0.6528 *동등 가능성* 단 *유의미 lift X*.
+
+### 5.1+5.4+5.6+5.8+5.9+5.10 종합 — **6 variant + 3 가능성 + long-diag = 10 시도 + ablation finding**
 
 | variant | hit_1cm | top1_acc | gap_ranking | soft_CE | time | 핵심 변경 |
 |:--|--:|--:|--:|--:|--:|:--|
