@@ -107,7 +107,7 @@ band: null
 - G0: STAGE 0 인프라 [DONE — a3646dd] 12/12 pytest pass (3.33s)
 - G1: STAGE 1 F0 + plan-022 winner reproduce [DONE — e262299] F0 0.6320/0.8033 + plan-022 0.6531/0.8108 ✓
 - G2.C1: C1 default hparam 5-fold OOF [DONE — e31bf4e] 0.6320 (regression to F0)
-- G2.C2: C2 adjusted hparam 5-fold OOF [TODO]
+- G2.C2: C2 adjusted hparam 5-fold OOF [DONE — 308411c] 0.6320 (C1 동일, regression)
 - G3: STAGE 3 paradigm + best cell [TODO]
 - G_final: STAGE 4 results + 3-file sync [TODO]
 
@@ -125,8 +125,8 @@ band: null
 | G1 | gate | F0 hit ∈ tight band ✓ AND plan-022 winner hit ∈ tight band ✓ AND dataset_hash 일치 ✓ | [DONE — e262299] |
 | c7 | exp G2.C1 | C1 default hparam (n_estimators=500, lr=0.05, num_leaves=63) — 5-fold OOF, K=14 BCC + τ=0.001 fix, 1080D input. `results_C1.json` 박제. 예상 runtime 1.5~3h CPU | [DONE — e31bf4e] hit_1cm=0.6320 (regression to F0), runtime 334s |
 | G2.C1 | gate | C1 metric finite ✓ + max_class_ratio < 0.95 ✓ | [DONE — e31bf4e] max_class_ratio=0.071 (uniform near) — mode collapse warn |
-| c8 | exp G2.C2 | C2 adjusted hparam (n_estimators=2000 + lr=0.03 + num_leaves=63 + feature_fraction=0.7 + min_data_in_leaf=50 + early_stopping_rounds=100) — 5-fold OOF, 동일 input. `results_C2.json` 박제. 예상 runtime 2~5h CPU (early_stopping 영향) | [TODO] |
-| G2.C2 | gate | C2 metric finite ✓ + max_class_ratio < 0.95 ✓ + best_iteration ∈ [50, 2000] per fold ✓ | [TODO] |
+| c8 | exp G2.C2 | C2 adjusted hparam (n_estimators=2000 + lr=0.03 + num_leaves=63 + feature_fraction=0.7 + min_data_in_leaf=50 + early_stopping_rounds=100) — 5-fold OOF, 동일 input. `results_C2.json` 박제. 예상 runtime 2~5h CPU (early_stopping 영향) | [DONE — 308411c] hit_1cm=0.6320 (C1 동일, regression), runtime 316s, early_stop fallback |
+| G2.C2 | gate | C2 metric finite ✓ + max_class_ratio < 0.95 ✓ + best_iteration ∈ [50, 2000] per fold ✓ | [DONE — 308411c] finite ✓, max_class_ratio=0.071 (mode collapse warn), best_iter fallback (early_stop 비활성) |
 | c9 | analysis | 2 cell hit@1cm/1.5cm 표 + best cell selection + paired Δ vs plan-022 winner + 14-anchor oracle 0.7928 대비 회수율 + (PASS 시) block ②③④ lift attribution 잠재력 박제 → `paradigm_analysis.{json,md}` | [TODO] |
 | G3 | gate | best cell hit@1cm > 0.6700 → PASS / ∈ [0.6528, 0.6700] → partial_lift warn / < 0.6528 → regression warn | [TODO] |
 | c10 | docs | 3-file frontmatter sync (status=all_complete, band=positive/partial/negative, best_cell) + `analysis/plan-025/results.md` (11 항목) + `plans/plan-025-*.results.md` pair + follow-up plan-026/027/028 박제 | [TODO] |
