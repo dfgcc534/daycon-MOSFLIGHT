@@ -63,6 +63,10 @@ exp_ids:
   - Z028_B3_no_anchor1058
   - Z028_B4_full1080_ref
   - Z028_W1_weight_off
+  - Z028_T1_tau01
+  - Z028_T2_tau1
+  - Z028_S1_base_lgbm
+  - Z028_R1_seq_raw
   - Z028_Bx_branch (G2.B conditional, 1~2 exp_id 추가 — branch 확정 후 박제)
 lb_score: null
 ---
@@ -71,9 +75,15 @@ lb_score: null
 
 ## §0. 한 줄 목적
 
-> **plan-025 mode collapse 의 두 가설 — (d) 1058D broadcast / 22D per-anchor 비율 50:1 LGBM split dominance + (b) sample-weight expansion (140k row × 14-class CE) 비효율 — 을 G2.A 5 cell 로 직접 검증한 뒤, winning configuration 위에서 G2.B 1~2 cell 로 plan-022 winner (hit_1cm 0.6531, hit_1p5cm 0.8108) 를 paired Δ > 0 로 lift.**
+> **plan-025 mode collapse 의 5 가설 — (a) τ_cls=0.001 sharp soft label train/test gap / (b) sample-weight expansion (140k row × 14-class CE) 비효율 / (c) LgbmSelectorOnly subclass self-consistency 약화 / (d) 1058D broadcast / 22D per-anchor 50:1 LGBM split dominance / (e) seq 압축 lossy (block ④ 8-stat) — 전부 본 plan G2.A 9 cell 로 직접 검증한 뒤, winning configuration 위에서 G2.B 1~2 cell 로 plan-022 winner (hit_1cm 0.6531, hit_1p5cm 0.8108) 를 paired Δ > 0 로 lift.**
 >
-> **분석 축 (G2.A)**: plan-025 1080D feature pipeline 의 block 분해 ① 170D / ② 128D / ③ 22D / ④ 760D 위 4 cell — B1 (③ 22D per-anchor only) / B2 (①+③ = 192D, plan-022 base + per-anchor) / B3 (①+②+④ = 1058D, ③ 제외) / B4 (1080D full = plan-025 C1 carry, reference) — 가설 (d) 직접 검증. 추가 1 cell W1 (1080D full + sample-weight expansion OFF) 으로 가설 (b) 검증. 총 G2.A 5 cell.
+> **분석 축 (G2.A, 9 cell)**: plan-025 1080D feature pipeline 의 block 분해 ① 170D / ② 128D / ③ 22D / ④ 760D 위 — 각 cell 은 B4 baseline (1080D full + weight ON + τ=0.001 + LgbmSelectorOnly + block ④ 8-stat) 대비 single-variable 변경:
+> - **B1 (22D = ③ only)** / **B2 (192D = ①+③)** / **B3 (1058D = no ③)** — input dim subset, 가설 (d)
+> - **B4 (1080D = plan-025 C1 carry)** — baseline reference, c6 G1 재실행 금지
+> - **W1 (1080D + sample-weight 1.0 균등)** — sample_weight 값, 가설 (b)
+> - **T1 (1080D + τ_cls=0.01)** / **T2 (1080D + τ_cls=0.1)** — τ_cls (10×/100× softer), 가설 (a)
+> - **S1 (1080D + base lightgbm.LGBMClassifier multiclass, LgbmSelectorOnly subclass 우회)** — model wrapping, 가설 (c)
+> - **R1 (985D = ①+②+③+raw seq flatten 95×7=665D, block ④ 8-stat 우회)** — block ④ 산식, 가설 (e)
 >
 > **승부 축 (G2.B)**: G2.A 결과의 4 branch (α / β / γ / δ) 중 1 branch 활성화 → 1~2 cell 추가 실험. branch 결정 함수는 §4.5 박제. branch 활성화 우선순위 α > β > γ > δ (복수 branch 조건 만족 시 우선순위 높은 것 1개만 실행).
 >
@@ -91,7 +101,7 @@ lb_score: null
 
 - **G0**: 본 plan path (analysis/plan-028/**, tests/test_plan028_smoke.py) + cherry-pick path (analysis/plan-025/{build_feat_1080.py, run_oof.py}, analysis/plan-024/{6 module + 1 data + __init__}, analysis/plan-022/*, analysis/plan-021/build_input.py, analysis/plan-020/baseline_f0.py) import + smoke + tests green. 위반 시 `infra_drift` severe.
 - **G1**: F0 baseline 5-fold concat OOF — hit_1cm ∈ [0.6315, 0.6325] AND hit_1p5cm ∈ [0.8028, 0.8038]. plan-022 winner reproduce — A6_bcc14 + τ=0.001 cell hit_1cm ∈ [0.6526, 0.6536] AND hit_1p5cm ∈ [0.8103, 0.8113]. plan-025 C1 carry — hit_1cm ∈ [0.6315, 0.6325] (= mode collapse reference). 위반 시 `f0_reproduce_drift` / `plan022_reproduce_drift` / `plan025_C1_drift` severe.
-- **G2.A (5 cell)**: B1/B2/B3/B4/W1 각 5-fold OOF metric finite + `max_class_ratio` 측정 + soft label sum=1 invariant. 위반 시 `lgbm_numerical` severe.
+- **G2.A (9 cell)**: B1/B2/B3/B4/W1/T1/T2/S1/R1 각 5-fold OOF metric finite + `max_class_ratio` 측정 + soft label sum=1 invariant. T1/T2 는 τ_cls 변경 시 soft label 재계산. S1 은 LgbmSelectorOnly subclass 우회 (base lightgbm.LGBMClassifier 직접 fit). R1 은 block ④ 산식 변경 (8-stat 760D → raw flatten 665D, total 985D). 위반 시 `lgbm_numerical` severe.
 - **G2.B (conditional, 1~2 cell)**: §4.5 branch 함수로 α/β/γ/δ 중 1 개 활성화, 해당 branch 의 1~2 cell 실행. branch 미정 (조건 모두 false) → δ default (selector arch MLP per-sample softmax) 1 cell.
 - **G3 (paradigm-level)**: best_cell = argmax(hit_1cm over G2.A + G2.B 통합). best_hit_1cm > 0.6531 → PASS (band=positive). 0.6320 < best_hit_1cm ≤ 0.6531 → partial band (warn `partial_lift`). best ≤ 0.6320 → negative band (warn `regression`). 0.6526 ≤ best_hit_1cm ≤ 0.6536 = `tight_band_around_p022` 경계 — paired Δ 부호로 결정.
 - **G_final**: results.md (11 항목 = plan-025 form 일치) + best cell 박제 (cell_id + hparam + 모든 metric + max_class_ratio + top1_acc + paired Δ vs F0/plan-022/plan-025-C1) + 14-anchor oracle 회수율 (= best / 0.7928) + paradigm_analysis (가설 a/b/c/d 중 어느 것이 확정/기각됐는지 박제) + follow-up plan 후보 ≥ 2 건 + 3-file frontmatter sync.
@@ -100,9 +110,9 @@ lb_score: null
 
 - G0: STAGE 0 인프라 + cherry-pick + tests [TODO]
 - G1: STAGE 1 F0 + plan-022 winner + plan-025 C1 carry reproduce [TODO]
-- G2.A: STAGE 2.A 5 cell (B1/B2/B3/B4/W1) [TODO]
+- G2.A: STAGE 2.A 9 cell (B1/B2/B3/B4/W1/T1/T2/S1/R1) [TODO]
 - G2.B: STAGE 2.B conditional branch 1~2 cell [TODO]
-- G3: STAGE 3 paradigm + best cell 박제 [TODO]
+- G3: STAGE 3 paradigm + best cell + 5가설 (a/b/c/d/e) verdict 박제 [TODO]
 - G_final: STAGE 4 results + 3-file sync [TODO]
 
 ### Commit chain (next-up)
@@ -117,20 +127,24 @@ lb_score: null
 | G0 | gate | smoke + tests green | [TODO] |
 | c6 | exp G1 | F0 baseline + plan-022 winner A6_bcc14_tau001 + plan-025 C1 (1080D full carry, sample-weight ON) reproduce. `analysis/plan-028/baseline_carry.json` 박제 (dataset_hash + 3 carry hash). | [TODO] |
 | G1 | gate | F0 ∈ tight ✓ AND plan-022 winner ∈ tight ✓ AND plan-025 C1 ∈ tight ✓ | [TODO] |
-| c7 | exp G2.A.B1 | Cell B1 (22D per-anchor only, sample-weight ON, hparam = plan-022 default) 5-fold OOF. `results_B1.json`. 예상 runtime ~3min (dim 작아서). | [TODO] |
-| c8 | exp G2.A.B2 | Cell B2 (192D = block ①+③, sample-weight ON, hparam = plan-022 default) 5-fold OOF. `results_B2.json`. 예상 ~3min. | [TODO] |
-| c9 | exp G2.A.B3 | Cell B3 (1058D = no block ③, sample-weight ON, hparam = plan-022 default) 5-fold OOF. `results_B3.json`. 예상 ~5min. | [TODO] |
-| c10 | exp G2.A.B4 | Cell B4 (1080D full, sample-weight ON, hparam = plan-022 default = plan-025 C1) 5-fold OOF. **plan-025 C1 carry 와 동일 — c6 G1 결과 그대로 박제** (재실행 안 함). `results_B4.json`. | [TODO] |
-| c11 | exp G2.A.W1 | Cell W1 (1080D full, sample-weight **OFF**, hparam = plan-022 default) 5-fold OOF. `results_W1.json`. 예상 ~5min. | [TODO] |
-| G2.A | gate | B1/B2/B3/B4/W1 metric finite ✓ + max_class_ratio 박제 ✓ + paired Δ vs plan-025 C1 (= B4) per cell 박제 | [TODO] |
-| c12 | analysis | G2.A 5 cell 표 + 가설 (d) verdict (B1 vs B3 / B2 vs B4 비교) + 가설 (b) verdict (W1 vs B4 비교) + branch 함수 (§4.5) 실행 결과 = α / β / γ / δ 중 어느 1 branch activate + 박제 → `paradigm_analysis_g2a.json` | [TODO] |
-| c13 | exp G2.B.cell1 | activated branch 의 cell 1 (각 branch §4.5 정의 따라) 5-fold OOF. `results_Bx_1.json` | [TODO] |
-| c14 | exp G2.B.cell2 | activated branch 의 cell 2 (있을 시) 5-fold OOF. `results_Bx_2.json`. branch δ 는 1 cell only — c14 skip 박제. | [TODO] |
+| c7 | exp G2.A.B1 | Cell B1 (22D=③ only, weight ON, τ=0.001, LgbmSelectorOnly, hparam=p022 default) 5-fold OOF. `results_B1.json`. 예상 ~3min. | [TODO] |
+| c8 | exp G2.A.B2 | Cell B2 (192D=①+③, weight ON, τ=0.001, LgbmSelectorOnly, hparam=p022) 5-fold OOF. `results_B2.json`. 예상 ~3min. | [TODO] |
+| c9 | exp G2.A.B3 | Cell B3 (1058D=no ③, weight ON, τ=0.001, LgbmSelectorOnly, hparam=p022) 5-fold OOF. `results_B3.json`. 예상 ~5min. | [TODO] |
+| c10 | exp G2.A.B4 | Cell B4 (1080D full = plan-025 C1 carry, weight ON, τ=0.001, LgbmSelectorOnly). **c6 G1 carry, 재실행 금지**. `results_B4.json`. | [TODO] |
+| c11 | exp G2.A.W1 | Cell W1 (1080D full, **weight=1.0 균등**, τ=0.001, LgbmSelectorOnly, hparam=p022) 5-fold OOF. `results_W1.json`. 예상 ~5min. | [TODO] |
+| c12 | exp G2.A.T1 | Cell T1 (1080D full, weight ON, **τ=0.01** soft label 재계산, LgbmSelectorOnly, hparam=p022) 5-fold OOF. `results_T1.json`. 예상 ~5min. | [TODO] |
+| c13 | exp G2.A.T2 | Cell T2 (1080D full, weight ON, **τ=0.1** soft label 재계산, LgbmSelectorOnly, hparam=p022) 5-fold OOF. `results_T2.json`. 예상 ~5min. | [TODO] |
+| c14 | exp G2.A.S1 | Cell S1 (1080D full, weight ON, τ=0.001, **base lightgbm.LGBMClassifier multiclass** subclass 우회, hparam=p022) 5-fold OOF. `results_S1.json`. 예상 ~5min. | [TODO] |
+| c15 | exp G2.A.R1 | Cell R1 (block ④ = **raw seq flatten 95×7=665D** 대체, total 985D=①+②+③+R, weight ON, τ=0.001, LgbmSelectorOnly, hparam=p022) 5-fold OOF. `results_R1.json`. 예상 ~6min. | [TODO] |
+| G2.A | gate | 9 cell metric finite ✓ + max_class_ratio 박제 ✓ + paired Δ vs B4 per cell 박제 | [TODO] |
+| c16 | analysis | G2.A 9 cell 표 + 5가설 (a/b/c/d/e) verdict (§4.6) + branch 함수 §4.5 실행 결과 = α/β/γ/δ 중 1 activate → `paradigm_analysis_g2a.json` | [TODO] |
+| c17 | exp G2.B.cell1 | activated branch 의 cell 1 (§4.4 정의) 5-fold OOF. `results_Bx_1.json` | [TODO] |
+| c18 | exp G2.B.cell2 | activated branch 의 cell 2 (있을 시) 5-fold OOF. `results_Bx_2.json`. δ branch = 1 cell only → c18 skip. | [TODO] |
 | G2.B | gate | branch cell metric finite ✓ + max_class_ratio 박제 ✓ + paired Δ vs plan-022 winner per cell 박제 | [TODO] |
-| c15 | analysis | G2.A + G2.B 통합 best_cell selection (tiebreaker: hit_1cm > paired Δ_p022 > runtime) + paired Δ vs F0/plan-022/plan-025-C1 + 14-anchor oracle 회수율 + 가설 a/b/c/d verdict 통합 → `paradigm_analysis.{json,md}` | [TODO] |
+| c19 | analysis | G2.A + G2.B 통합 best_cell selection (tiebreaker: hit_1cm > paired Δ_p022 > runtime) + paired Δ vs F0/plan-022/plan-025-C1 + 14-anchor oracle 회수율 + 5가설 (a/b/c/d/e) verdict 통합 → `paradigm_analysis.{json,md}` | [TODO] |
 | G3 | gate | best_hit_1cm > 0.6531 → PASS / 0.6320 < best ≤ 0.6531 → partial_lift warn / best ≤ 0.6320 → regression warn | [TODO] |
-| c16 | docs | 3-file frontmatter sync (status=all_complete, band=positive/partial/negative, best_cell) + `analysis/plan-028/results.md` (plan-025 form 11 항목) + `plans/plan-028-*.results.md` pair + follow-up ≥ 2 건 | [TODO] |
-| G_final | gate | 3-file sync ✓ + §0.5 c1~c16 모두 [DONE] ✓ + follow-up ≥ 2 건 ✓ | [TODO] |
+| c20 | docs | 3-file frontmatter sync (status=all_complete, band=positive/partial/negative, best_cell) + `analysis/plan-028/results.md` (12 항목) + `plans/plan-028-*.results.md` pair + follow-up ≥ 2 건 | [TODO] |
+| G_final | gate | 3-file sync ✓ + §0.5 c1~c20 모두 [DONE] ✓ + follow-up ≥ 2 건 ✓ | [TODO] |
 
 ### Plan-specific severe (WORKFLOW.md §12.3 default 위 추가분)
 
@@ -183,13 +197,13 @@ lb_score: null
 
 | 가설 | 정의 | 본 plan 검증 cell | likelihood |
 |:--|:--|:--|:--|
-| (a) τ_cls=0.001 sharp soft label train/test gap | τ 너무 sharp 라 train fold 의 soft label 이 test fold 에서 generalize 안됨 | 본 plan 검증 X — τ_cls=0.001 fix (plan-022 winner carry) | 중 |
-| (b) sample-weight expansion (140k row × 14-class CE) 비효율 | row-expand 후 row 별 weight=soft_label 로 fit. LightGBM 의 weight 처리가 14-class objective 와 충돌 가능. | **W1 (sample-weight OFF)** | 중 |
-| (c) LgbmSelectorRowExpanded subclass self-consistency 약화 | row-expand subclass 의 fit/predict path 가 14-row 일관성 깨짐 | 본 plan 검증 X — model class fix (LgbmSelectorOnly carry) | 낮 |
+| (a) τ_cls=0.001 sharp soft label train/test gap | τ 너무 sharp 라 train fold 의 soft label 이 test fold 에서 generalize 안됨 | **T1 (τ=0.01), T2 (τ=0.1)** — 본 plan G2.A 직접 검증 (soft label 재계산) | 중 |
+| (b) sample-weight expansion (140k row × 14-class CE) 비효율 | row-expand 후 row 별 weight=soft_label 로 fit. LightGBM 의 weight 처리가 14-class objective 와 충돌 가능. | **W1 (sample-weight=1.0 균등)** | 중 |
+| (c) LgbmSelectorRowExpanded subclass self-consistency 약화 | row-expand subclass 의 fit/predict path 가 14-row 일관성 깨짐 | **S1 (base lightgbm.LGBMClassifier multiclass 직접 사용, subclass 우회)** | 낮 |
 | (d) 1058D broadcast / 22D per-anchor 50:1 dominance | broadcast feature 가 LGBM split gain 에서 per-anchor 22D 묻음 → row-discriminative 신호 못 잡음 | **B1 (22D only), B2 (192D = ①+③), B3 (1058D = no ③)** | **높 (most likely)** |
-| (e) seq 압축 lossy (block ④ 8-stat) | block ④ = seq_builder 95×7 raw (665 value) → per-channel 8-stat 압축 (last/first/mean/std/slope/max/min/range × 95 = 760D). raw seq 의 row-discriminative / temporal fine-grained signal 이 8-stat 으로 평탄화 → LGBM 이 row 별 best anchor 못 가림. (d) broadcast dominance 와 일부 confound — 둘 다 broadcast feature 문제이지만 (e) 는 *block ④ 760D 압축 산식* (8-stat 부족) 자체에 focused. | 본 plan 부분 검증 — B1 (block ④ 제외, 22D) vs B4 (block ④ 포함, 1080D) 비교로 lossy effect partial 측정 (B1 > B4 + ε → (e) 가설 partial 지지). 단 B1 은 block ②④ 모두 제외라 (d) 와 confound 분리 어려움. 직접 검증 (raw seq vs 8-stat cell, 예: 95×7=665D raw + plan-022 base) 은 followed_by 후보 (별도 plan 으로 분리). | 중 (block ④ 760D 가 1080D 의 70% 차지 → 압축 산식 영향 큰 잠재) |
+| (e) seq 압축 lossy (block ④ 8-stat) | block ④ = seq_builder 95×7 raw (665 value) → per-channel 8-stat 압축 (last/first/mean/std/slope/max/min/range × 95 = 760D). raw seq 의 row-discriminative / temporal fine-grained signal 이 8-stat 으로 평탄화 → LGBM 이 row 별 best anchor 못 가림. | **R1 (block ④ = raw seq flatten 95×7=665D 대체, total 985D)** — 본 plan G2.A 직접 검증. B1 vs B4 비교로 부분 cross-check (단 (d) 와 confound). | 중 (block ④ 760D 가 1080D 의 70% 차지) |
 
-본 plan 의 분석 축 = (b) + (d) 동시 검증. (a) / (c) / (e) 는 spec 의도 보존 위해 별도 plan 으로 분리 (followed_by 후보).
+본 plan 의 분석 축 = **(a) + (b) + (c) + (d) + (e) 5가설 통합 직접 검증** — G2.A 9 cell (B1/B2/B3/B4=baseline/W1/T1/T2/S1/R1). 각 cell 은 B4 baseline 대비 single-variable 변경: input dim subset (B1/B2/B3), sample_weight 값 (W1), τ_cls (T1/T2), model wrapping (S1), block ④ 산식 (R1). 5가설 각각 §4.6 verdict 함수로 confirmed/rejected/inconclusive 판정.
 
 ### §1.2 plan-022 winner 가 본 plan 의 *경기 상대*
 
@@ -214,13 +228,15 @@ lb_score: null
 | 항목 | 값 |
 |:--|:--|
 | 입력 feature pipeline | plan-025 1080D carry (build_feat_1080) — 재계산 없음, slice only |
-| 입력 dim 변수 (G2.A 분석 축) | {22 (B1=③), 192 (B2=①+③), 1058 (B3=①+②+④), 1080 (B4=full)} = 4 cell |
-| sample-weight 변수 (G2.A 분석 축) | {ON (default), OFF} — OFF cell = W1 (1080D + OFF) = 1 cell |
-| Total G2.A | 5 cell |
+| 입력 dim 변수 (B1/B2/B3, 가설 d) | {22 (B1=③), 192 (B2=①+③), 1058 (B3=no③), 1080 (B4=full baseline)} — 3 cell + 1 baseline |
+| sample-weight 변수 (W1, 가설 b) | {ON (soft_label-weighted default), OFF=1.0 균등} — OFF cell 1개 |
+| τ_cls 변수 (T1/T2, 가설 a) | {0.001 (default baseline), 0.01 (T1), 0.1 (T2)} — soft label 재계산. 2 cell. |
+| model wrapping 변수 (S1, 가설 c) | LgbmSelectorOnly subclass (default) vs base lightgbm.LGBMClassifier multiclass 직접 사용. 1 cell. |
+| block ④ 산식 변수 (R1, 가설 e) | 8-stat 760D (default) vs raw seq flatten 95×7=665D. total dim 1080 → 985. 1 cell. |
+| **Total G2.A** | **9 cell** (B1/B2/B3/B4=baseline/W1/T1/T2/S1/R1) — 각 cell single-variable vs B4 |
 | Anchor | K=14 BCC (A6_bcc14, ANCHORS_A6) fix |
-| τ_cls | 0.001 fix |
-| Soft label 산식 | plan-022 build_soft_label_with_tau carry |
-| Model | plan-022 LgbmSelectorOnly carry (LGBM K-class softmax + row-expand 또는 no-expand flag) |
+| Soft label 산식 | plan-022 `build_soft_label_with_tau` carry (τ_cls value 만 T1/T2 에서 변경) |
+| Model | LgbmSelectorOnly subclass default + S1 cell 만 base `lightgbm.LGBMClassifier(objective='multiclass', num_class=14)` |
 | LGBM hparam | plan-022 default (n_est=500, lr=0.05, num_leaves=63, rs=20260522) — G2.A 5 cell 동일. G2.B branch α/γ 만 hparam tweak. |
 | Fold | plan-020/021/022 stable_fold_id 5-fold carry |
 | F0 baseline | plan-020 carry, paired Δ anchor |
@@ -234,7 +250,7 @@ lb_score: null
 | 항목 | 이유 |
 |:--|:--|
 | Anchor layout 변경 (K ≠ 14, BCC 외 codebook) | plan-022 winner carry — paradigm fix, 본 plan 변수 X |
-| τ_cls 변경 | plan-022 winner carry, 본 plan 변수 X. 가설 (a) 는 별도 plan. |
+| τ_cls 변경 (T1/T2 외 추가 sweep) | T1=0.01 / T2=0.1 외 다른 τ value 는 본 plan out-of-scope. baseline τ=0.001 (plan-022 winner carry). T1/T2 는 가설 (a) 검증 in-scope. |
 | Fold 변경 | plan-020 stable_fold_id 5-fold carry |
 | Soft label 산식 변경 | plan-022 build_soft_label_with_tau carry |
 | F0 baseline 자체 변경 (ML화) | 본 plan 변수 X. 별도 followed_by 후보. |
@@ -311,15 +327,21 @@ G1 tight band:
 - plan-022 winner: hit_1cm ∈ [0.6526, 0.6536] AND hit_1p5cm ∈ [0.8103, 0.8113]
 - plan-025 C1: hit_1cm ∈ [0.6315, 0.6325] AND hit_1p5cm ∈ [0.8028, 0.8038] (= F0 동일)
 
-### §4.3 STAGE 2.A (G2.A) — 5 cell (block ablation × sample-weight)
+### §4.3 STAGE 2.A (G2.A) — 9 cell (5가설 single-variable 통합 검증)
 
-| Cell | Input | Sample-weight | Dim | 변경 변수 | 가설 매핑 |
-|:--|:--|:--|--:|:--|:--|
-| **B1** | block ③ only (per-anchor 22D) | ON | 22 | broadcast 완전 제거 | (d) most aggressive — broadcast 없이 22D 가 살아남는가 |
-| **B2** | block ①+③ (plan-022 base 170D + per-anchor 22D) | ON | 192 | plan-022 winner + per-anchor 추가 | (d) lift 가장 likely cell — plan-022 winner 0.6531 + ε 후보 |
-| **B3** | block ①+②+④ (no ③) | ON | 1058 | per-anchor 완전 제거 | (d) — per-anchor 없으면 mode collapse 회복? |
-| **B4** | 1080D full | ON | 1080 | = plan-025 C1 carry (reference) | (d) baseline + (b) baseline. c6 G1 결과 그대로 박제, 재실행 금지. |
-| **W1** | 1080D full | **OFF** | 1080 | sample-weight expansion off | (b) — weight expansion 이 mode collapse 원인인가 |
+| Cell | Input dim | weight | τ_cls | Model | block ④ 산식 | 변경 변수 (vs B4) | 가설 |
+|:--|--:|:--|--:|:--|:--|:--|:--|
+| **B1** | 22 (③ only) | ON | 0.001 | LgbmSelectorOnly | 8-stat (제외) | input dim | (d) most aggressive — broadcast 완전 제거 |
+| **B2** | 192 (①+③) | ON | 0.001 | LgbmSelectorOnly | 8-stat (제외) | input dim | (d) lift most likely — p022 base + per-anchor |
+| **B3** | 1058 (no ③) | ON | 0.001 | LgbmSelectorOnly | 8-stat | input dim | (d) — per-anchor 없으면 mode collapse 회복? |
+| **B4** | 1080 (full) | ON | 0.001 | LgbmSelectorOnly | 8-stat | (**baseline**) | = plan-025 C1 carry. c6 G1 carry, 재실행 금지. |
+| **W1** | 1080 (full) | **OFF=1.0** | 0.001 | LgbmSelectorOnly | 8-stat | sample_weight 값 | (b) — weight expansion 비효율 |
+| **T1** | 1080 (full) | ON | **0.01** | LgbmSelectorOnly | 8-stat | τ_cls (10× softer) | (a) — τ sharp gap |
+| **T2** | 1080 (full) | ON | **0.1** | LgbmSelectorOnly | 8-stat | τ_cls (100× softer) | (a) — τ sharp gap |
+| **S1** | 1080 (full) | ON | 0.001 | **base LGBMClassifier** | 8-stat | model wrapping | (c) — subclass self-consistency |
+| **R1** | 985 (①+②+③+R) | ON | 0.001 | LgbmSelectorOnly | **raw flatten 95×7=665D** | block ④ 산식 | (e) — seq 압축 lossy |
+
+각 cell 은 B4 baseline 대비 column "변경 변수" 1개만 ≠ B4 (single-variable 원칙).
 
 block ① / ② / ③ / ④ slice index (`build_feat_subset.py` 박제):
 - block ① indices [0:170] (plan-022 build_input_lgbm_extra output)
@@ -327,11 +349,17 @@ block ① / ② / ③ / ④ slice index (`build_feat_subset.py` 박제):
 - block ③ indices [298:320] (cand_builder per-anchor 22D, 14 row 각 다름)
 - block ④ indices [320:1080] (seq_builder 8-stat 760D, 14 row 동일)
 
-slice fn output:
+slice fn output (B1~B4 동일 carry, R1 별도):
 - `slice_B1_anchor22(X[N, 14, 1080]) → X[N, 14, 22]` = X[:, :, 298:320]
 - `slice_B2_combo192(X) → X[:, :, np.r_[0:170, 298:320]]`
 - `slice_B3_no_anchor1058(X) → X[:, :, np.r_[0:298, 320:1080]]`
 - `slice_B4_full1080(X) → X[:, :, :]`
+- `build_R1_seq_raw(X[N, 14, 1080], seq_raw[N, 95, 7])`: block ④ slice [320:1080] 제외 후 raw seq flatten (95×7=665D, sample-level broadcast 14 row) concat → 170+128+22+665 = 985D per row. output shape `[N, 14, 985]`.
+
+cell 별 산식 변경 (B4 baseline 산식 carry, 아래 cell 만 변경):
+- **T1/T2**: τ_cls value 변경 → `build_soft_label_with_tau(τ_cls=0.01)` (T1) / `(τ_cls=0.1)` (T2). soft label 재계산. label/weight/objective 산식 baseline 동일.
+- **S1**: LgbmSelectorOnly subclass 우회 → `lightgbm.LGBMClassifier(objective='multiclass', num_class=14, **plan022_hparam)` 직접 fit. row-expand reshape + sample_weight + label 산식 baseline 동일 (subclass wrapper 만 제거).
+- **R1**: block ④ 산식 변경 → `build_R1_seq_raw` 사용 (위 박제). input dim 1080 → 985, slice fn 별도. label/weight/τ_cls/model baseline 동일.
 
 sample-weight ON / OFF 산식 (W1 cell 의 (b) 가설 single-variable isolation):
 - **ON** (plan-022/025 default, B1/B2/B3/B4 공통): input `X[N, 14, D]` → `row-expand` reshape `X[N×14, D]` (각 sample 의 14 row 가 dim-D feature vector × 14 anchor 분 각각 1 row 로 펼침). 각 row 의 `sample_weight = soft_label[sample, anchor_idx]`, `label = anchor_idx` (= 0..13). LGBM objective = `multiclass` + `num_class=14`. row 수 = N × 14 = 140,000.
@@ -422,13 +450,22 @@ tiebreaker:
 }
 ```
 
-가설 verdict 함수:
-- (d) confirmed: B1 > B3 + 0.005 OR B2 > B4 + 0.005 (per-anchor 가 broadcast 보다 lift 줌)
-- (d) rejected: B2 < B4 - 0.003 AND B1 < B3 - 0.003 (per-anchor 가 도리어 noise)
-- (d) inconclusive: 위 외
-- (b) confirmed: W1 > B4 + 0.005
-- (b) rejected: W1 < B4 - 0.003
-- (b) inconclusive: 위 외
+가설 verdict 함수 (5가설 통합):
+- **(a)** confirmed: max(T1, T2) > B4 + 0.005 (τ softer 가 mode collapse 해소)
+- **(a)** rejected: max(T1, T2) < B4 - 0.003 (τ softer 가 도리어 악화)
+- **(a)** inconclusive: 위 외
+- **(b)** confirmed: W1 > B4 + 0.005 (sample_weight 균등화가 lift)
+- **(b)** rejected: W1 < B4 - 0.003
+- **(b)** inconclusive: 위 외
+- **(c)** confirmed: S1 > B4 + 0.005 (subclass 우회가 lift)
+- **(c)** rejected: S1 < B4 - 0.003
+- **(c)** inconclusive: 위 외
+- **(d)** confirmed: B1 > B3 + 0.005 OR B2 > B4 + 0.005 (per-anchor 가 broadcast 보다 lift 줌)
+- **(d)** rejected: B2 < B4 - 0.003 AND B1 < B3 - 0.003 (per-anchor 가 도리어 noise)
+- **(d)** inconclusive: 위 외
+- **(e)** confirmed: R1 > B4 + 0.005 (raw seq 가 8-stat 보다 lift)
+- **(e)** rejected: R1 < B4 - 0.003
+- **(e)** inconclusive: 위 외
 
 ### §4.7 STAGE 4 (G_final) — Results
 
@@ -446,12 +483,12 @@ c16:
 |:--|--:|--:|--:|
 | G0 (c1~c5) | 5 | 0 | <10min (setup) |
 | G1 (c6) | 1 | 3 carry reproduce | ~5min |
-| G2.A (c7~c11) | 5 (B4 재실행 skip → c10 instant) | 4 신규 + B4 carry | ~15min total (B1 ~3min + B2 ~3min + B3 ~5min + B4 instant + W1 ~5min) |
-| G2.A analysis (c12) | 1 | 0 (branch 결정) | <1min |
-| G2.B (c13~c14) | 1~2 (branch δ = 1 cell, α/β/γ = 2 cell) | 1~2 | ~5~15min |
-| G3 (c15) | 1 | 0 (best_cell selection) | <1min |
-| G_final (c16) | 1 | 0 (results) | <5min |
-| **Total** | **15~16** | **5~7 cell + 3 carry reproduce** | **~30~50min CPU** |
+| G2.A (c7~c15) | 9 (B4 재실행 skip → c10 instant) | 8 신규 + B4 carry | ~37min total (B1 ~3 + B2 ~3 + B3 ~5 + B4 instant + W1 ~5 + T1 ~5 + T2 ~5 + S1 ~5 + R1 ~6) |
+| G2.A analysis (c16) | 1 | 0 (5가설 verdict + branch 결정) | <1min |
+| G2.B (c17~c18) | 1~2 (branch δ = 1 cell, α/β/γ = 2 cell) | 1~2 | ~5~15min |
+| G3 (c19) | 1 | 0 (best_cell selection) | <1min |
+| G_final (c20) | 1 | 0 (results) | <5min |
+| **Total** | **19~20** | **9~11 cell + 3 carry reproduce** | **~50~70min CPU** |
 
 cell 수 / commit 수 / 작업량 plan-025 (2 cell, ~15min) 대비 약 3× 증가 — block ablation grid 가 5 cell 이라 자연스러움. spec 의 G2.A 5 cell 단일 변수 원칙 (WORKFLOW.md §9.2) 준수: 각 cell 은 baseline (= B4) 대비 한 변수만 변경.
 
@@ -489,6 +526,7 @@ cell 수 / commit 수 / 작업량 plan-025 (2 cell, ~15min) 대비 약 3× 증�
 ## §8. 변경 이력
 
 - v1 (2026-05-22): 초안. plan-025 mode collapse paradigm_analysis §4 의 가설 (b) + (d) 검증 + plan-022 winner lift 목표 spec.
+- v1.1 (2026-05-22): plan-review iter 1 자동 fix 9건 (BLOCKER 2 + AMB 5 + FP 1 skip + 가설 e 추가) 후, 사용자 instruction 으로 scope 확장 — 5가설 (a)(b)(c)(d)(e) 통합 본 plan 직접 검증. G2.A 5 cell → 9 cell (T1/T2 τ sweep, S1 base LGBM, R1 seq raw 추가), §2 In-scope 에 τ_cls / model wrapping / block ④ 산식 변수 추가, commit chain c1~c16 → c1~c20, runtime 30-50min → 50-70min CPU, §4.6 verdict 함수 5가설 통합 (각 confirmed/rejected/inconclusive). G2.B branch (α/β/γ/δ) 는 기존 그대로 (= (b)+(d) 결과 기준 lift cell 결정).
 
 ---
 
