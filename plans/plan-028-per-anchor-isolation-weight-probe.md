@@ -104,7 +104,7 @@ lb_score: null
 - **G2.A (9 cell)**: B1/B2/B3/B4/W1/T1/T2/S1/R1 각 5-fold OOF metric finite + `max_class_ratio` 측정 + soft label sum=1 invariant. T1/T2 는 τ_cls 변경 시 soft label 재계산. S1 은 LgbmSelectorOnly subclass 우회 (base lightgbm.LGBMClassifier 직접 fit). R1 은 block ④ 산식 변경 (8-stat 760D → raw flatten 665D, total 985D). 위반 시 `lgbm_numerical` severe.
 - **G2.B (conditional, 1~2 cell)**: §4.5 branch 함수로 α/β/γ/δ 중 1 개 활성화, 해당 branch 의 1~2 cell 실행. branch 미정 (조건 모두 false) → δ default (selector arch MLP per-sample softmax) 1 cell.
 - **G3 (paradigm-level)**: best_cell = argmax(hit_1cm over G2.A + G2.B 통합). best_hit_1cm > 0.6531 → PASS (band=positive). 0.6320 < best_hit_1cm ≤ 0.6531 → partial band (warn `partial_lift`). best ≤ 0.6320 → negative band (warn `regression`). 0.6526 ≤ best_hit_1cm ≤ 0.6536 = `tight_band_around_p022` 경계 — paired Δ 부호로 결정.
-- **G_final**: results.md (11 항목 = plan-025 form 일치) + best cell 박제 (cell_id + hparam + 모든 metric + max_class_ratio + top1_acc + paired Δ vs F0/plan-022/plan-025-C1) + 14-anchor oracle 회수율 (= best / 0.7928) + paradigm_analysis (가설 a/b/c/d 중 어느 것이 확정/기각됐는지 박제) + follow-up plan 후보 ≥ 2 건 + 3-file frontmatter sync.
+- **G_final**: results.md (12 항목 = §6 정합) + best cell 박제 (cell_id + hparam + 모든 metric + max_class_ratio + top1_acc + paired Δ vs F0/plan-022/plan-025-C1) + 14-anchor oracle 회수율 (= best / 0.7928) + paradigm_analysis (5가설 (a/b/c/d/e) 각 confirmed/rejected/inconclusive 박제) + follow-up plan 후보 ≥ 2 건 + 3-file frontmatter sync + final band ∈ {positive, partial, negative} (tight 은 §3.2 paired Δ 부호로 positive/partial 으로 resolve 후 final 박제, intermediate state).
 
 ### G-gates (commit 단위 milestone)
 
@@ -119,7 +119,7 @@ lb_score: null
 
 | # | type | spec section | status |
 |---|---|---|---|
-| c1 | docs | `plans/plan-028-per-anchor-isolation-weight-probe.md` v1 작성 (plan-review-master 자동 fix BLOCKER 0 도달) | [TODO] |
+| c1 | docs | `plans/plan-028-per-anchor-isolation-weight-probe.md` v1 작성 + plan-review-master 자동 fix iter 1~4 BLOCKER 0 도달 (c1.1~c1.5 patch chain, §8 변경이력 참조) | [DONE — c1 ce55c3f + c1.1 723cdba + c1.2 a7afa55 + c1.3 83c65b6 + c1.4 1a09f5b + c1.5 본 commit] |
 | c2 | chore | plan-025 worktree (`worktree-plan-025-spec`) 에서 `analysis/plan-025/{build_feat_1080.py, run_oof.py, __init__.py}` 3 file cherry-pick → 본 worktree `analysis/plan-025/` (post-cherry-pick read-only). plan-024 6 module + 1 data + __init__.py 는 main 에 머지된 상태가 아니므로 동일 worktree 에서 cherry-pick (= plan-025 c2 와 동일 source). | [TODO] |
 | c3 | code | `analysis/plan-028/build_feat_subset.py` — `build_feat_1080` output 의 *index slice* 함수 4개: `slice_B1_anchor22(X)` / `slice_B2_combo192(X)` / `slice_B3_no_anchor1058(X)` / `slice_B4_full1080(X)` 그리고 `weight_flag(on=True/False)`. recomputation 금지 — slice only. | [TODO] |
 | c4 | code | `analysis/plan-028/run_oof_subset.py` — plan-025 `run_oof_cell_1080` carry 위에 (a) input slice fn 주입 + (b) sample_weight expansion flag (on/off). CLI: `--cell {B1, B2, B3, B4, W1}` + 향후 branch cell 추가. | [TODO] |
@@ -154,7 +154,7 @@ lb_score: null
 - `lgbm_numerical`: G2.A/G2.B 어느 cell LGBM 출력 NaN/Inf. → halt.
 - `soft_label_collapse`: cell 의 selector probs 가 단일 anchor 95% 이상 mass (`max_class_ratio > 0.95`). warn (severe 아님). 5+ cell drop = `soft_label_collapse_total` severe escalate.
 - `slice_dim_mismatch`: c3 slice fn output dim ≠ {22, 192, 1058, 1080} per 함수. → halt.
-- `branch_undefined`: c16 branch 함수 (§4.5 `decide_branch`) 가 α/β/γ/δ 어느 것도 activate 안 됨 — δ default 로 fallback (severe 아님, decision-note 박제).
+- `branch_undefined`: §4.5 `decide_branch` 가 {α, β, γ, δ} 외 literal 또는 None 반환 시 (= invariant violation, 정상 path 에서는 trigger 안 됨 — 의사 코드의 무조건 fallback `return "δ"` 가 invariant 보장). c16 commit msg 에 activated branch 명시 필수 — decision-note 박제. self-check 용 severe.
 - `weight_flag_silent`: W1 cell 의 sample_weight 가 실제로 균등 1.0 으로 inject 됐는지 (= 140000 row × `sample_weight=1.0` 균등, NOT 140000 row × per-row soft_label weight) self-check fail. row-expand reshape 자체는 ON/OFF 동일 (§4.3 정합). → halt.
 - `tight_band_around_p022`: G3 best_hit_1cm ∈ [0.6526, 0.6536] (= plan-022 winner ±0.0005). paired Δ 부호로 결정 — Δ > 0 → positive, Δ ≤ 0 → partial. warn 박제.
 - `partial_lift`: G3 best ∈ (0.6320, 0.6531]. F0 초과 but plan-022 미달. warn 박제 후 G_final (band=partial).
@@ -276,8 +276,9 @@ lb_score: null
 | 조건 | 정의 | 결과 band |
 |:--|:--|:--|
 | A (PASS) | best_hit_1cm > 0.6531 AND paired Δ vs plan-022 winner > 0 | positive |
-| B (tight_band) | best_hit_1cm ∈ [0.6526, 0.6536] | tight (paired Δ 부호로 final 결정) |
+| B (tight_band) | best_hit_1cm ∈ [0.6526, 0.6536] | tight (paired Δ 부호로 final: Δ > 0 → positive, Δ ≤ 0 → partial) |
 | C (partial) | 0.6320 < best_hit_1cm ≤ 0.6531 (B 범위 밖) | partial (warn `partial_lift`) |
+| C' (partial fallback) | best_hit_1cm > 0.6531 AND paired Δ ≤ 0 (= A 조건 의 paired Δ 미충족) | partial (warn `partial_lift`, corner case) |
 | D (negative) | best_hit_1cm ≤ 0.6320 | negative (warn `regression`) |
 
 paired Δ 정의: per-sample 같은 fold split 위 hit_1cm 차이의 평균. 통계 검정 = paired bootstrap 5000× (§7 caveat + plan-022 carry symbol `analysis/plan-022/run_oof.py:bootstrap_paired_delta` 그대로). 95% CI 0 포함 시 `partial_band` warn 박제.
@@ -305,7 +306,7 @@ c1 (spec) → c2 (cherry-pick) → c3 (slice fn) → c4 (runner) → c5 (tests) 
 - `tests/test_plan028_smoke.py` (≥ 8 pytest)
 - cherry-pick (read-only): plan-025 3 file + plan-024 8 file
 
-G0 종료 조건: pytest 12+ pass + import 정상.
+G0 종료 조건: pytest ≥ 8 pass + import 정상 (= §0.5 c5 박제 정합).
 
 ### §4.2 STAGE 1 (G1) — Baseline carry
 
@@ -354,7 +355,7 @@ slice fn output (B1~B4 동일 carry, R1 별도):
 - `slice_B2_combo192(X) → X[:, :, np.r_[0:170, 298:320]]`
 - `slice_B3_no_anchor1058(X) → X[:, :, np.r_[0:298, 320:1080]]`
 - `slice_B4_full1080(X) → X[:, :, :]`
-- `build_R1_seq_raw(X[N, 14, 1080], seq_raw[N, 95, 7])`: seq_raw 입력 = `analysis/plan-024/seq_builder.py:build_seq_feat` 의 *raw 95×7 output* (= per-channel 8-stat 압축 *이전* ndarray). c3 `build_feat_subset.py` 에서 별도 cache (= plan-025 `build_feat_1080` 내부 호출 시점에 raw seq 도 동시 export 하는 helper `build_feat_1080_with_raw_seq` 추가, plan-025 file 직접 수정 없이 wrapper export). block ④ slice [320:1080] 제외 후 raw seq flatten (95×7=665D, sample-level broadcast 14 row) concat → 170+128+22+665 = 985D per row. output shape `[N, 14, 985]`.
+- `build_R1_seq_raw(X[N, 14, 1080], seq_raw[N, 95, 7])`: seq_raw 입력 = `analysis/plan-024/seq_builder.py:build_seq_feat` 의 *raw 95×7 output* (= per-channel 8-stat 압축 *이전* ndarray). c3 `analysis/plan-028/build_feat_subset.py` 에 helper `build_feat_1080_with_raw_seq(samples, ...) -> (X[N, 14, 1080], seq_raw[N, 95, 7])` 추가 — plan-025 `build_feat_1080` 호출 후, plan-024 `seq_builder.build_seq_feat` 를 wrapper 가 별도 호출 (plan-025 file 직접 수정 X, plan-024 carry symbol read-only). block ④ slice [320:1080] 제외 후 raw seq flatten (95×7=665D, sample-level broadcast 14 row) concat → 170+128+22+665 = 985D per row. output shape `[N, 14, 985]`.
 
 cell 별 산식 변경 (B4 baseline 산식 carry, 아래 cell 만 변경):
 - **T1/T2**: τ_cls value 변경 → `build_soft_label_with_tau(τ_cls=0.01)` (T1) / `(τ_cls=0.1)` (T2). soft label 재계산. label/weight/objective 산식 baseline 동일.
@@ -539,8 +540,13 @@ cell 수 / commit 수 / 작업량 plan-025 (2 cell, ~15min) 대비 약 4-5× 증
 
 ## §8. 변경 이력
 
-- v1 (2026-05-22): 초안. plan-025 mode collapse paradigm_analysis §4 의 가설 (b) + (d) 검증 + plan-022 winner lift 목표 spec.
-- v1.1 (2026-05-22): plan-review iter 1 자동 fix 9건 (BLOCKER 2 + AMB 5 + FP 1 skip + 가설 e 추가) 후, 사용자 instruction 으로 scope 확장 — 5가설 (a)(b)(c)(d)(e) 통합 본 plan 직접 검증. G2.A 5 cell → 9 cell (T1/T2 τ sweep, S1 base LGBM, R1 seq raw 추가), §2 In-scope 에 τ_cls / model wrapping / block ④ 산식 변수 추가, commit chain c1~c16 → c1~c20, runtime 30-50min → 50-70min CPU, §4.6 verdict 함수 5가설 통합 (각 confirmed/rejected/inconclusive). G2.B branch (α/β/γ/δ) 는 기존 그대로 (= (b)+(d) 결과 기준 lift cell 결정).
+- v1 (2026-05-22): 초안 + iter 1~4 plan-review 자동 fix log (frontmatter `version: 1` 유지, 본 §8 만 내부 evolve 추적).
+  - c1 (ce55c3f): 초안 작성 — plan-025 mode collapse paradigm_analysis §4 의 가설 (b) + (d) 검증 + plan-022 winner lift 목표 spec.
+  - c1.1 (723cdba): plan-review iter 1 자동 fix 9건 (BLOCKER 2 + AMB 5 + FP 1 skip + 가설 e 추가).
+  - c1.2 (a7afa55): 사용자 instruction "a, c, e 도 이 plan 안에서 진행" 으로 scope 확장 — 5가설 (a)(b)(c)(d)(e) 통합 본 plan 직접 검증. G2.A 5 cell → 9 cell (T1/T2 τ sweep, S1 base LGBM, R1 seq raw 추가), §2 In-scope 에 τ_cls / model wrapping / block ④ 산식 변수 추가, commit chain c1~c16 → c1~c20, runtime 30-50min → 50-70min CPU, §4.6 verdict 함수 5가설 통합.
+  - c1.3 (83c65b6): plan-review iter 2 자동 fix — BLOCKER 4 (branch fn signature, weighted flag inject, 표 title, results.md 항목) + "5 cell" 잔재 3곳 + AMB 4.
+  - c1.4 (1a09f5b): plan-review iter 3 자동 fix — commit pointer propagation (c12/c13~14/c15/c16 → c16/c17~18/c19/c20) + JSON template 5가설 추가.
+  - c1.5 (본 commit): plan-review iter 4 자동 fix — AMB 8 (results.md 항목 11→12, pytest 12+→≥8, band corner case, band enum, wrapper file path, branch_undefined 재정의, code_reuse count, c1 status sync).
 
 ---
 
@@ -574,6 +580,6 @@ cell 수 / commit 수 / 작업량 plan-025 (2 cell, ~15min) 대비 약 4-5× 증
 
 §0.5 = autonomous loop 가 매 turn 읽을 self-updating log + commit chain 16-step + plan-specific severe 9 + paths whitelist/blacklist + decision-note 예시.
 
-frontmatter `code_reuse` = 명시적 carry 모듈 18개 박제 (plan-025 3 + plan-024 7 + plan-022 3 + plan-021 1 + plan-020 1 + src 2 + 1 합산 17 + symbols 별 추가 박제 = 18).
+frontmatter `code_reuse` = 명시적 carry 모듈 **15 개** 박제 (plan-025: build_feat_1080.py + run_oof.py = 2, plan-024: cand_builder + seq_builder + torsion_calc + quantile_carry + multiwindow_trim_build + anchor_vocab = 6, plan-022: selector_only_model + anchors + run_oof = 3, plan-021: build_input = 1, plan-020: baseline_f0 = 1, src: io + pb_0_6822/selector = 2 → total 15). symbols 단위 박제는 module 안 함수 / class 별 별도 (= read-only import 만).
 
 본 plan G_final 도달 시 plans/plan-028-*.results.md + analysis/plan-028/results.md 2 file 생성, 3-file frontmatter sync 완료.
