@@ -2,10 +2,10 @@
 plan_id: 029
 version: 1.0
 date: 2026-05-22 (Asia/Seoul)
-status: written
-best_cell: null
-best_hit_1cm: null
-best_hit_1p5cm: null
+status: complete
+best_cell: X1
+best_hit_1cm: 0.6316
+best_hit_1p5cm: 0.8039
 based_on:
   - 022 (winner A6_bcc14_tau001 OOF 0.6531 / 0.8108. K=14 BCC + τ=0.001. selector-only LGBM 170D baseline)
   - 024 (cross-attention GRU selector. honest ceiling = 0.6387 3-seed (§5.14) / 0.6375 ± 0.0004 4-way OOF plateau (§5.13). under-converged/over-reg/anchor-identity 가설 모두 기각/부분 기각. **본질적 fail diagnosis (사용자, 2026-05-22)**: plan-024 `query = query_mlp(cand_feat)` 의 cand_feat 150D 중 sample × anchor *interaction* channel 은 13D (par/perp/dist 3 + interactions 10) 만, 나머지 137D 는 sample-broadcast ctx 128D + anchor-only spec 9D = *각 축에서 invariant heavy*. attention 의 query 가 anchor 별로 sample-specific 신호 부족 → attention discrimination 학습 자체 불가. plan-024 의 모든 plateau (0.6370~0.6387) 는 이 sample-invariant query 위에서의 ceiling. 본 plan = paradigm framework 유지 + **핵심 4 lever**: (a) **query enrichment** (cand_feat 에 sample × anchor interaction channel ≥15 추가 — past trajectory point displacement to anchor + anchor·v 시계열 + regime × anchor cross + cosine sim), (b) **anchor embedding 학습** (learnable 14×8, init=randn×0.1, query + key 양쪽 broadcast), (c) **key anchor-conditional** (per-anchor key projection 또는 broadcast add → key 가 anchor 별 다른 sequence representation), (d) **보조: head raw skip 차단** (head_in = event_ctx 196D only — PB framework carry 의 cand_feat raw 직통 제거, attention path effect isolation))
@@ -64,12 +64,12 @@ supersedes_abandoned:
   - 026 (LGBM block ablation, user intent mismatch)
   - 027 (LGBM 3-way ensemble, user intent mismatch)
 followed_by:
-  - plan-030 (가칭, GRU-attention 결과 후속 — F0 ML 또는 corrector 부활)
+  - plan-030 (가칭, paradigm-distinct lever 전환 우선 — F0 ML / corrector / KNN. plan-029 G3 = regression 결과 따라 single-lever ablation 우선순위 낮음 — 4 lever 모두 적용해도 regression 이므로 단독 ablation 도 유사 예상)
 scope: plan-024 cross-attention GRU selector paradigm framework 유지 + **핵심 4 lever (attention path 강화 중심)**: (a) **query enrichment** — `analysis/plan-029/anchor_query_extend.py` 신규 wrapper 로 plan-024 cand_builder 150D 위에 **N_new=15 channel** (5 group: A.dist 5 + A.tangent_proj 3 + B.cos 1 + D.regime_anchor_prob 1 + F.2 multi-step anchor·v 5) 추가 → cand_ext (B, 14, 165). 확장 후 dim = 165. (b) **anchor embedding 학습** — `nn.Parameter(K=14, d_embed=8)` learnable, **init = randn × 0.1** (사용자 결정, plan-024 v5 의 0.02 carry 대비 5× 증가 — lever (c) 환경 보정). query 와 key 양쪽 broadcast concat. (c) **key anchor-conditional** — key (B, T=7, hidden) → (B, K=14, T=7, hidden) anchor 별 sequence representation. 식 = `key_anchor[b,k,t,:] = key[b,t,:] + linear_proj(anchor_embed[k,:])` (broadcast add 권장 default). attn_logits = einsum("bkh,bkth->bkt", query, key_anchor) / sqrt(hidden). (d) **보조 head raw skip 차단** — head_in = event_ctx (196D) only (h_final_bc / cand_ext / block1_bc / block4_bc 모두 head 에 부재). PB framework carry 의 raw cand_feat 150D 직통 (paradigm-confound) 제거 → attention path effect isolation. 보조 sub-decision: hidden 196 (사용자 명시), batch 64 (effective step 4×). FWD off (§5.4 기각, outer wrapper 미import). GRU encoder input = raw seq (B, 7, 95). head = `Linear(196, 1)` 단순. training schedule = 50 epoch fixed (early stop disabled, §5.1 under-conv 기각 후 cosine annealing 완주 lever), lr=7e-4 + SequentialLR([LinearLR warmup 5 ep, CosineAnnealingLR T_max=45 ep]), AdamW (wd=1e-4), GRU dropout=0.10, gradient_clip=1.0, soft cross-entropy loss. K=14 BCC + τ_cls=0.001 fix (plan-022 carry). 5-fold stable_fold_id. ensemble / DACON LB / corrector / F0 ML / augmentation (plan-024 §5.10 poss 3 carry) / head raw skip 부활 (plan-030 후보) / h_final_bc head 추가 (plan-030 후보) / head 2-layer MLP (plan-030 후보) = out-of-scope.
 exp_ids:
   - Z029_X1_gru_h196
 lb_score: null
-band: null
+band: regression
 ---
 
 # plan-029 v1 — GRU-attention Input Max (hidden=196, 1080D + raw seq)
@@ -114,32 +114,32 @@ band: null
 
 ### G-gates
 
-- G0: STAGE 0 인프라 + plan-024 cherry-pick (model.py + feature_weighted_dropout.py) [TODO]
-- G1: STAGE 1 F0 + plan-022 winner reproduce [TODO]
-- G2.X1: X1 5-fold OOF [TODO]
-- G3: STAGE 3 paradigm 판정 [TODO]
-- G_final: STAGE 4 results + 3-file sync [TODO]
+- G0: STAGE 0 인프라 + plan-024 cherry-pick (model.py + feature_weighted_dropout.py) [DONE] 19 pytest green, 3.67s
+- G1: STAGE 1 F0 + plan-022 winner reproduce [DONE] F0 0.6320 / p022 0.6531 tight band ✓
+- G2.X1: X1 5-fold OOF [DONE] hit_1cm 0.6316, max_class_ratio 0.1328 < 0.95, all grad_ep5 > 1e-4
+- G3: STAGE 3 paradigm 판정 [DONE] **regression** (0.6316 < F0 0.6320)
+- G_final: STAGE 4 results + 3-file sync [DONE]
 
 ### Commit chain (next-up)
 
 | # | type | spec section | status |
 |---|---|---|---|
-| c1 | docs | `plans/plan-029-grunet-input-max.md` v1 작성 | [TODO] |
-| c2 | chore | plan-024 추가 cherry-pick from `worktree-plan-024-combo` (commit 915dd26): `model.py` + `feature_weighted_dropout.py`. 기존 plan-025 cherry-pick (anchor_vocab/cand_builder/seq_builder/torsion_calc/quantile_carry/multiwindow_trim_build + json + __init__) 외 추가 2 file. | [TODO] |
-| c3 | code | `analysis/plan-029/anchor_query_extend.py` — 신규 wrapper. plan-024 `cand_builder.build()` 호출 후 sample × anchor interaction channel **15개** 추가 (5 group: A.dist 5 + A.tangent_proj 3 + B.cos 1 + D.regime_anchor_prob 1 + F.2 multi-step anchor·v 5). 출력 shape (B, K=14, 165). **signature**: `build(X, R_wfn, pred_F0_world, anchors, f0_baseline_fn, regimes, quantile_carry, multiwindow_trim_path, regime_count, regime_anchor_table: np.ndarray \| None = None)`. 마지막 arg = D channel 의 train-fold lookup table, shape `(regime_count, K)` float32 row-sum=1 (fold-leakage 차단, train.py 에서 fold-별 산출 후 inject). | [TODO] |
-| c4 | code | `analysis/plan-029/model.py` — 신규 `GRUNetX1` class. 4 lever (a)(b)(c)(d) 통합 구현. plan-024 `CandidateAttentionGRUSelectorCarry` 의 GRU + query_mlp 는 **architecture template carry only** (class import 아닌 design pattern 재사용, dim 본 plan 자체 — query_mlp input 173 ≠ plan-024 150), instance 는 본 plan 안에서 fresh 생성. backbone.head + FWD wrapper class 둘 다 import X. **forward signature = `forward(self, seq, cand_ext) -> score`** (cand_ext 외부 사전 산출 후 주입, model 내부 anchor_query_extend.build 호출 X). **반환 = score (B,K) 단일 tensor** (tuple 분기 없음). **신규 design**: (i) `self.anchor_embed = nn.Parameter(torch.randn(14, 8) * anchor_embed_init_scale)` (anchor identity learnable embedding, default `anchor_embed_init_scale=0.1` 사용자 확정); (ii) `self.anchor_key_proj = nn.Linear(8, 196)` (anchor embedding → key dim); (iii) forward: input cand_ext (B,K,165) 외부 산출본 → `query_in = cat([cand_ext, anchor_embed.broadcast(B,K,8)], dim=-1)` (B,K,173), `query = query_mlp(query_in)` (B,K,196); (iv) `key = gru(seq).out` (B,T,196), `key_anchor = key.unsqueeze(1) + anchor_key_proj(anchor_embed).unsqueeze(0).unsqueeze(2)` (B,K,T,196) — broadcast add; (v) `attn_logits = einsum("bkh,bkth->bkt", query, key_anchor) / sqrt(196)`, `attn = softmax(dim=-1)`, `event_ctx = einsum("bkt,bkth->bkh", attn, key_anchor)` (B,K,196); (vi) **head = `Linear(196, 1)` 단순**: `score = head(event_ctx).squeeze(-1)` (B, K). hidden=196, GRU dropout=0.10. | [TODO] |
-| c5 | code | `analysis/plan-029/train.py` — PyTorch 5-fold OOF training loop (epoch=50 fixed, lr=7e-4 SequentialLR[warmup 5 ep + cosine T_max=45 ep], AdamW wd=1e-4, GRU dropout=0.10, gradient_clip=1.0, batch=64, soft cross-entropy loss, `model.train()` 명시). | [TODO] |
-| c6 | code | `analysis/plan-029/run_oof.py` — orchestrator + G1 reproduce + 5-fold concat OOF + final metric. CLI `--cell X1` 또는 `--g1`. | [TODO] |
-| c7 | test | `tests/test_plan029_smoke.py` — 15+ pytest (import / cand_ext shape (B, 14, 165) / cand_ext sample×anchor 차이 assertion / regime_anchor_table fold-leakage / anchor_embed shape (14,8) + init scale ∈ [0.05, 0.15] + requires_grad / query_in shape (B,14,173) / key_anchor shape (B,14,7,196) / attn_logits shape (B,14,7) / attn row-sum=1 / event_ctx shape (B,14,196) / head Linear(196,1) shape (B,14) / forward end-to-end / soft label sum=1 / Frenet→world 식 / no raw skip in head / anchor_embed gradient). | [TODO] |
-| G0 | gate | smoke + tests green (예상 < 300s) | [TODO] |
-| c8 | exp G1 | G1 carry verification: plan-025 baseline_carry.json load + tight band assert (§5.1). file 부재 또는 hash drift 시 fallback = train.py `--cell G1` 별도 commit 으로 재산출 후 `baseline_carry.json` 박제 | [TODO] |
-| G1 | gate | F0 hit ∈ tight band ✓ AND plan-022 winner hit ∈ tight band ✓ | [TODO] |
-| c9 | exp G2.X1 | X1 5-fold OOF (4 lever 동시) 학습. 예상 runtime: CPU **7-15 min (~420-900s, §6.2 추정)**. plan-024 167s 의 ~2.4× (batch 256→64 4× step + epoch 22→50 2.27× + hidden 196 0.27× FLOPs). key_anchor (B,K,T,H) FLOPs 는 K expansion 가 plan-024 einsum 의 K 합산 이미 포함 이라 ~0.51× (감소). cache miss 추가 1-2×. `results_X1.json` + `train_X1.log` 박제 + per-epoch anchor_embed grad norm trajectory 박제. | [TODO] |
-| G2.X1 | gate | metric finite + max_class_ratio < 0.95. 또한 epoch 50 fully trained 검증 (early stop disabled) + anchor_embed gradient norm > 0 (학습 진행 검증) | [TODO] |
-| c10 | analysis | X1 결과 + paired Δ vs F0 + paired Δ vs plan-022 winner + 14-anchor oracle 회수율 + mode collapse 진단 + **anchor_embed cosine similarity matrix (K=14)** (anchor 별 학습된 embedding 의 differentiation 진단) → `paradigm_analysis.{json,md}` | [TODO] |
-| G3 | gate | paradigm 판정 (PASS / partial_above_p024 / partial_below_p024 / regression) | [TODO] |
-| c11 | docs | 3-file frontmatter sync + `analysis/plan-029/results.md` + `plans/plan-029-*.results.md` pair + follow-up plan-030 (가칭, single-lever ablation 분해 우선) 박제 | [TODO] |
-| G_final | gate | 3-file sync + §0.5 c1~c11 [DONE] | [TODO] |
+| c1 | docs | `plans/plan-029-grunet-input-max.md` v1 작성 | [DONE] |
+| c2 | chore | plan-024 추가 cherry-pick from `worktree-plan-024-combo` (commit 915dd26): `model.py` + `feature_weighted_dropout.py`. 기존 plan-025 cherry-pick (anchor_vocab/cand_builder/seq_builder/torsion_calc/quantile_carry/multiwindow_trim_build + json + __init__) 외 추가 2 file. | [DONE] |
+| c3 | code | `analysis/plan-029/anchor_query_extend.py` — 신규 wrapper. plan-024 `cand_builder.build()` 호출 후 sample × anchor interaction channel **15개** 추가 (5 group: A.dist 5 + A.tangent_proj 3 + B.cos 1 + D.regime_anchor_prob 1 + F.2 multi-step anchor·v 5). 출력 shape (B, K=14, 165). **signature**: `build(X, R_wfn, pred_F0_world, anchors, f0_baseline_fn, regimes, quantile_carry, multiwindow_trim_path, regime_count, regime_anchor_table: np.ndarray \| None = None)`. 마지막 arg = D channel 의 train-fold lookup table, shape `(regime_count, K)` float32 row-sum=1 (fold-leakage 차단, train.py 에서 fold-별 산출 후 inject). | [DONE] |
+| c4 | code | `analysis/plan-029/model.py` — 신규 `GRUNetX1` class. 4 lever (a)(b)(c)(d) 통합 구현. plan-024 `CandidateAttentionGRUSelectorCarry` 의 GRU + query_mlp 는 **architecture template carry only** (class import 아닌 design pattern 재사용, dim 본 plan 자체 — query_mlp input 173 ≠ plan-024 150), instance 는 본 plan 안에서 fresh 생성. backbone.head + FWD wrapper class 둘 다 import X. **forward signature = `forward(self, seq, cand_ext) -> score`** (cand_ext 외부 사전 산출 후 주입, model 내부 anchor_query_extend.build 호출 X). **반환 = score (B,K) 단일 tensor** (tuple 분기 없음). **신규 design**: (i) `self.anchor_embed = nn.Parameter(torch.randn(14, 8) * anchor_embed_init_scale)` (anchor identity learnable embedding, default `anchor_embed_init_scale=0.1` 사용자 확정); (ii) `self.anchor_key_proj = nn.Linear(8, 196)` (anchor embedding → key dim); (iii) forward: input cand_ext (B,K,165) 외부 산출본 → `query_in = cat([cand_ext, anchor_embed.broadcast(B,K,8)], dim=-1)` (B,K,173), `query = query_mlp(query_in)` (B,K,196); (iv) `key = gru(seq).out` (B,T,196), `key_anchor = key.unsqueeze(1) + anchor_key_proj(anchor_embed).unsqueeze(0).unsqueeze(2)` (B,K,T,196) — broadcast add; (v) `attn_logits = einsum("bkh,bkth->bkt", query, key_anchor) / sqrt(196)`, `attn = softmax(dim=-1)`, `event_ctx = einsum("bkt,bkth->bkh", attn, key_anchor)` (B,K,196); (vi) **head = `Linear(196, 1)` 단순**: `score = head(event_ctx).squeeze(-1)` (B, K). hidden=196, GRU dropout=0.10. | [DONE] |
+| c5 | code | `analysis/plan-029/train.py` — PyTorch 5-fold OOF training loop (epoch=50 fixed, lr=7e-4 SequentialLR[warmup 5 ep + cosine T_max=45 ep], AdamW wd=1e-4, GRU dropout=0.10, gradient_clip=1.0, batch=64, soft cross-entropy loss, `model.train()` 명시). | [DONE] |
+| c6 | code | `analysis/plan-029/run_oof.py` — orchestrator + G1 reproduce + 5-fold concat OOF + final metric. CLI `--cell X1` 또는 `--g1`. | [DONE] |
+| c7 | test | `tests/test_plan029_smoke.py` — 15+ pytest (import / cand_ext shape (B, 14, 165) / cand_ext sample×anchor 차이 assertion / regime_anchor_table fold-leakage / anchor_embed shape (14,8) + init scale ∈ [0.05, 0.15] + requires_grad / query_in shape (B,14,173) / key_anchor shape (B,14,7,196) / attn_logits shape (B,14,7) / attn row-sum=1 / event_ctx shape (B,14,196) / head Linear(196,1) shape (B,14) / forward end-to-end / soft label sum=1 / Frenet→world 식 / no raw skip in head / anchor_embed gradient). | [DONE] |
+| G0 | gate | smoke + tests green (예상 < 300s) | [DONE] |
+| c8 | exp G1 | G1 carry verification: plan-025 baseline_carry.json load + tight band assert (§5.1). file 부재 또는 hash drift 시 fallback = train.py `--cell G1` 별도 commit 으로 재산출 후 `baseline_carry.json` 박제 | [DONE] |
+| G1 | gate | F0 hit ∈ tight band ✓ AND plan-022 winner hit ∈ tight band ✓ | [DONE] |
+| c9 | exp G2.X1 | X1 5-fold OOF (4 lever 동시) 학습. 예상 runtime: CPU **7-15 min (~420-900s, §6.2 추정)**. plan-024 167s 의 ~2.4× (batch 256→64 4× step + epoch 22→50 2.27× + hidden 196 0.27× FLOPs). key_anchor (B,K,T,H) FLOPs 는 K expansion 가 plan-024 einsum 의 K 합산 이미 포함 이라 ~0.51× (감소). cache miss 추가 1-2×. `results_X1.json` + `train_X1.log` 박제 + per-epoch anchor_embed grad norm trajectory 박제. | [DONE] |
+| G2.X1 | gate | metric finite + max_class_ratio < 0.95. 또한 epoch 50 fully trained 검증 (early stop disabled) + anchor_embed gradient norm > 0 (학습 진행 검증) | [DONE] |
+| c10 | analysis | X1 결과 + paired Δ vs F0 + paired Δ vs plan-022 winner + 14-anchor oracle 회수율 + mode collapse 진단 + **anchor_embed cosine similarity matrix (K=14)** (anchor 별 학습된 embedding 의 differentiation 진단) → `paradigm_analysis.{json,md}` | [DONE] |
+| G3 | gate | paradigm 판정 (PASS / partial_above_p024 / partial_below_p024 / regression) | [DONE] |
+| c11 | docs | 3-file frontmatter sync + `analysis/plan-029/results.md` + `plans/plan-029-*.results.md` pair + follow-up plan-030 (가칭, single-lever ablation 분해 우선) 박제 | [DONE] |
+| G_final | gate | 3-file sync + §0.5 c1~c11 [DONE] | [DONE] |
 
 ### Plan-specific severe
 
