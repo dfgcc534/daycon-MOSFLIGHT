@@ -65,11 +65,13 @@ band: null
 
 ## §0. 한 줄 목적
 
-> **plan-022 winner A6_bcc14_tau001 (0.6528)** + **plan-023 winner B4_fib50_tau001 (0.6532)** + **plan-025 G2.C1 (band 조건부)** 의 sample 별 OOF final prediction soft-vote ensemble. 단일 변수 = ensemble weight w. 3 cell × 5-fold OOF (= 각 base predictor 의 OOF prediction reproduce + weight sweep).
+> **plan-022 winner A6_bcc14_tau001 (0.6528)** + **plan-023 winner B4_fib50_tau001 (0.6532)** + **plan-026 A2_no_block3 (hit_1cm=0.6509, plan-022 winner 99.66% 회수)** 의 sample 별 OOF final prediction soft-vote ensemble. 단일 변수 = ensemble weight w. 3 cell × 5-fold OOF (= 각 base predictor 의 OOF prediction reproduce + weight sweep).
 >
 > **paradigm rationale**: plan-022/023 winner 가 동일 14-anchor oracle ceiling 0.7928 에 근접 (회수율 82.3-82.4%). 두 cell 의 *prediction error pattern* 이 anchor codebook 차이 (K=14 BCC vs K=50 fib) 로 *uncorrelated* 일 가능성 → ensemble 로 +0.005~0.010 lift 가능. plan-025 추가 시 1080D input 의 *추가 lever* (band 조건 통과 시).
 >
-> **band 조건 분기**:
+> **band 조건 분기 (제거 — scope L55 carry: 항상 3-way 시도)**: 본 plan 의 모든 cell 은 plan-026 A2 가 plan-022 winner 99.66% 회수 (= ensemble candidate 자격) 라는 점에 의거 *항상 3-way 시도*. plan-026 A2 의 hit_1cm (0.6509) 자체가 band=regression (=`< 0.6528`) 정의 안에 들지만, *ensemble candidate 자격은 base predictor diversity 기준이지 단독 hit 기준 아님*. 단순 base predictor lift 가 아니라 prediction error pattern diversity 가 ensemble 의 본질.
+>
+> ~~old band 분기 (deprecated, L55 scope 가 supersede):~~
 > - **positive/partial_lift band** (plan-026 A2 hit_1cm > 0.6528) → **3-way ensemble** (p022 + p023 + p026_A2)
 > - **regression band** (plan-026 A2 hit_1cm ≤ 0.6528) → **2-way ensemble** (p022 + p023) — plan-026 A2 은 ensemble 부재
 >
@@ -89,7 +91,7 @@ band: null
 ### 합격 기준 (G-gate sequence)
 
 - **G0**: plan-022/023/025 carry module + `ensemble_predict` smoke + tests green. 위반 시 `infra_drift` severe.
-- **G1**: plan-026 A2 결과 (`results_C1.json`) 존재 + band 결정 (positive/partial/regression). p022/p023 winner reproduce 동시 수행 (sample-level final_pred 박제). 위반 시 `prereq_p025_missing` 또는 `reproduce_drift` severe.
+- **G1**: plan-026 A2 결과 (`analysis/plan-026/results_A2.json`) 존재 + p022/p023 winner reproduce (sample-level final_pred 박제, plan-026 A2 OOF prediction 재산출). 위반 시 `prereq_p026_A2_missing` 또는 `reproduce_drift` severe.
 - **G2.E1/E2/E3**: 각 cell 의 ensemble hit_1cm finite + sample 단위 prediction 정합 (N_test mismatch check). 위반 시 `ensemble_dim_mismatch` severe.
 - **G3 (paradigm)**: best cell hit_1cm > max(p022, p023) + 0.002 → PASS. partial = [0.6532, max+0.002]. regression = < 0.6532.
 - **G_final**: results.md + 3-file frontmatter sync + follow-up plan-028/029 박제.
@@ -128,7 +130,7 @@ band: null
 
 ### Plan-specific severe
 
-- `prereq_p025_missing`: `analysis/plan-025/results_C1.json` 부재 → halt.
+- `prereq_p026_A2_missing`: `analysis/plan-026/results_A2.json` 부재 → halt.
 - `reproduce_drift`: p022 (band [0.6523, 0.6533]) 또는 p023 (band [0.6527, 0.6537]) reproduce 가 tight band 밖.
 - `ensemble_dim_mismatch`: base predictor 의 sample 수 / final_pred shape 불일치.
 - `band_decision_change`: band 결정 후 ensemble runtime 중 base predictor reproduce 가 band 바꿈 → halt (재현성 깨짐).
@@ -211,7 +213,7 @@ final_pred = w_p022 * pred_p022 + w_p023 * pred_p023        # (N, 3) world
   여기서 w_p022 + w_p023 = 1.0
 
 # 3-way (E2, E3 3-way variant — band 충족 시)
-final_pred = w_p022 * pred_p022 + w_p023 * pred_p023 + w_p026_A2 * pred_p025
+final_pred = w_p022 * pred_p022 + w_p023 * pred_p023 + w_p026_A2 * pred_p026_A2
   여기서 sum w = 1.0
 
 hit_1cm = (np.linalg.norm(final_pred - gt, axis=1) <= 0.01).mean()
@@ -247,15 +249,47 @@ def predict_p022_oof(X, gt, folds, anchors=ANCHORS_A6, tau_cls=0.001) -> np.ndar
 
 ---
 
-## §4~§8. STAGE 0~4
+## §4~§8. STAGE 0~4 — expansion
 
-(plan-026 와 동일 형식, 상세 한 줄 요약만 박제. 자세한 구현은 carry 모듈 + §3.2/§3.3/§3.4 식 그대로.)
+### §4 (G0) — 인프라
 
-- **§4 (G0)**: `analysis/plan-027/ensemble_predict.py` + `run_oof.py` + tests.
-- **§5 (G1)**: base predictor reproduce + plan-025 band 결정.
-- **§6 (G2)**: 3 cell (E1/E2/E3) ensemble hit 측정.
-- **§7 (G3)**: best cell + band 판정 + paired Δ.
-- **§8 (G_final)**: results.md + 3-file sync.
+- `analysis/plan-027/__init__.py` + `run_oof.py` (predict wrappers + ensemble grid).
+- prerequisite: `analysis/plan-026/results_A2.json` 존재 확인 (G1 단계의 hit_1cm=0.6509 ±0.001 lazy check, 정확 reproduce 는 G1 단계 OOF predict 안에서).
+- pytest skip (소형 plan, run_oof.py 자체 smoke 검증 + 학습 path 가 G1 단계에 통합).
+
+### §5 (G1) — base predictor OOF reproduce + final_pred 박제
+
+- `_predict_oof_p022_style(X, gt, ids, ANCHORS_A6, seed=20260519)` → (N, 3) world `pred_p022` + hit_1cm assert ∈ [0.6523, 0.6533].
+- `_predict_oof_p022_style(X, gt, ids, ANCHORS_B4, seed=20260519)` → (N, 3) world `pred_p023` + hit_1cm assert ∈ [0.6527, 0.6537].
+- `_predict_oof_p026_A2_style(X, gt, ids, seed=20260522)` → (N, 3) world `pred_p026_A2` + hit_1cm assert ∈ [0.6499, 0.6519] (plan-026 A2 hit=0.6509 ±0.001).
+- tolerance ±0.0005~0.001: LGBM seed deterministic + stable_fold_id MD5 동일 → 실제 drift 미세 (LightGBM thread non-determinism 일부 가능).
+
+### §6 (G2) — 3 cell ensemble hit 측정
+
+- **E1 equal 3-way**: `pred_E1 = (pred_p022 + pred_p023 + pred_p026_A2) / 3.0`. hit_E1_1cm = (‖pred_E1 − gt‖ ≤ 0.01).mean().
+- **E2 equal 2-way**: `pred_E2 = (pred_p022 + pred_p023) / 2.0` (p026_A2 제외, baseline 비교).
+- **E3 weighted grid sweep**: 9-point grid {(0.5,0.5,0), (0.4,0.4,0.2), (0.4,0.3,0.3), (0.3,0.3,0.4), (0.34,0.33,0.33), (0.6,0.4,0), (0.4,0.6,0), (0.3,0.5,0.2), (0.5,0.3,0.2)} 각 pred 산출 + best = argmax hit_1cm.
+- 모든 weight ≥ 0 + sum = 1.0 (simplex constraint).
+- tie-break: max hit_1cm 동일 시 max hit_1p5cm.
+
+### §7 (G3) — paradigm verdict + paired Δ
+
+- `base_max = max(hit_p022, hit_p023, hit_p026_A2)` (3-way base ceiling).
+- `pass_threshold = base_max + 0.002`.
+- best_cell = argmax_{E1, E2, E3} hit_1cm; best_hit = corresponding metric.
+- verdict: best_hit > pass_threshold → PASS / ≥ base_max → marginal / < base_max → negative_ensemble.
+- paired Δ vs base_max: `delta_ensemble_vs_base = best_hit − base_max` (단순 metric Δ, bootstrap CI 생략 — 5-fold OOF 가 이미 sample 단위 평균이라 paired sample test 1차 근사).
+
+### §8 (G_final) — results.md + 3-file sync
+
+- `analysis/plan-027/results_ensemble.json` (run_oof.py 자체 dump):
+  - `base_predictors` (3 dict), `base_max_hit_1cm`, `pass_threshold`
+  - `cells` (E1/E2/E3 각 hit + weights + E3 grid)
+  - `best_cell`, `best_hit_1cm`, `G3_verdict`, `G3_band`, `runtime_s`
+- `analysis/plan-027/results.md` (sample table + paradigm finding)
+- `plans/plan-027-ensemble.results.md` pair
+- 3-file frontmatter sync (best_cell, best_hit_1cm, band).
+- follow-up: plan-028 (F0 ML — anchor selection ceiling 확인), plan-029 (selector redesign).
 
 ## §9. Out of scope
 
