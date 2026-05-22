@@ -127,7 +127,7 @@ band: null
 | c1 | docs | `plans/plan-029-grunet-input-max.md` v1 작성 | [TODO] |
 | c2 | chore | plan-024 추가 cherry-pick from `worktree-plan-024-combo` (commit 915dd26): `model.py` + `feature_weighted_dropout.py`. 기존 plan-025 cherry-pick (anchor_vocab/cand_builder/seq_builder/torsion_calc/quantile_carry/multiwindow_trim_build + json + __init__) 외 추가 2 file. | [TODO] |
 | c3 | code | `analysis/plan-029/anchor_query_extend.py` — 신규 wrapper. plan-024 `cand_builder.build()` 호출 후 sample × anchor interaction channel **15개** 추가 (5 group: A.dist 5 + A.tangent_proj 3 + B.cos 1 + D.regime_anchor_prob 1 + F.2 multi-step anchor·v 5). 출력 shape (B, K=14, 165). **signature**: `build(X, R_wfn, pred_F0_world, anchors, f0_baseline_fn, regimes, quantile_carry, multiwindow_trim_path, regime_count, regime_anchor_table: np.ndarray \| None = None)`. 마지막 arg = D channel 의 train-fold lookup table, shape `(regime_count, K)` float32 row-sum=1 (fold-leakage 차단, train.py 에서 fold-별 산출 후 inject). | [TODO] |
-| c4 | code | `analysis/plan-029/model.py` — 신규 `GRUNetX1` class. 4 lever (a)(b)(c)(d) 통합 구현. plan-024 `CandidateAttentionGRUSelectorCarry` 의 GRU + query_mlp 는 **architecture template carry only** (class import 아닌 design pattern 재사용, dim 본 plan 자체 — query_mlp input 173 ≠ plan-024 150), instance 는 본 plan 안에서 fresh 생성. backbone.head + FWD wrapper class 둘 다 import X. **forward 반환 = score (B,K) 단일 tensor** (tuple 분기 없음). **신규 design**: (i) `self.anchor_embed = nn.Parameter(torch.randn(14, 8) * anchor_embed_init_scale)` (anchor identity learnable embedding, default `anchor_embed_init_scale=0.1` 사용자 확정); (ii) `self.anchor_key_proj = nn.Linear(8, 196)` (anchor embedding → key dim); (iii) forward: `cand_ext = anchor_query_extend.build(...)` (B,K,165), `query_in = cat([cand_ext, anchor_embed.broadcast(B,K,8)], dim=-1)` (B,K,173), `query = query_mlp(query_in)` (B,K,196); (iv) `key = gru(seq).out` (B,T,196), `key_anchor = key.unsqueeze(1) + anchor_key_proj(anchor_embed).unsqueeze(0).unsqueeze(2)` (B,K,T,196) — broadcast add; (v) `attn_logits = einsum("bkh,bkth->bkt", query, key_anchor) / sqrt(196)`, `attn = softmax(dim=-1)`, `event_ctx = einsum("bkt,bkth->bkh", attn, key_anchor)` (B,K,196); (vi) **head = `Linear(196, 1)` 단순**: `score = head(event_ctx).squeeze(-1)` (B, K). hidden=196, GRU dropout=0.10. | [TODO] |
+| c4 | code | `analysis/plan-029/model.py` — 신규 `GRUNetX1` class. 4 lever (a)(b)(c)(d) 통합 구현. plan-024 `CandidateAttentionGRUSelectorCarry` 의 GRU + query_mlp 는 **architecture template carry only** (class import 아닌 design pattern 재사용, dim 본 plan 자체 — query_mlp input 173 ≠ plan-024 150), instance 는 본 plan 안에서 fresh 생성. backbone.head + FWD wrapper class 둘 다 import X. **forward signature = `forward(self, seq, cand_ext) -> score`** (cand_ext 외부 사전 산출 후 주입, model 내부 anchor_query_extend.build 호출 X). **반환 = score (B,K) 단일 tensor** (tuple 분기 없음). **신규 design**: (i) `self.anchor_embed = nn.Parameter(torch.randn(14, 8) * anchor_embed_init_scale)` (anchor identity learnable embedding, default `anchor_embed_init_scale=0.1` 사용자 확정); (ii) `self.anchor_key_proj = nn.Linear(8, 196)` (anchor embedding → key dim); (iii) forward: input cand_ext (B,K,165) 외부 산출본 → `query_in = cat([cand_ext, anchor_embed.broadcast(B,K,8)], dim=-1)` (B,K,173), `query = query_mlp(query_in)` (B,K,196); (iv) `key = gru(seq).out` (B,T,196), `key_anchor = key.unsqueeze(1) + anchor_key_proj(anchor_embed).unsqueeze(0).unsqueeze(2)` (B,K,T,196) — broadcast add; (v) `attn_logits = einsum("bkh,bkth->bkt", query, key_anchor) / sqrt(196)`, `attn = softmax(dim=-1)`, `event_ctx = einsum("bkt,bkth->bkh", attn, key_anchor)` (B,K,196); (vi) **head = `Linear(196, 1)` 단순**: `score = head(event_ctx).squeeze(-1)` (B, K). hidden=196, GRU dropout=0.10. | [TODO] |
 | c5 | code | `analysis/plan-029/train.py` — PyTorch 5-fold OOF training loop (epoch=50 fixed, lr=7e-4 SequentialLR[warmup 5 ep + cosine T_max=45 ep], AdamW wd=1e-4, GRU dropout=0.10, gradient_clip=1.0, batch=64, soft cross-entropy loss, `model.train()` 명시). | [TODO] |
 | c6 | code | `analysis/plan-029/run_oof.py` — orchestrator + G1 reproduce + 5-fold concat OOF + final metric. CLI `--cell X1` 또는 `--g1`. | [TODO] |
 | c7 | test | `tests/test_plan029_smoke.py` — 15+ pytest (import / cand_ext shape (B, 14, 165) / cand_ext sample×anchor 차이 assertion / regime_anchor_table fold-leakage / anchor_embed shape (14,8) + init scale ∈ [0.05, 0.15] + requires_grad / query_in shape (B,14,173) / key_anchor shape (B,14,7,196) / attn_logits shape (B,14,7) / attn row-sum=1 / event_ctx shape (B,14,196) / head Linear(196,1) shape (B,14) / forward end-to-end / soft label sum=1 / Frenet→world 식 / no raw skip in head / anchor_embed gradient). | [TODO] |
@@ -533,6 +533,7 @@ plan-025 의 baseline_carry.json 이 이미 reproduce 결과 박제 (main commit
 
 - carry value 가 tight band ✓ → G1 PASS.
 - 재산출 옵션 (decision-note): `--cell G1` CLI 로 본 plan 안에서 새로 reproduce 가능 (drift 발생 시 carry replace).
+- **재산출 절차 (fallback)**: (1) F0 = `f0_baseline(X, end_idx=10)` (plan-020 carry, deterministic, no learning) → `err = ||F0 - gt||`, `hit_1cm/_1p5cm` 산출 → tight band assert. (2) plan-022 winner = `selector_only_model` (plan-022 carry — `analysis/plan-022/selector_only_model.py` `selector_only_eval_5fold(X, gt, ANCHORS_A6, tau_cls=0.001, K=14, folds=stable_fold_id, lgbm_hparams=plan-022 winner spec)` 5-fold OOF) → `hit_1cm/_1p5cm` → tight band assert. (3) 산출본 `analysis/plan-025/baseline_carry.json` 형식으로 박제 (key: `F0_hit_1cm`, `F0_hit_1p5cm`, `p022_hit_1cm`, `p022_hit_1p5cm`). (4) 양쪽 모두 tight band 위반 시 `f0_reproduce_drift` 또는 `plan022_reproduce_drift` severe halt.
 
 ---
 
@@ -542,10 +543,16 @@ plan-025 의 baseline_carry.json 이 이미 reproduce 결과 박제 (main commit
 
 ```python
 # ── 사전 준비 (loop 진입 전) ─────────────────────────────────────
+# Dataset-wide load (c6 orchestrator): X shape (N_total, 11, 3) world frame, gt shape (N_total, 3).
+X, _   = load_all_samples()                                  # plan-024/025 convention 동일 (src/io.py)
+gt     = load_labels()                                        # plan-024/025 convention 동일 (src/io.py)
+folds  = stable_fold_id(N_total, n_splits=5, seed=20260522)   # plan-020 carry (MD5 stable)
 # MULTIWINDOW_TRIM_PATH: plan-024 cherry-pick 의 multiwindow_trim.json 경로 const
 # (plan-025 build_feat_1080.py 의 convention 동일: `str(Path("analysis/plan-024/multiwindow_trim.json"))`)
 MULTIWINDOW_TRIM_PATH = str(Path("analysis") / "plan-024" / "multiwindow_trim.json")
 N_total = X.shape[0]; K = 14
+# regime_count=18 = plan-024 carry: `fit_regime_bins(X, end_idx=10)` 출력 bin 개수 (full dataset 동일, fold 별 미변화).
+REGIME_COUNT = 18
 oof_pred   = np.zeros((N_total, 3),  dtype=np.float32)
 oof_probs  = np.zeros((N_total, K),  dtype=np.float32)
 R_wfn_all  = np.zeros((N_total, 3, 3), dtype=np.float32)
@@ -619,9 +626,10 @@ for fold in range(5):
         for b_start in range(0, N_tr, 64):
             idx = perm[b_start : b_start + 64]                          # batch_size 64, last batch < 64 면 그대로 사용
             # numpy → torch (float32) — q_tr / seq_tr / cand_ext_tr 모두 np.ndarray, model 은 torch
-            seq_batch    = torch.from_numpy(seq_tr[idx]).float()        # (B, 7, 95)
-            cand_batch   = torch.from_numpy(cand_ext_tr[idx]).float()   # (B, 14, 165)
-            q_batch      = torch.from_numpy(q_tr[idx]).float()          # (B, 14), row-sum=1
+            # nan_to_num safety net (decision-note): cand_ext 안 D channel + B.cos eps 등 NaN risk 차단
+            seq_batch    = torch.nan_to_num(torch.from_numpy(seq_tr[idx]).float(),      nan=0.0, posinf=1e3, neginf=-1e3)
+            cand_batch   = torch.nan_to_num(torch.from_numpy(cand_ext_tr[idx]).float(), nan=0.0, posinf=1e3, neginf=-1e3)
+            q_batch      = torch.from_numpy(q_tr[idx]).float()          # (B, 14), row-sum=1 (soft label, NaN risk 없음)
             optimizer.zero_grad()
             score = model(seq_batch, cand_batch)                        # score logits (B, 14), torch
             log_probs = log_softmax(score, dim=-1)
@@ -638,8 +646,8 @@ for fold in range(5):
     with torch.no_grad():
         probs_te = []
         for e_start in range(0, len(test_idx), 256):                    # eval batch 256 (key_anchor memory ~22MB)
-            sb = torch.from_numpy(seq_te[e_start : e_start + 256]).float()
-            cb = torch.from_numpy(cand_ext_te[e_start : e_start + 256]).float()
+            sb = torch.nan_to_num(torch.from_numpy(seq_te[e_start : e_start + 256]).float(),      nan=0.0, posinf=1e3, neginf=-1e3)
+            cb = torch.nan_to_num(torch.from_numpy(cand_ext_te[e_start : e_start + 256]).float(), nan=0.0, posinf=1e3, neginf=-1e3)
             probs_te.append(softmax(model(sb, cb), dim=-1).cpu().numpy())
         probs_te = np.concatenate(probs_te, axis=0)                     # (N_te, 14)
         residual_frenet = (probs_te[:, :, None] * ANCHORS_A6[None, :, :]).sum(axis=1)
