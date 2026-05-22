@@ -3,8 +3,8 @@ plan_id: 027
 version: 1.1
 date: 2026-05-22 (Asia/Seoul)
 status: abandoned
-abandoned_reason: "user intent mismatch — 본 spec 은 LGBM 3-way ensemble 으로 작성됐으나 사용자의 plan-027 의도 = GRU-attention paradigm 의 후속 (plan-026 GRU-attention 위 ensemble 또는 추가 lever). 사용자 명시 결정 (2026-05-22 turn) 으로 abandoned, plan-030 으로 재발행 예정."
-superseded_by: plan-030 (가칭, GRU-attention paradigm 위 plan-029 결과 후속)
+abandoned_reason: "user intent mismatch — 본 spec 은 LGBM 3-way ensemble 으로 작성됐으나 사용자의 plan-027 의도 = GRU-attention paradigm 의 후속 (plan-026 GRU-attention 위 ensemble 또는 추가 lever). 사용자 명시 결정 (2026-05-22 turn) 으로 abandoned, plan-029 으로 재발행 예정."
+superseded_by: plan-029 (가칭, GRU-attention paradigm 위 plan-029 결과 후속)
 band: negative_ensemble
 best_cell: E3_weighted
 best_hit_1cm: 0.6529
@@ -25,7 +25,7 @@ best_delta_1cm: -0.0001
 
 본 finding 도 **LGBM 한정 lesson**. paradigm-shared assumption (F0 + LGBM softmax + sphere-mean-zero anchor) 가 3 base 공통 → diversity 부재. 진짜 ensemble diversity = architecture / paradigm 차이 필요.
 
-→ plan-030 에서 GRU-attention 의 ensemble / hyperparameter sweep 으로 paradigm-distinct ensemble 가능성 검증.
+→ plan-029 에서 GRU-attention 의 ensemble / hyperparameter sweep 으로 paradigm-distinct ensemble 가능성 검증.
 
 ## Cross-refs
 

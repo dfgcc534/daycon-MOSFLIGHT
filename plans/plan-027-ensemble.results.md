@@ -3,7 +3,7 @@ plan_id: 027
 finished_at: 2026-05-22 (Asia/Seoul)
 status: abandoned
 abandoned_reason: "user intent mismatch (LGBM 으로 실행됐으나 사용자 의도는 GRU-attention paradigm)"
-superseded_by: plan-030
+superseded_by: plan-029
 best_cell: E3_weighted
 best_hit_1cm: 0.6529
 best_hit_1p5cm: 0.8118
@@ -16,7 +16,7 @@ exp_ids_completed:
 
 # plan-027.results — ABANDONED (user intent mismatch)
 
-본 LGBM 3-way ensemble results 는 사용자 의도와 다른 paradigm 결과. git history (commit 6e12de3) 에 보존, plan-030 재발행 예정.
+본 LGBM 3-way ensemble results 는 사용자 의도와 다른 paradigm 결과. git history (commit 6e12de3) 에 보존, plan-029 재발행 예정.
 
 ## LGBM ensemble finding (참고)
 
