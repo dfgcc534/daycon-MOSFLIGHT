@@ -355,7 +355,7 @@ slice fn output (B1~B4 동일 carry, R1 별도):
 - `slice_B2_combo192(X) → X[:, :, np.r_[0:170, 298:320]]`
 - `slice_B3_no_anchor1058(X) → X[:, :, np.r_[0:298, 320:1080]]`
 - `slice_B4_full1080(X) → X[:, :, :]`
-- `build_R1_seq_raw(X[N, 14, 1080], seq_raw[N, 95, 7])`: seq_raw 입력 = `analysis/plan-024/seq_builder.py:build_seq_feat` 의 *raw 95×7 output* (= per-channel 8-stat 압축 *이전* ndarray). c3 `analysis/plan-028/build_feat_subset.py` 에 helper `build_feat_1080_with_raw_seq(samples, ...) -> (X[N, 14, 1080], seq_raw[N, 95, 7])` 추가 — plan-025 `build_feat_1080` 호출 후, plan-024 `seq_builder.build_seq_feat` 를 wrapper 가 별도 호출 (plan-025 file 직접 수정 X, plan-024 carry symbol read-only). block ④ slice [320:1080] 제외 후 raw seq flatten (95×7=665D, sample-level broadcast 14 row) concat → 170+128+22+665 = 985D per row. output shape `[N, 14, 985]`.
+- `build_R1_seq_raw(X[N, 14, 1080], seq_raw[N, 95, 7])`: seq_raw 입력 = `analysis/plan-024/seq_builder.py:build_seq_feat` 의 *raw 95×7 output* (= per-channel 8-stat 압축 *이전* ndarray). c3 `analysis/plan-028/build_feat_subset.py` 에 helper `build_feat_1080_with_raw_seq(samples, ...) -> (X[N, 14, 1080], seq_raw[N, 95, 7])` 추가 — plan-025 `build_feat_1080` 호출 후, plan-024 `seq_builder.build_seq_feat` 를 wrapper 가 별도 호출 (plan-025 file 직접 수정 X, plan-024 carry symbol read-only). **deterministic 보장**: plan-024 `seq_builder.build_seq_feat` 는 plan-022/024/025 carry symbol contract 상 deterministic (= 같은 (samples, quantile_carry) 입력 → 같은 output, random seed / fold leakage 우려 없음). plan-025 `build_feat_1080` 내부의 seq_builder 호출 결과 (8-stat 압축 전) 와 wrapper 의 별도 호출 결과가 동일 sample list / quantile 위에서 일관됨. block ④ slice [320:1080] 제외 후 raw seq flatten (95×7=665D, sample-level broadcast 14 row) concat → 170+128+22+665 = 985D per row. output shape `[N, 14, 985]`.
 
 cell 별 산식 변경 (B4 baseline 산식 carry, 아래 cell 만 변경):
 - **T1/T2**: τ_cls value 변경 → `build_soft_label_with_tau(τ_cls=0.01)` (T1) / `(τ_cls=0.1)` (T2). soft label 재계산. label/weight/objective 산식 baseline 동일.
@@ -432,6 +432,8 @@ def decide_branch(B1, B2, B3, B4, W1) -> Literal["α", "β", "γ", "δ"]:
 (α case: B2=0.66 ≥ P022=0.6531 ✓ → α; β case: B1=0.65 > B3=0.60+0.005 AND B1 < P022 ✓ → β (α 미충족); γ case: W1=0.66 > B4=0.6320+0.005 ✓ → γ (α/β 미충족); δ case: 모든 cell = B4 baseline → δ default)
 
 **branch fn 의 5-cell input 정합 박제**: `decide_branch` signature 는 (b)+(d) cell (B1/B2/B3/B4/W1) 만 input — T1/T2/S1/R1 (가설 (a)/(c)/(e)) verdict 는 §4.6 verdict 함수로 별도 박제하며 G2.B branch decision 에 영향 X (의도적 분리: G2.B 의 목적 = plan-022 winner lift cell 발견이고, (a)/(c)/(e) 검증은 진단 성격으로 별도 path). T1/T2/S1/R1 중 어느 cell 이 plan-022 winner 보다 좋으면 G3 best_cell selection (§4.6, c19) 에서 G2.A 9 cell + G2.B 1~2 cell 통합 argmax 의 후보로 자동 포함.
+
+**거동 예시**: 예) T1 (τ=0.01 cell) 의 hit_1cm = 0.66 > plan-022 0.6531 인 가상 case — G2.B 는 (b)+(d) branch 룰만 적용 (α 조건 = B2 기준, β = B1/B3, γ = W1) → 만약 B2/B1/W1 모두 baseline 근처면 δ default 활성. T1 의 lift 는 c19 best_cell argmax 단계에서 picked-up (= positive band 가능). 즉 G2.B branch decision 의 silent drop 은 (a)/(c)/(e) cell 의 G3 final 박제와 *독립*.
 
 ### §4.6 STAGE 3 (G3) — Paradigm + best_cell
 
@@ -530,7 +532,7 @@ cell 수 / commit 수 / 작업량 plan-025 (2 cell, ~15min) 대비 약 4-5× 증
 
 - **5-fold OOF concat 의 분산**: plan-022/025 carry — per-fold std 박제. paired Δ 검정은 같은 fold split 위 per-sample 차이의 평균 → fold 분산 영향 적음.
 - **W1 cell 의 weight 균등화 isolation**: W1 의 단일 변수 = `sample_weight` (ON: soft_label-weighted, OFF: 1.0 균등). row-expand reshape / label = anchor_idx / objective = multiclass / num_class = 14 모두 ON 동일 (§4.3 sample-weight 산식 정합). (b) 가설 (LightGBM 의 per-row weight 처리가 14-class objective 와 충돌 가능) 의 isolation 명확 — soft_label 의 sharpness (τ=0.001) 가 ON 에서 effective weight 분포 sharpness 와 OFF uniform 의 effective weight 분포 평탄성 차이 = (b) 가설 검정 신호.
-- **B1 (22D only) 의 LGBM split 최소 sample 수**: 22D 가 너무 작아 `min_data_in_leaf=20` 도 일부 leaf 에서 invalid 가능. fallback = leaf 부족 시 LGBM 의 default 처리 (= no split) 그대로.
+- **B1 (22D only) 의 LGBM hparam carry**: 22D 가 너무 작아 plan-022 default `num_leaves=63` + `min_data_in_leaf=20` 이 일부 leaf 에서 invalid 가능. **본 plan 의 결정**: hparam 자동 축소 없음 — plan-022 default 그대로 carry (§2.1 LGBM hparam 행 정합). LGBM 자체 fallback (leaf 부족 시 no split, 트리 early termination) 위임. 결과적으로 B1 의 effective num_leaves < 63 일 수 있으나 본 cell 의 (d) 가설 검증 (= 22D per-anchor signal 존재 여부) 목적상 acceptable.
 - **G2.A.B4 의 재현성**: c10 단계에서 plan-025 C1 carry 의 hash 정확성 — plan-025 worktree 의 commit hash 박제 필수 (`decision-note: spec-default — B4 = plan-025 C1 carry hash <commit>`).
 - **G2.B branch δ (MLP) 의 CPU 수렴**: plan-024 cross-attention 의 CPU under-converged 교훈 — 본 plan δ branch 의 MLP 는 작은 capacity (hidden=64, depth=2, epoch=50) 로 의도적으로 under-converged 위험 회피. 단 본 cell 이 plan-022 winner 못 이기면 paradigm-level conclusion = "LGBM 자체가 ceiling".
 - **paired Δ 의 fold variance**: paired bootstrap 5000× 측정 박제 (plan-022/025 carry 산식, `analysis/plan-022/run_oof.py:bootstrap_paired_delta`). 95% CI 박제. CI 가 0 포함 시 partial band warn.
@@ -546,7 +548,8 @@ cell 수 / commit 수 / 작업량 plan-025 (2 cell, ~15min) 대비 약 4-5× 증
   - c1.2 (a7afa55): 사용자 instruction "a, c, e 도 이 plan 안에서 진행" 으로 scope 확장 — 5가설 (a)(b)(c)(d)(e) 통합 본 plan 직접 검증. G2.A 5 cell → 9 cell (T1/T2 τ sweep, S1 base LGBM, R1 seq raw 추가), §2 In-scope 에 τ_cls / model wrapping / block ④ 산식 변수 추가, commit chain c1~c16 → c1~c20, runtime 30-50min → 50-70min CPU, §4.6 verdict 함수 5가설 통합.
   - c1.3 (83c65b6): plan-review iter 2 자동 fix — BLOCKER 4 (branch fn signature, weighted flag inject, 표 title, results.md 항목) + "5 cell" 잔재 3곳 + AMB 4.
   - c1.4 (1a09f5b): plan-review iter 3 자동 fix — commit pointer propagation (c12/c13~14/c15/c16 → c16/c17~18/c19/c20) + JSON template 5가설 추가.
-  - c1.5 (본 commit): plan-review iter 4 자동 fix — AMB 8 (results.md 항목 11→12, pytest 12+→≥8, band corner case, band enum, wrapper file path, branch_undefined 재정의, code_reuse count, c1 status sync).
+  - c1.5 (f11d359): plan-review iter 4 자동 fix — AMB 8 (results.md 항목 11→12, pytest 12+→≥8, band corner case, band enum, wrapper file path, branch_undefined 재정의, code_reuse count, c1 status sync).
+  - c1.6 (본 commit): plan-review iter 5 (max) 자동 fix — BLOCKER 0 유지 + AMB 2 fix (§4.5 branch fn silent drop 거동 예시, §7 B1 22D num_leaves carry 명시) + MINOR 2 fix (§4.3 R1 wrapper deterministic 보장, 본 §8 c1.6 박제). plan-review-master 종료 (BLOCKER 0 + AMB 0 도달, max iter 5/5).
 
 ---
 
