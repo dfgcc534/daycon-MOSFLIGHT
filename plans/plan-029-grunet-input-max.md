@@ -126,8 +126,8 @@ band: null
 |---|---|---|---|
 | c1 | docs | `plans/plan-029-grunet-input-max.md` v1 작성 | [TODO] |
 | c2 | chore | plan-024 추가 cherry-pick from `worktree-plan-024-combo` (commit 915dd26): `model.py` + `feature_weighted_dropout.py`. 기존 plan-025 cherry-pick (anchor_vocab/cand_builder/seq_builder/torsion_calc/quantile_carry/multiwindow_trim_build + json + __init__) 외 추가 2 file. | [TODO] |
-| c3 | code | `analysis/plan-029/anchor_query_extend.py` — 신규 wrapper. plan-024 `cand_builder.build()` 호출 후 sample × anchor interaction channel **15개** 추가 (5 group: A.dist 5 + A.tangent_proj 3 + B.cos 1 + D.regime_anchor_prob 1 + F.2 multi-step anchor·v 5). 출력 shape (B, K=14, 165). **signature**: `build(X, R_wfn, pred_F0_world, anchors, f0_baseline_fn, regimes, quantile_carry, multiwindow_trim_path, regime_count, regime_anchor_table: dict \| None = None)`. 마지막 arg = D channel 의 train-fold lookup table (fold-leakage 차단, train.py 에서 fold-별 산출 후 inject). | [TODO] |
-| c4 | code | `analysis/plan-029/model.py` — 신규 `GRUNetX1` class. 4 lever (a)(b)(c)(d) 통합 구현. plan-024 `CandidateAttentionGRUSelectorCarry` 의 GRU + query_mlp 만 carry (cross-attention forward 는 본 plan 자체 식 사용 — key anchor-conditional). backbone.head + FWD wrapper class 둘 다 import X. **신규 design**: (i) `self.anchor_embed = nn.Parameter(torch.randn(14, 8) * 0.1)` (anchor identity learnable embedding, **init scale 0.1 사용자 확정**); (ii) `self.anchor_key_proj = nn.Linear(8, 196)` (anchor embedding → key dim); (iii) forward: `cand_ext = anchor_query_extend.build(...)` (B,K,165), `query_in = cat([cand_ext, anchor_embed.broadcast(B,K,8)], dim=-1)` (B,K,173), `query = query_mlp(query_in)` (B,K,196); (iv) `key = gru(seq).out` (B,T,196), `key_anchor = key.unsqueeze(1) + anchor_key_proj(anchor_embed).unsqueeze(0).unsqueeze(2)` (B,K,T,196) — broadcast add; (v) `attn_logits = einsum("bkh,bkth->bkt", query, key_anchor) / sqrt(196)`, `attn = softmax(dim=-1)`, `event_ctx = einsum("bkt,bkth->bkh", attn, key_anchor)` (B,K,196); (vi) **head = `Linear(196, 1)` 단순**: `score = head(event_ctx).squeeze(-1)` (B, K). hidden=196, GRU dropout=0.10. | [TODO] |
+| c3 | code | `analysis/plan-029/anchor_query_extend.py` — 신규 wrapper. plan-024 `cand_builder.build()` 호출 후 sample × anchor interaction channel **15개** 추가 (5 group: A.dist 5 + A.tangent_proj 3 + B.cos 1 + D.regime_anchor_prob 1 + F.2 multi-step anchor·v 5). 출력 shape (B, K=14, 165). **signature**: `build(X, R_wfn, pred_F0_world, anchors, f0_baseline_fn, regimes, quantile_carry, multiwindow_trim_path, regime_count, regime_anchor_table: np.ndarray \| None = None)`. 마지막 arg = D channel 의 train-fold lookup table, shape `(regime_count, K)` float32 row-sum=1 (fold-leakage 차단, train.py 에서 fold-별 산출 후 inject). | [TODO] |
+| c4 | code | `analysis/plan-029/model.py` — 신규 `GRUNetX1` class. 4 lever (a)(b)(c)(d) 통합 구현. plan-024 `CandidateAttentionGRUSelectorCarry` 의 GRU + query_mlp 는 **architecture template carry only** (class import 아닌 design pattern 재사용, dim 본 plan 자체 — query_mlp input 173 ≠ plan-024 150), instance 는 본 plan 안에서 fresh 생성. backbone.head + FWD wrapper class 둘 다 import X. **forward 반환 = score (B,K) 단일 tensor** (tuple 분기 없음). **신규 design**: (i) `self.anchor_embed = nn.Parameter(torch.randn(14, 8) * anchor_embed_init_scale)` (anchor identity learnable embedding, default `anchor_embed_init_scale=0.1` 사용자 확정); (ii) `self.anchor_key_proj = nn.Linear(8, 196)` (anchor embedding → key dim); (iii) forward: `cand_ext = anchor_query_extend.build(...)` (B,K,165), `query_in = cat([cand_ext, anchor_embed.broadcast(B,K,8)], dim=-1)` (B,K,173), `query = query_mlp(query_in)` (B,K,196); (iv) `key = gru(seq).out` (B,T,196), `key_anchor = key.unsqueeze(1) + anchor_key_proj(anchor_embed).unsqueeze(0).unsqueeze(2)` (B,K,T,196) — broadcast add; (v) `attn_logits = einsum("bkh,bkth->bkt", query, key_anchor) / sqrt(196)`, `attn = softmax(dim=-1)`, `event_ctx = einsum("bkt,bkth->bkh", attn, key_anchor)` (B,K,196); (vi) **head = `Linear(196, 1)` 단순**: `score = head(event_ctx).squeeze(-1)` (B, K). hidden=196, GRU dropout=0.10. | [TODO] |
 | c5 | code | `analysis/plan-029/train.py` — PyTorch 5-fold OOF training loop (epoch=50 fixed, lr=7e-4 SequentialLR[warmup 5 ep + cosine T_max=45 ep], AdamW wd=1e-4, GRU dropout=0.10, gradient_clip=1.0, batch=64, soft cross-entropy loss, `model.train()` 명시). | [TODO] |
 | c6 | code | `analysis/plan-029/run_oof.py` — orchestrator + G1 reproduce + 5-fold concat OOF + final metric. CLI `--cell X1` 또는 `--g1`. | [TODO] |
 | c7 | test | `tests/test_plan029_smoke.py` — 15+ pytest (import / cand_ext shape (B, 14, 165) / cand_ext sample×anchor 차이 assertion / regime_anchor_table fold-leakage / anchor_embed shape (14,8) + init scale ∈ [0.05, 0.15] + requires_grad / query_in shape (B,14,173) / key_anchor shape (B,14,7,196) / attn_logits shape (B,14,7) / attn row-sum=1 / event_ctx shape (B,14,196) / head Linear(196,1) shape (B,14) / forward end-to-end / soft label sum=1 / Frenet→world 식 / no raw skip in head / anchor_embed gradient). | [TODO] |
@@ -353,7 +353,7 @@ seq      = seq_builder.build(X, R_wfn, ANCHORS_A6, f0_baseline, quantile_carry) 
 
 # === lever (a) query enrichment: cand_ext (B, K, 165) 가 forward 의 input ===
 # === lever (b) anchor embedding 학습 (init scale 0.1) ===
-# self.anchor_embed = nn.Parameter(torch.randn(K=14, D_EMBED=8) * 0.1)
+# self.anchor_embed = nn.Parameter(torch.randn(14, 8) * anchor_embed_init_scale)  # default 0.1
 anchor_embed_bc = anchor_embed.unsqueeze(0).expand(B, -1, -1)                        # (B, 14, 8)
 query_in = concat([cand_ext, anchor_embed_bc], dim=-1)                               # (B, 14, 173)
 
@@ -430,7 +430,7 @@ loss      = -(soft_q * log_probs).sum(dim=-1).mean()      # H(soft_q, p_model) =
 
 - K-axis sum → batch mean. plan-022/024 (run_oof.py:167) 동일 reduction + 식 (`-(q_b * torch.log(q_pred + 1e-12)).sum(-1).mean()`).
 - "soft cross-entropy" 명명은 plan-024 spec §4.7 carry. KL(q‖p) 대비 entropy H(q) 만큼 offset → gradient 는 동일.
-- `score` (logits) 만 사용 — model forward 가 `(q_pred, score)` tuple 반환 시 `score` 만 unwrap (`q_pred = F.softmax(score, dim=-1)` 는 eval 시 별도 계산).
+- `score` (logits) 만 사용 — model forward 반환은 **단일 tensor `score` (B, 14)** 로 통일 (tuple 반환 분기 없음). `q_pred = F.softmax(score, dim=-1)` 는 eval 시 별도 계산.
 
 ### §3.7 Prediction (eval mode)
 
@@ -541,6 +541,16 @@ plan-025 의 baseline_carry.json 이 이미 reproduce 결과 박제 (main commit
 ### §6.1 Per-fold loop
 
 ```python
+# ── 사전 준비 (loop 진입 전) ─────────────────────────────────────
+# MULTIWINDOW_TRIM_PATH: plan-024 cherry-pick 의 multiwindow_trim.json 경로 const
+# (plan-025 build_feat_1080.py 의 convention 동일: `str(Path("analysis/plan-024/multiwindow_trim.json"))`)
+MULTIWINDOW_TRIM_PATH = str(Path("analysis") / "plan-024" / "multiwindow_trim.json")
+N_total = X.shape[0]; K = 14
+oof_pred   = np.zeros((N_total, 3),  dtype=np.float32)
+oof_probs  = np.zeros((N_total, K),  dtype=np.float32)
+R_wfn_all  = np.zeros((N_total, 3, 3), dtype=np.float32)
+F0_all     = np.zeros((N_total, 3),  dtype=np.float32)
+
 for fold in range(5):
     train_idx = np.where(folds != fold)[0]
     test_idx = np.where(folds == fold)[0]
