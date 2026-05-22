@@ -85,7 +85,7 @@ band: null
 
 ### G-gates
 
-- G0: STAGE 0 인프라 + plan-025 prerequisite check [TODO]
+- G0: STAGE 0 인프라 + plan-025 prerequisite check [DONE — 04ba0bf] 8/8 pytest + prereq_check ✓
 - G1: STAGE 1 plan-025 G2.C1 baseline carry [TODO]
 - G2.A1: A1 (no block②) 5-fold OOF [TODO]
 - G2.A2: A2 (no block③) 5-fold OOF [TODO]
@@ -98,10 +98,10 @@ band: null
 | # | type | spec section | status |
 |---|---|---|---|
 | c1 | docs | `plans/plan-026-block-ablation.md` v1 작성 | [TODO] |
-| c2 | code | `analysis/plan-026/block_mask_builder.py` — column slice helper + `BLOCK_RANGES: dict` (block id → (start, end)) + `build_feat_masked(X, anchors, f0_baseline_fn, quantiles, excluded_cell: str)` returns (N*K, D_masked) float32 (dtype carry from plan-025 build_feat_1080). | [TODO] |
-| c3 | code | `analysis/plan-026/run_oof.py` — 3 ablation cell 5-fold OOF runner. CLI: `--cell {A1,A2,A3}`. plan-025 LgbmSelectorRowExpanded carry. | [TODO] |
-| c4 | test | `tests/test_plan026_smoke.py` — block mask shape + run smoke (small N=8). | [TODO] |
-| G0 | gate | smoke + tests green + plan-025 G2.C1 results_C1.json 존재 확인 | [TODO] |
+| c2 | code | `analysis/plan-026/block_mask_builder.py` — column slice helper + `BLOCK_RANGES: dict` (block id → (start, end)) + `build_feat_masked(X, anchors, f0_baseline_fn, quantiles, excluded_cell: str)` returns (N*K, D_masked) float32 (dtype carry from plan-025 build_feat_1080). | [DONE — 33c5220] |
+| c3 | code | `analysis/plan-026/run_oof.py` — 3 ablation cell 5-fold OOF runner. CLI: `--cell {A1,A2,A3}`. plan-025 LgbmSelectorRowExpanded carry. | [DONE — 9883d9c] |
+| c4 | test | `tests/test_plan026_smoke.py` — block mask shape + run smoke (small N=8). | [DONE — 04ba0bf] 8/8 pytest |
+| G0 | gate | smoke + tests green + plan-025 G2.C1 results_C1.json 존재 확인 | [DONE — 04ba0bf] |
 | c5 | exp G1 | plan-025 G2.C1 baseline carry (= results_C1.json 읽고 hit_1cm 기억) | [TODO] |
 | G1 | gate | baseline carry 완료 | [TODO] |
 | c6 | exp G2.A1 | A1 no-block② 5-fold OOF (~1-2h CPU 예상, block ② 제거로 dim 952D) | [TODO] |
