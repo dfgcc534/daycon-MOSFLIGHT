@@ -20,13 +20,25 @@ import torch.nn as nn
 
 
 class GRUNetX1(nn.Module):
-    """plan-029 X1 cell — 4 lever 통합 cross-attention model.
+    """plan-029 cross-attention model with head_skip_mode option.
 
-    forward:
-      seq:      (B, T=7, seq_dim=95)
-      cand_ext: (B, K=14, cand_in_dim=165) — 외부 사전 산출 (anchor_query_extend.build)
-      returns:  score (B, K=14) logits 단일 tensor
+    head_skip_mode:
+      'none'           : head_in = event_ctx (H)                    — X1 cell (default, lever d 차단)
+      'no_anchor_spec' : head_in = concat(event_ctx, cand_no_spec)  — X2 cell (anchor identity 9D 만 차단)
+      'full'           : head_in = concat(event_ctx, cand_ext)      — X3 cell (PB framework 식 raw skip 부활)
+
+    cand_ext layout (plan-024 cand_builder 150 + plan-029 extension 15 = 165):
+      [:, :, 0:3]    par/perp/dist        (sample × anchor)
+      [:, :, 3:12]   anchor spec          (anchor-static = "anchor data")
+      [:, :, 12:140] ctx broadcast        (sample × broadcast, K 축 동일)
+      [:, :, 140:150] interactions        (sample × anchor)
+      [:, :, 150:165] anchor_query_extend (sample × anchor, 15 ch)
+
+    forward signature: forward(self, seq, cand_ext) -> score (B, K) 단일 tensor
     """
+
+    ANCHOR_SPEC_START = 3
+    ANCHOR_SPEC_END = 12  # exclusive — anchor-static 9D index range
 
     def __init__(
         self,
@@ -37,39 +49,46 @@ class GRUNetX1(nn.Module):
         anchor_embed_init_scale: float = 0.1,
         gru_dropout: float = 0.10,
         K: int = 14,
+        head_skip_mode: str = "none",
     ):
         super().__init__()
+        assert head_skip_mode in ("none", "no_anchor_spec", "full")
         self.K = K
         self.hidden = hidden
         self.anchor_embed_dim = anchor_embed_dim
+        self.cand_in_dim = cand_in_dim
+        self.head_skip_mode = head_skip_mode
 
         # === lever (b) anchor embedding 학습 (query + key 양쪽) ===
-        # init: randn * anchor_embed_init_scale (default 0.1, 사용자 확정)
         self.anchor_embed = nn.Parameter(torch.randn(K, anchor_embed_dim) * anchor_embed_init_scale)
 
         # === lever (c) anchor → key dim projection ===
         self.anchor_key_proj = nn.Linear(anchor_embed_dim, hidden)
 
-        # === GRU encoder (architecture template carry from plan-024 backbone) ===
+        # === GRU encoder ===
         self.gru = nn.GRU(
             seq_dim, hidden, num_layers=2,
             dropout=gru_dropout, batch_first=True,
         )
 
-        # === query_mlp (architecture template carry, dim 본 plan 자체) ===
-        # input dim = cand_in_dim + anchor_embed_dim = 165 + 8 = 173
+        # === query_mlp ===
         self.query_mlp = nn.Sequential(
             nn.Linear(cand_in_dim + anchor_embed_dim, hidden),
             nn.GELU(),
             nn.Linear(hidden, hidden),
         )
 
-        # === lever (d) head raw skip 차단 — head_in = event_ctx (hidden) only ===
-        self.head = nn.Linear(hidden, 1)
+        # === head — input dim 은 head_skip_mode 에 따라 달라짐 ===
+        if head_skip_mode == "none":
+            head_in_dim = hidden
+        elif head_skip_mode == "no_anchor_spec":
+            head_in_dim = hidden + (cand_in_dim - (self.ANCHOR_SPEC_END - self.ANCHOR_SPEC_START))  # H + 156
+        else:  # full
+            head_in_dim = hidden + cand_in_dim                                       # H + 165
+        self.head_in_dim = head_in_dim
+        self.head = nn.Linear(head_in_dim, 1)
 
     def forward(self, seq: torch.Tensor, cand_ext: torch.Tensor) -> torch.Tensor:
-        # seq:      (B, T, seq_dim)
-        # cand_ext: (B, K, cand_in_dim) — 외부 사전 산출
         B = cand_ext.shape[0]
         K = self.K
         H = self.hidden
@@ -85,7 +104,6 @@ class GRUNetX1(nn.Module):
         out, _ = self.gru(seq)                                                     # out (B, T, H)
 
         # === lever (c) key anchor-conditional broadcast add ===
-        # anchor_key_proj(anchor_embed): (K, H)
         anchor_key_bias = self.anchor_key_proj(self.anchor_embed)                  # (K, H)
         key_anchor = out.unsqueeze(1) + anchor_key_bias.unsqueeze(0).unsqueeze(2)  # (B, K, T, H)
 
@@ -94,8 +112,19 @@ class GRUNetX1(nn.Module):
         attn = torch.softmax(attn_logits, dim=-1)                                  # (B, K, T)
         event_ctx = torch.einsum("bkt,bkth->bkh", attn, key_anchor)                # (B, K, H)
 
-        # === lever (d) head raw skip 차단 ===
-        score = self.head(event_ctx).squeeze(-1)                                   # (B, K)
+        # === head input by head_skip_mode ===
+        if self.head_skip_mode == "none":
+            head_in = event_ctx                                                    # (B, K, H)
+        elif self.head_skip_mode == "no_anchor_spec":
+            cand_no_spec = torch.cat([
+                cand_ext[:, :, : self.ANCHOR_SPEC_START],
+                cand_ext[:, :, self.ANCHOR_SPEC_END :],
+            ], dim=-1)                                                             # (B, K, cand_in - 9)
+            head_in = torch.cat([event_ctx, cand_no_spec], dim=-1)                 # (B, K, H + cand-9)
+        else:  # full
+            head_in = torch.cat([event_ctx, cand_ext], dim=-1)                     # (B, K, H + cand_in)
+
+        score = self.head(head_in).squeeze(-1)                                     # (B, K)
         return score
 
 
