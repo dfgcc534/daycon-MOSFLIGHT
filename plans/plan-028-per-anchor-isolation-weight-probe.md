@@ -2,7 +2,19 @@
 plan_id: 028
 version: 1
 date: 2026-05-22 (Asia/Seoul)
-status: draft
+status: all_complete
+best_cell: B3
+best_hit_1cm: 0.6509
+best_hit_1p5cm: 0.8118
+best_delta_1cm: 0.0189
+best_delta_1p5cm: 0.0085
+band: partial
+g0_completed: true
+g1_completed: true
+g2a_completed: true
+g2b_completed: skip
+g3_completed: true
+g_final_completed: true
 inspired_by:
   - 025 (1080D LGBM C1+C2 모두 hit_1cm=0.6320=F0 mode collapse — best=C1 0.6320/0.8033, band=negative, max_class_ratio≈1/14, oracle 회수율 79.72%. paradigm_analysis §4 4가설 (a) τ_cls / (b) sample-weight expansion / (c) subclass self-consistency / (d) 1058D broadcast / 22D per-anchor 비율 50:1 dominance 박제. (d) most likely.)
   - 022 (best A6_bcc14_tau001 → hit_1cm 0.6531 / hit_1p5cm 0.8108 — K=14 BCC + τ_cls=0.001 + 170D LGBM selector paradigm. 본 plan **이겨야 할 목표**.)
