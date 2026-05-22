@@ -1,0 +1,54 @@
+{
+  "plan_id": 25,
+  "spec_version": "v1",
+  "date": "2026-05-22",
+  "G1_baseline": {
+    "F0": {"hit_1cm": 0.6320, "hit_1p5cm": 0.8033},
+    "plan022_winner": {"hit_1cm": 0.6531, "hit_1p5cm": 0.8108}
+  },
+  "G2_cells": {
+    "C1": {
+      "hit_1cm": 0.6320,
+      "hit_1p5cm": 0.8033,
+      "top1_acc": 0.0879,
+      "max_class_ratio": 0.0714,
+      "runtime_s": 333.85
+    },
+    "C2": {
+      "hit_1cm": 0.6320,
+      "hit_1p5cm": 0.8033,
+      "top1_acc": 0.1006,
+      "max_class_ratio": 0.0714,
+      "runtime_s": 315.80,
+      "early_stopping_fallback": true
+    }
+  },
+  "best_cell": "C1",
+  "best_hit_1cm": 0.6320,
+  "best_hit_1p5cm": 0.8033,
+  "paired_delta": {
+    "vs_F0": {"hit_1cm": 0.0000, "hit_1p5cm": 0.0000},
+    "vs_plan022_winner": {"hit_1cm": -0.0211, "hit_1p5cm": -0.0075}
+  },
+  "oracle_14anchor_recovery_pct": 79.72,
+  "oracle_14anchor_ceiling": 0.7928,
+  "G3_verdict": "regression",
+  "G3_band": "negative",
+  "hypothesis_results": {
+    "H1_lift_geq_0p005_vs_p022_170D": "FAIL",
+    "H2_hit1cm_gt_0p67_stretch": "FAIL",
+    "H3_C2_vs_C1_delta_geq_0p003": "FAIL (Δ=0.0)"
+  },
+  "paradigm_finding": "1080D row-expand LGBM = mode collapse. selector probs 거의 uniform (max_class_ratio≈1/14=0.0714) → soft-mean(ANCHORS_A6) ≈ Frenet origin → world prediction = F0 baseline 복사. C1 default + C2 adjusted 모두 회복 X (top1_acc 0.0879/0.1006 = near-random 1/14=0.0714 + α).",
+  "root_cause_hypotheses": [
+    "(a) τ_cls=0.001 sharp soft label train/test generalization 깨짐 — train fold 의 hard-like label vs test fold 의 anchor selection diversity 불일치",
+    "(b) sample-weight expansion (140k row) 위 multi-class CE 학습이 1080D feature 위 effective signal 학습 못함 — noise dominant",
+    "(c) LgbmSelectorRowExpanded subclass 의 fit 이 plan-022 LgbmSelectorOnly 의 sample-level X expansion 패턴과 본질적으로 다를 수 있음 (selector self-consistency 약화)",
+    "(d) per-anchor block ③ 22D 만이 진정한 anchor discriminative — 나머지 1058D broadcast 가 LGBM split 시 noise 우위"
+  ],
+  "follow_up_priorities": {
+    "plan-026_block_ablation": "G3=regression 에서도 valid — 각 block 제거 시 mode collapse 잔존 여부 확인. block ③ 제거 시 selector 자체가 sample-level 으로 회귀 = 가설 (d) 검증.",
+    "plan-027_ensemble": "p022 + p023 winner 만 2-way ensemble (plan-025 C1=regression band 이므로 3-way 부재). band 분기 spec 그대로 진행.",
+    "plan-028_F0_ML": "F0 baseline 자체 ML화 — selector 가 fail 한 cases 의 residual 자체 학습 lever."
+  }
+}

@@ -2,12 +2,13 @@
 plan_id: 025
 version: 1.0
 date: 2026-05-22 (Asia/Seoul)
-status: written
-best_cell: null
-best_hit_1cm: null
-best_hit_1.5cm: null
-best_delta_1cm: null
-best_delta_1.5cm: null
+status: all_complete
+best_cell: C1
+best_hit_1cm: 0.6320
+best_hit_1p5cm: 0.8033
+best_delta_1cm: 0.0000
+best_delta_1p5cm: 0.0000
+band: negative
 based_on:
   - 022 (best A6_bcc14_tau001 → hit@1cm 0.6528 / hit@1.5cm 0.8104. K=14 BCC + τ_cls=0.001 paradigm. 170D LGBM selector-only)
   - 023 (best B4_fib50_tau001 → 0.6532 / 0.8108. anchor large-N lever marginal +0.0008 — anchor 좌표 lever 만으로는 saturation)
@@ -66,7 +67,6 @@ exp_ids:
   - Z025_C1_default
   - Z025_C2_adjusted
 lb_score: null
-band: null
 ---
 
 # plan-025 v1 — Candidate-concat Input Max (1080D LGBM selector, K=14 BCC, τ=0.001)
@@ -108,8 +108,8 @@ band: null
 - G1: STAGE 1 F0 + plan-022 winner reproduce [DONE — e262299] F0 0.6320/0.8033 + plan-022 0.6531/0.8108 ✓
 - G2.C1: C1 default hparam 5-fold OOF [DONE — e31bf4e] 0.6320 (regression to F0)
 - G2.C2: C2 adjusted hparam 5-fold OOF [DONE — 308411c] 0.6320 (C1 동일, regression)
-- G3: STAGE 3 paradigm + best cell [TODO]
-- G_final: STAGE 4 results + 3-file sync [TODO]
+- G3: STAGE 3 paradigm + best cell [DONE — band=negative, best=C1=0.6320, paradigm_analysis.json 박제]
+- G_final: STAGE 4 results + 3-file sync [DONE — frontmatter sync + results.md + paradigm_analysis + 3 follow-up]
 
 ### Commit chain (next-up)
 
@@ -127,10 +127,10 @@ band: null
 | G2.C1 | gate | C1 metric finite ✓ + max_class_ratio < 0.95 ✓ | [DONE — e31bf4e] max_class_ratio=0.071 (uniform near) — mode collapse warn |
 | c8 | exp G2.C2 | C2 adjusted hparam (n_estimators=2000 + lr=0.03 + num_leaves=63 + feature_fraction=0.7 + min_data_in_leaf=50 + early_stopping_rounds=100) — 5-fold OOF, 동일 input. `results_C2.json` 박제. 예상 runtime 2~5h CPU (early_stopping 영향) | [DONE — 308411c] hit_1cm=0.6320 (C1 동일, regression), runtime 316s, early_stop fallback |
 | G2.C2 | gate | C2 metric finite ✓ + max_class_ratio < 0.95 ✓ + best_iteration ∈ [50, 2000] per fold ✓ | [DONE — 308411c] finite ✓, max_class_ratio=0.071 (mode collapse warn), best_iter fallback (early_stop 비활성) |
-| c9 | analysis | 2 cell hit@1cm/1.5cm 표 + best cell selection + paired Δ vs plan-022 winner + 14-anchor oracle 0.7928 대비 회수율 + (PASS 시) block ②③④ lift attribution 잠재력 박제 → `paradigm_analysis.{json,md}` | [TODO] |
-| G3 | gate | best cell hit@1cm > 0.6700 → PASS / ∈ [0.6528, 0.6700] → partial_lift warn / < 0.6528 → regression warn | [TODO] |
-| c10 | docs | 3-file frontmatter sync (status=all_complete, band=positive/partial/negative, best_cell) + `analysis/plan-025/results.md` (11 항목) + `plans/plan-025-*.results.md` pair + follow-up plan-026/027/028 박제 | [TODO] |
-| G_final | gate | 3-file sync ✓ + §0.5 c1~c10 모두 [DONE] ✓ + follow-up 3건 박제 ✓ | [TODO] |
+| c9 | analysis | 2 cell hit@1cm/1.5cm 표 + best cell selection + paired Δ vs plan-022 winner + 14-anchor oracle 0.7928 대비 회수율 + (PASS 시) block ②③④ lift attribution 잠재력 박제 → `paradigm_analysis.{json,md}` | [DONE — 본 commit] best=C1=0.6320, oracle 회수율 79.72%, mode collapse 진단 |
+| G3 | gate | best cell hit@1cm > 0.6700 → PASS / ∈ [0.6528, 0.6700] → partial_lift warn / < 0.6528 → regression warn | [DONE — band=negative] best 0.6320 < 0.6528 → regression warn 박제 |
+| c10 | docs | 3-file frontmatter sync (status=all_complete, band=positive/partial/negative, best_cell) + `analysis/plan-025/results.md` (11 항목) + `plans/plan-025-*.results.md` pair + follow-up plan-026/027/028 박제 | [DONE — 본 commit] status=all_complete, band=negative, best_cell=C1 + 3-file sync + follow-up 3건 |
+| G_final | gate | 3-file sync ✓ + §0.5 c1~c10 모두 [DONE] ✓ + follow-up 3건 박제 ✓ | [DONE — 본 commit] |
 
 ### Plan-specific severe (WORKFLOW.md §12.3 default 위 추가분)
 
