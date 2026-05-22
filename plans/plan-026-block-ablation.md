@@ -64,7 +64,7 @@ band: null
 >
 > **ablation cells (3)**:
 > 1. **A1** = without block ② (cand_builder ctx 128D 제거) → 952D per row
-> 2. **A2** = without block ③ (per-anchor 22D 제거) → 1058D per row, **per-anchor lever 자체가 없어지므로 selector 자체가 sample-level prediction 으로 회귀** (예상 큰 drop)
+> 2. **A2** = without block ③ (per-anchor 22D 제거) → 1058D per row, **per-anchor lever 자체가 없어지므로 selector 자체가 sample-level prediction 으로 회귀** (예상 큰 drop). 구체 동작: row-expand 후 14 row 의 X feature 가 *모두 동일* (block ①②④ 만 = sample-level broadcast) → LGBM 이 anchor row 를 구분할 feature 부재 → predict_proba 14 row 모두 동일 K-dim 분포 → diag extraction 시 self-consistency 의미 깨짐 → final residual = mean(ANCHORS_A6 weighted by global average prob). 이는 *예상 큰 drop* 의 원인이며 본 plan H1 의 검증 대상 (H1 = block③ 의 dominant lever 가정).
 > 3. **A3** = without block ④ (seq 8-stat 760D 제거) → 320D per row
 >
 > **pass criterion (G3)**: 3 cell 모두 finite metric + each-out drop 박제. PASS 자체는 "결과 박제 완료" (= attribution 측정 plan, lift PASS/FAIL 기준 X). **plan-025 G2.C1 의 hit_1cm** 가 baseline. attribution: `drop_X = baseline_hit_1cm - hit_A{X}`.
@@ -98,7 +98,7 @@ band: null
 | # | type | spec section | status |
 |---|---|---|---|
 | c1 | docs | `plans/plan-026-block-ablation.md` v1 작성 | [TODO] |
-| c2 | code | `analysis/plan-026/block_mask_builder.py` — column slice helper + `BLOCK_RANGES: dict` (block id → (start, end)) + `build_feat_masked(X, anchors, f0, qc, excluded_block: str)` returns (N*K, D_masked) | [TODO] |
+| c2 | code | `analysis/plan-026/block_mask_builder.py` — column slice helper + `BLOCK_RANGES: dict` (block id → (start, end)) + `build_feat_masked(X, anchors, f0_baseline_fn, quantiles, excluded_cell: str)` returns (N*K, D_masked) float32 (dtype carry from plan-025 build_feat_1080). | [TODO] |
 | c3 | code | `analysis/plan-026/run_oof.py` — 3 ablation cell 5-fold OOF runner. CLI: `--cell {A1,A2,A3}`. plan-025 LgbmSelectorRowExpanded carry. | [TODO] |
 | c4 | test | `tests/test_plan026_smoke.py` — block mask shape + run smoke (small N=8). | [TODO] |
 | G0 | gate | smoke + tests green + plan-025 G2.C1 results_C1.json 존재 확인 | [TODO] |
@@ -153,8 +153,16 @@ band: null
 
 ### §1.3 baseline 위치
 
-- **plan-025 G2.C1 hit_1cm** (carry from results_C1.json). 본 plan G2 의 모든 비교 anchor.
+- **plan-025 G2.C1 hit_1cm** (carry from `analysis/plan-025/results_C1.json`). 본 plan G2 의 모든 비교 anchor.
 - plan-022 winner 0.6531 (G1 b reproduce) 도 secondary baseline 으로 박제.
+
+**baseline carry key list** (results_C1.json 에서 본 plan 이 읽는 필수 key — `_normalize_p022_result` 정규화 적용 후):
+- `hit_1cm: float` — primary baseline metric
+- `hit_1p5cm: float` — secondary metric (§7 표 baseline 칼럼)
+- `max_class_ratio: float` — mode collapse 진단 비교
+- `runtime_s: float` — §7 표 baseline runtime 칼럼
+- `per_fold: list[dict]` — fold-level reproducibility 확인 (선택)
+- 그 외 key 는 본 plan 미사용 (carry only). 키 부재 시 → severe `prereq_p025_g2_missing` 또는 warn (key 별 lenience: hit_1cm/1p5cm 필수, 나머지 lenient).
 
 ---
 
