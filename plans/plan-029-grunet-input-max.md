@@ -291,6 +291,8 @@ diff   = anchor_world[:, :, None, :] - X[:, None, 5:10, :]                      
 A_dist = np.linalg.norm(diff, axis=-1).astype(np.float32)                            # (N, K, 5)
 
 # ---- A.tangent_proj (3 ch) — past 3 step (t=8..10) Frenet t̂-axis (index 0) ----
+# sign convention: past_disp_w = (관측점 - anchor) displacement. t̂-axis projection > 0 = 관측점이 anchor 의 진행 방향 앞쪽, < 0 = 뒤쪽.
+# A.dist (L290) 는 norm 이라 sign 무관, A.tangent (L294) 는 sign-aware projection — 두 식의 sign 차이는 의도된 design.
 past_disp_w = X[:, None, 8:11, :] - anchor_world[:, :, None, :]                      # (N, K, 3, 3)
 R_t         = np.transpose(R_wfn, (0, 2, 1))                                         # (N, 3, 3) world→Frenet
 past_disp_f = np.einsum("nij,nkpj->nkpi", R_t, past_disp_w)                          # (N, K, 3, 3) Frenet
@@ -480,7 +482,7 @@ tests/test_plan029_smoke.py   ← 12+ pytest (c7)
 git checkout worktree-plan-024-combo -- analysis/plan-024/model.py analysis/plan-024/feature_weighted_dropout.py
 ```
 
-commit hash carry: `worktree-plan-024-combo` 의 latest (commit 915dd26 또는 그 이후 minor patch).
+commit hash pin: `16b74a1` (= `worktree-plan-024-combo` 의 latest commit affecting `analysis/plan-024/model.py + feature_weighted_dropout.py`. 2026-05-22 기준 확인). c2 cherry-pick 시 `git checkout 16b74a1 -- analysis/plan-024/model.py analysis/plan-024/feature_weighted_dropout.py` 로 SHA 명시 가능. 향후 worktree-plan-024-combo 에 추가 patch 발생 시 본 plan 본문 갱신 필요 (reproducibility 보장).
 
 ### §4.3 tests (c7) — 12+ pytest
 
