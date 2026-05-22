@@ -558,16 +558,27 @@ for fold in range(5):
 
     # Input feature 산출 (train + test 동일 quantile)
     # D channel 용 fold-leakage-safe lookup table 산출 (train fold gt + regime 만 사용)
-    regimes_tr = assign_regimes(X_tr, end_idx=10, bins=fit_regime_bins(X_tr, end_idx=10))
-    regime_anchor_table_tr = build_regime_anchor_lookup(gt_tr, regimes_tr, ANCHORS_A6)
-                                                                          # dict[(regime, anchor) → P(gt=anchor | regime)]
+    regime_bins_tr = fit_regime_bins(X_tr, end_idx=10)
+    regimes_tr = assign_regimes(X_tr, end_idx=10, bins=regime_bins_tr)
+    regimes_te = assign_regimes(X_te, end_idx=10, bins=regime_bins_tr)   # train-fold bins inject → fold-leakage 차단
+    regime_anchor_table_tr = build_regime_anchor_lookup(
+        gt_train=gt_tr, regimes_train=regimes_tr, ANCHORS_A6=ANCHORS_A6,
+        R_wfn_train=R_wfn_tr, F0_train=F0_tr,
+        regime_count=18, laplace=1.0,
+    )                                                                     # (regime_count=18, K=14) row-sum=1, train-fold only
     # lever (a): anchor_query_extend 가 plan-024 cand_builder.build (B,K,150) 호출 후 sample × anchor interaction channel 15개 추가
     cand_ext_tr = anchor_query_extend.build(
                     X_tr, R_wfn_tr, F0_tr, ANCHORS_A6, f0_baseline,
                     regimes=regimes_tr, quantile_carry=qc,
+                    multiwindow_trim_path=MULTIWINDOW_TRIM_PATH, regime_count=18,
                     regime_anchor_table=regime_anchor_table_tr)           # (N_tr, 14, 165)
-    seq_tr      = seq_builder.build(X_tr, R_wfn_tr, ANCHORS_A6, f0_baseline, quantile_carry=qc)  # (N_tr, 7, 95)
-    # (test 동일 — regime_anchor_table 은 train-fold 산출본 그대로 inject, fold-leakage 차단)
+    cand_ext_te = anchor_query_extend.build(
+                    X_te, R_wfn_te, F0_te, ANCHORS_A6, f0_baseline,
+                    regimes=regimes_te, quantile_carry=qc,                # qc = train-fold quantile (fold-leakage 차단)
+                    multiwindow_trim_path=MULTIWINDOW_TRIM_PATH, regime_count=18,
+                    regime_anchor_table=regime_anchor_table_tr)           # (N_te, 14, 165), train-fold table inject
+    seq_tr = seq_builder.build(X_tr, R_wfn_tr, ANCHORS_A6, f0_baseline, quantile_carry=qc)  # (N_tr, 7, 95)
+    seq_te = seq_builder.build(X_te, R_wfn_te, ANCHORS_A6, f0_baseline, quantile_carry=qc)  # (N_te, 7, 95), train-fold qc
 
     # Soft label
     q_tr = build_soft_label_with_tau(gt_tr, R_wfn_tr, F0_tr, ANCHORS_A6, tau_cls=0.001)
@@ -597,11 +608,12 @@ for fold in range(5):
         perm = rng.permutation(N_tr)
         for b_start in range(0, N_tr, 64):
             idx = perm[b_start : b_start + 64]                          # batch_size 64, last batch < 64 면 그대로 사용
-            seq_batch    = seq_tr[idx]
-            cand_batch   = cand_ext_tr[idx]
-            q_batch      = q_tr[idx]
+            # numpy → torch (float32) — q_tr / seq_tr / cand_ext_tr 모두 np.ndarray, model 은 torch
+            seq_batch    = torch.from_numpy(seq_tr[idx]).float()        # (B, 7, 95)
+            cand_batch   = torch.from_numpy(cand_ext_tr[idx]).float()   # (B, 14, 165)
+            q_batch      = torch.from_numpy(q_tr[idx]).float()          # (B, 14), row-sum=1
             optimizer.zero_grad()
-            score = model(seq_batch, cand_batch)                        # score logits (B, 14)
+            score = model(seq_batch, cand_batch)                        # score logits (B, 14), torch
             log_probs = log_softmax(score, dim=-1)
             loss = -(q_batch * log_probs).sum(dim=-1).mean()
             loss.backward()
@@ -616,27 +628,31 @@ for fold in range(5):
     with torch.no_grad():
         probs_te = []
         for e_start in range(0, len(test_idx), 256):                    # eval batch 256 (key_anchor memory ~22MB)
-            sb = seq_te[e_start : e_start + 256]
-            cb = cand_ext_te[e_start : e_start + 256]
+            sb = torch.from_numpy(seq_te[e_start : e_start + 256]).float()
+            cb = torch.from_numpy(cand_ext_te[e_start : e_start + 256]).float()
             probs_te.append(softmax(model(sb, cb), dim=-1).cpu().numpy())
         probs_te = np.concatenate(probs_te, axis=0)                     # (N_te, 14)
         residual_frenet = (probs_te[:, :, None] * ANCHORS_A6[None, :, :]).sum(axis=1)
         residual_world = np.einsum("nij,nj->ni", R_wfn_te, residual_frenet)
         final_pred = F0_te + residual_world
-        oof_pred[test_idx] = final_pred
-        oof_probs[test_idx] = probs_te
+        oof_pred[test_idx] = final_pred                                 # oof_pred = np.zeros((N_total, 3), np.float32) 사전 alloc
+        oof_probs[test_idx] = probs_te                                  # oof_probs = np.zeros((N_total, K=14), np.float32) 사전 alloc
+        # R_wfn / F0 fold-별 누적 (OOF aggregate 단계에서 gt_anchor_label 계산 시 사용)
+        R_wfn_all[test_idx] = R_wfn_te                                  # (N_total, 3, 3) 사전 alloc
+        F0_all[test_idx]    = F0_te                                     # (N_total, 3) 사전 alloc
 
 # Concat OOF metric
-err = np.linalg.norm(oof_pred - gt, axis=1)
+err = np.linalg.norm(oof_pred - gt, axis=1)                             # gt = dataset-wide loader 결과 (top-level)
 hit_1cm = (err <= 0.01).mean()
 hit_1p5cm = (err <= 0.015).mean()
-max_class_ratio = oof_probs.mean(axis=0).max()
-# gt_anchor_label = gt → ANCHORS_A6 nearest neighbor (Frenet 좌표)
-# 산식: R_t @ (gt - F0) 후 ANCHORS_A6 와 norm argmin (build_regime_anchor_lookup 동일)
-R_t = np.transpose(R_wfn, (0, 2, 1))
-gt_res_f = np.einsum("nij,nj->ni", R_t, gt - F0)
+# max_class_ratio: argmax 분포 기준 최빈 anchor 비율 (mode collapse 진단). 1/K = 0.0714, 임계 [0.05, 0.10) → near-uniform/collapse.
+top1_argmax = oof_probs.argmax(axis=1)                                  # (N_total,) ∈ [0, K)
+max_class_ratio = float(np.bincount(top1_argmax, minlength=14).max() / len(top1_argmax))
+# gt_anchor_label = gt → ANCHORS_A6 nearest neighbor (Frenet 좌표). R_wfn_all / F0_all = fold loop 안 누적본.
+R_t_all  = np.transpose(R_wfn_all, (0, 2, 1))
+gt_res_f = np.einsum("nij,nj->ni", R_t_all, gt - F0_all)
 gt_anchor_label = np.linalg.norm(ANCHORS_A6[None, :, :] - gt_res_f[:, None, :], axis=-1).argmin(axis=1)
-top1_acc = (oof_probs.argmax(axis=1) == gt_anchor_label).mean()
+top1_acc = (top1_argmax == gt_anchor_label).mean()
 ```
 
 ### §6.2 Runtime + Param 예상
