@@ -324,7 +324,7 @@ class GRUNetX2(nn.Module):
 ```
 
 architecture 하이퍼파라미터 (plan-029 X1 carry):
-- GRU hidden = 196, 1 layer, no bidirection
+- GRU hidden = 196, **2 layer dropout 0.10, no bidirection** (plan-029 X1 carry — `analysis/plan-029/model.py:69-72`)
 - attention single head scaled dot-product, attn_dim = 128
 - head MLP input dim = attn_dim + H + 51 + 7 = **382**, hidden = 384, 2 layer + SiLU + dropout 0.08
 - softmax temperature = 1.0 (score 는 logit-scale). **score magnitude ↔ label τ_cls 결합**: label distribution 의 sharpness 가 τ_cls=0.001 (distance scale ≈ 1mm) 이므로 model probs 가 label 과 정합하려면 logit-score 의 표준편차가 약 `1/τ_cls = 1000` scale 까지 자율 키워야 함. 학습 초기 score variance ≈ N(0, 1) 에서 gradient flow 가 logit magnitude 를 ~1000x 까지 신장하는 *long warmup* 가 필요 — 본 plan 의 warmup 5 epoch + cosine 45 epoch 가 그 신장에 충분한지 G2 (1-fold loss curve) 에서 확인 필수.
