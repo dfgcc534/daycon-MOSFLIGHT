@@ -1,11 +1,17 @@
 ---
 plan_id: plan-031
-status: written
+status: complete
 based_on: plan-030
+followed_by: plan-032 (fine-distill + reverse-pretrain 후보, 사용자 선택)
 title: PB training procedure carry (multi-phase + pairwise + prior) over plan-030 input axis
 data_window: train_labels.csv 전체 (plan-024/29/30 carry)
 fold_pin: stable_fold_id(sid, 5) (plan-024 carry, MD5)
 horizon: 80ms (2 step × DT=40ms)
+g3_oof_hit_1cm: 0.6397
+g3_band: STRONG
+g1_oof_hit_1cm: 0.6450
+lift_vs_plan_030: +0.0103
+lift_vs_F0: +0.0077
 ---
 
 # plan-031 — PB training procedure carry
@@ -29,18 +35,18 @@ plan-030 G3 FAIL (hit_1cm 0.6294 < F0 0.6320) 의 root cause = **single-phase tr
 
 ### Commit chain (예정)
 
-| commit | spec section | TODO |
+| commit | spec section | status |
 |---|---|---|
-| c0 spec | §0 ~ §6 | DONE (본 commit) |
-| c1 pairwise_loss | §3.1 | [TODO] `analysis/plan-031/pairwise_loss.py` — gt anchor vs other anchor margin 0.12 |
-| c2 regime_class_prior | §3.2 | [TODO] `analysis/plan-031/prior_loss.py` — regime_prior + class_prior 가중 합 loss |
-| c3 head slimming | §3.3 | [TODO] `analysis/plan-031/model.py` — GRUNetX3 (plan-030 GRUNetX2 carry, head_hidden 196) |
-| c4 train multi-phase | §3.4 | [TODO] `analysis/plan-031/train.py` — pre 15ep + fine 35ep (lr/loss/clip 분리) |
-| c5 smoke | §4 | [TODO] `tests/test_plan031_smoke.py` — 20+ pytest, multi-phase forward + loss + grad finite |
-| c6 G1 1-fold | §4 | [TODO] fold-0 hit_1cm > F0 + 0.001 = 0.6330 (PB carry minimum) |
-| c7 G3 5-fold OOF | §4 | [TODO] hit_1cm ≥ 0.6360 PASS band |
-| c8 ablation: plan-030 input axis 단독 기여 | §5 fallback | [TODO-cond] G3 PASS 시 — 잔차 (a)/(b) drop → 잔차 axis 단독 lift 측정 |
-| c9 results | §5 | [TODO] `plans/plan-031.results.md` |
+| c0 spec | §0 ~ §6 | [DONE] |
+| c1 pairwise_loss | §3.1 | [DONE] `analysis/plan-031/pairwise_loss.py` |
+| c2 regime_class_prior | §3.2 | [DONE] `analysis/plan-031/prior_loss.py` |
+| c3 head slimming | §3.3 | [DONE] `analysis/plan-031/model.py` GRUNetX3 (head_hidden 196) |
+| c4 train multi-phase | §3.4 | [DONE] `analysis/plan-031/train.py` (pre 15ep + fine 35ep) |
+| c5 smoke | §4 | [DONE] `tests/test_plan031_smoke.py` (20/20 green) |
+| c6 G1 1-fold | §4 | [DONE] hit_1cm = **0.6450** (PASS > 0.6330) |
+| c7 G3 5-fold OOF | §4 | [DONE] hit_1cm = **0.6397** ✅ **STRONG** (≥ 0.6387) |
+| c8 ablation (input axis drop) | §5 | [DEFERRED → plan-032 후보] G3 STRONG 도달로 우선순위 낮음, plan-032 spec 단계의 옵션 |
+| c9 results | §5 | [DONE] `plans/plan-031.results.md`, frontmatter sync |
 
 ---
 
