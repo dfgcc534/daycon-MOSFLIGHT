@@ -1,11 +1,15 @@
 ---
 plan_id: plan-030
-status: written
+status: complete
 based_on: plan-029
+followed_by: plan-031 (PB training procedure carry — main carrier per paradigm_root_cause.md)
 title: GRU-attention residual injection (3-pair residual block + Q=anchor / K=GRU step)
 data_window: train_labels.csv 전체 (plan-024/29 carry)
 fold_pin: stable_fold_id(sid, 5) (plan-024 carry, MD5)
 horizon: 80ms (2 step × DT=40ms)
+g3_oof_hit_1cm: 0.6294
+g3_band: FAIL_regression
+g1_oof_hit_1cm: 0.6436
 ---
 
 # plan-030 — GRU-attention residual injection
@@ -35,22 +39,18 @@ plan-029 의 0.6316 regression 을 **3-pair 잔차 (raw / F0 / anchor) block + Q
 
 ### Commit chain (예정)
 
-| commit | spec section | TODO |
+| commit | spec section | status |
 |---|---|---|
-| c0 spec | §0 ~ §6 | DONE (본 commit) |
-| c1 residual builder | §2.1 | [TODO] `analysis/plan-030/residual_builder.py` — 3-pair 잔차 (a) 5coord×7step + (b) 5coord×7step×K 산출 |
-| c2 query builder | §2.2 | [TODO] `analysis/plan-030/query_builder.py` — 64D per anchor (slim 7 carry from plan-029) |
-| c3 head summary builder | §2.3 | [TODO] `analysis/plan-030/head_summary.py` — sample-only 51D 묶음 |
-| c4 model | §3 | [TODO] `analysis/plan-030/model.py` — GRUNetX2 (Q=anchor / K=GRU+잔차 / head=context+sample+slim) |
-| c5 train | §4 | [TODO] `analysis/plan-030/train.py` — 5-fold OOF (plan-029 X1 carry) |
-| c6 smoke | §5 | [TODO] `tests/test_plan030_smoke.py` — pytest green + finite + max_class_ratio<0.95 |
-| c7 G1 1-fold | §5 | [TODO] hit_1cm > F0 −0.003 |
-| c8 G3 OOF | §5 | [TODO] OOF 5-fold, hit_1cm ≥ 0.6360 PASS band. **단일 G3 OOF 가 4 component (잔차 a / 잔차 b / slim7 / head sample summary) 합산 효과** — fail/borderline 시 c10~c13 ablation 진행 |
-| c9 results | §6 | [TODO] `plans/plan-030.results.md` 박제 |
-| c10 ablation-A (잔차 a drop) | §5 fallback | [TODO-cond] G3 fail/borderline 시 — GRU input + K/V 의 잔차 (a) drop 후 1-fold (G2 비용). lift Δ 박제 |
-| c11 ablation-B (잔차 b drop) | §5 fallback | [TODO-cond] 동일 — Q per-anchor 35D drop |
-| c12 ablation-C (slim 7 drop) | §5 fallback | [TODO-cond] 동일 — Q + head 둘 다 slim 7 drop |
-| c13 ablation-D (head sample summary drop) | §5 fallback | [TODO-cond] 동일 — head MLP sample-only 51D drop |
+| c0 spec | §0 ~ §6 | [DONE] 본 commit (rev1 = plan-review-master 5 iter 결과 박제) |
+| c1 residual builder | §2.1 | [DONE] `analysis/plan-030/residual_builder.py` — 3-pair 잔차 (a) 5coord×7step + (b) 5coord×7step×K 산출 |
+| c2 query builder | §2.2 | [DONE] `analysis/plan-030/query_builder.py` — 64D per anchor (slim 7 carry from plan-029) |
+| c3 head summary builder | §2.3 | [DONE] `analysis/plan-030/head_summary.py` — sample-only 51D 묶음 |
+| c4 model | §3 | [DONE] `analysis/plan-030/model.py` — GRUNetX2 (Q=anchor / K=GRU+잔차 / head=context+sample+slim) |
+| c5 train | §4 | [DONE] `analysis/plan-030/train.py` — 5-fold OOF (plan-029 X1 carry) |
+| c6 smoke | §5 | [DONE] `tests/test_plan030_smoke.py` — 20/20 pytest green |
+| c7 G1 1-fold | §5 | [DONE] fold-0 hit_1cm = **0.6436** (PASS > 0.6290) |
+| c8 G3 OOF + c9 results | §5/§6 | [DONE] OOF 5-fold hit_1cm = **0.6294** — **FAIL_regression** (< F0 0.6320). `plans/plan-030.results.md` 박제. § 5 fallback rule → plan-031 PB training procedure carry escalate |
+| c10~c13 ablation | §5 fallback | [DEFERRED → plan-031] main lever (training procedure) 부재 상태에서 input axis ablation 은 정보 가치 낮음. plan-031 PB carry 후 재진행 |
 
 ---
 
