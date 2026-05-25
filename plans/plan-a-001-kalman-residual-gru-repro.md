@@ -2,7 +2,7 @@
 plan_id: a-001
 version: 1
 date: 2026-05-26 (Asia/Seoul)
-status: draft
+status: all_complete
 lane: a
 inspired_by:
   - notes/LB_0.6780 코드공유.ipynb (재현 대상 — Kalman 잔차 + GRU+F+W + yaw + calibration, LB 0.6780)
@@ -23,8 +23,8 @@ code_reuse:
 exp_ids:
   - KR001_notebook-repro
   - KR002_input-yaw-rot
-g_repro_oof_hit_1cm: null
-g_yaw_delta: null
+g_repro_oof_hit_1cm: 0.6639
+g_yaw_delta: 0.0024
 ---
 
 # plan-a-001 — Kalman-Residual GRU 노트북 재현 + 입력 yaw 회전 ablation
@@ -57,23 +57,23 @@ g_yaw_delta: null
 | commit | spec | status |
 |---|---|---|
 | c0 spec | §0~§7 (본 파일) | [DONE] |
-| c1 kalman + yaw utils | §4.1 `analysis/plan-a-001/kalman.py`, `yaw.py` | [TODO] |
-| c2 features | §4.2 `features.py` (seq 11×9 + scalar 40 + noise 추정) | [TODO] |
-| c3 model + loss | §4.3 `model.py` (GRUModelMultiAux), `losses.py` (combo/softhit/aux) | [TODO] |
-| c4 OOF runner | §4.4 `run_oof.py` (5-fold stable_fold_id + 2cfg + 3seed + calibration + `--input-yaw` flag) | [TODO] |
-| c5 smoke | §5 `tests/test_plan_a001_smoke.py` (import + 1-fold 1-seed 1-epoch finite) | [TODO] |
-| c6 G1 validation | §5 1-fold 1-seed full-epoch — hit_1cm > Kalman-alone 확인 | [TODO] |
-| c7 KR001 full repro | §5 2cfg×5fold×3seed OOF → `results_kr001.json/.npz` | [TODO] |
-| c8 KR002 input-yaw | §5 동일 budget + `--input-yaw` → `results_kr002.json/.npz` | [TODO] |
-| c9 results + merge | §5 `plan-a-001-...results.md` frontmatter sync + **main merge** (§4 lane lifecycle) | [TODO] |
+| c1 kalman + yaw utils | §4.1 `analysis/plan-a-001/kalman.py`, `yaw.py` | [DONE] |
+| c2 features | §4.2 `features.py` (seq 11×9 + scalar 40 + noise 추정) | [DONE] |
+| c3 model + loss | §4.3 `model.py` (GRUModelMultiAux), `losses.py` (combo/softhit/aux) | [DONE] |
+| c4 OOF runner | §4.4 `run_oof.py` (5-fold stable_fold_id + 2cfg + 3seed + calibration + `--input-yaw` flag) | [DONE] |
+| c5 smoke | §5 `tests/test_plan_a001_smoke.py` (import + 1-fold 1-seed 1-epoch finite) | [DONE] |
+| c6 G1 validation | §5 1-fold 1-seed full-epoch — hit_1cm > Kalman-alone 확인 | [DONE] |
+| c7 KR001 full repro | §5 2cfg×5fold×3seed OOF → `results_kr001.json/.npz` | [DONE] |
+| c8 KR002 input-yaw | §5 동일 budget + `--input-yaw` → `results_kr002.json/.npz` | [DONE] |
+| c9 results + merge | §5 `plan-a-001-...results.md` frontmatter sync + **main merge** (§4 lane lifecycle) | [DONE] |
 
 ### G-gates
 
-- G0: c1~c5 인프라 + smoke green                                  [TODO]
-- G1: 1-fold 1-seed hit_1cm finite & > Kalman-alone (잔차 GRU 신호 sanity) [TODO]
-- G_repro (G2): KR001 full OOF hit_1cm band 판정                    [TODO]
-- G_yaw (G3): KR002 full OOF Δ vs KR001 + paired permutation        [TODO]
-- G_final: results 박제 + §0.5 sync + worktree → main merge          [TODO]
+- G0: c1~c5 인프라 + smoke green                                  [DONE] (6 pass)
+- G1: 1-fold 1-seed hit_1cm finite & > Kalman-alone (잔차 GRU 신호 sanity) [DONE] (0.6733 > 0.6064)
+- G_repro (G2): KR001 full OOF hit_1cm band 판정                    [DONE] (0.6639 EXCELLENT, vs F0 +0.0319 p≈0)
+- G_yaw (G3): KR002 full OOF Δ vs KR001 + paired permutation        [DONE] (Δ+0.0024 p=0.32 neutral)
+- G_final: results 박제 + §0.5 sync + worktree → main merge          [DONE]
 
 ---
 
