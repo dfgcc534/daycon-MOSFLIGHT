@@ -48,3 +48,4 @@ analysis/plan-005/variant_A_no_regime/test_*.npz
 data/*
 *.zip
 !data/open.zip
+analysis/plan-a-001/noise_cache.npz
