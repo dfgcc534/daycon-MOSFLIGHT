@@ -185,9 +185,9 @@ plan written ─▶ in_progress ─▶ results written ─▶ analyzed ─▶ ne
 | 방향 | 시점 | 행위 |
 |---|---|---|
 | local → server | plan 작성 후 | local이 명시적 push |
-| server → local | results + registry 갱신 후 | server agent가 commit·push (의미 단위), local이 명시적 pull |
+| server → local | G_final 도달 후 | server agent가 누적 commit 일괄 push (의미 단위 commit), local이 명시적 pull |
 
-- server agent의 의미 단위 commit·push 는 **의무** (자율 권한 아님 — `CLAUDE.md §⚠️`). commit 단위 = plan 1 / results 1 / code change 1 분리. binary 산출물 혼재 금지.
+- server agent의 의미 단위 commit 은 **의무** (자율 권한 아님 — `CLAUDE.md §⚠️`). **push 는 G_final 일괄** (turn 마다 X — §12.10). commit 단위 = plan 1 / results 1 / code change 1 분리. binary 산출물 혼재 금지.
 
 ---
 
@@ -208,7 +208,7 @@ interactive (tmux/screen): `> plan-NNN 진행` / 비대화형: `claude -p "plan-
 7. `git pull --rebase` (conflict → severe)
 8. 코드/테스트/문서 작성 (§12.5 whitelist 준수)
 9. self-check: `pytest tests/` + backward_compat smoke + invariant smoke
-10. pass → commit (decision-note 포함) + push. fail → severe alert + 멈춤
+10. pass → commit (decision-note 포함). **turn 마다 push X — push 는 §12.10 G_final 일괄**. fail → (그때까지 commit 일괄 push 후) severe alert + 멈춤
 11. §0.5 의 [TODO] → [DONE] (commit hash) 1줄 update (§12.6 blacklist 의 *유일한 예외*)
 11.5. **G-gate check** (현 commit이 STAGE 마지막 commit일 때만): 해당 STAGE 모든 c{i}가 §0.5에서 [DONE]인지 확인 — 누락 시 severe `stage_incomplete`.
 11.6. **§0.5 ↔ git log sync** (매 commit): §0.5 [DONE] hash가 `git log --format=%H` 에 모두 존재하는지 grep — 불일치 시 severe `qr_log_mismatch`.
@@ -265,6 +265,6 @@ category: `spec-default` · `lint-fix` · `dep-install` · `data-partial` · `re
 ### §12.10 종료 정책
 | 시나리오 | 조치 |
 |---|---|
-| G_final 도달 | 자연 종료, telegram ("plan-NNN 완료, hash=...") |
-| severe issue | 멈춤, telegram alert, session 유지 (사용자 결정 후 재개) |
+| G_final 도달 | **누적 commit 전체 일괄 push** (plan 진행 중 유일한 정상 push 시점) → 자연 종료, telegram ("plan-NNN 완료, hash=...") |
+| severe issue | **그때까지 commit 일괄 push 후** 멈춤 (작업 보존), telegram alert, session 유지 (사용자 결정 후 재개) |
 | max_turns (>30) | severe 와 동일 |
