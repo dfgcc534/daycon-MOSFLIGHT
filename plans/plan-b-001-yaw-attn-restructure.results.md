@@ -51,8 +51,9 @@ band: FAIL_regression
 - B001 (0.6296) ≈ plan-030 (0.6294, +0.0002). yaw frame(C1) + 잔차b→bias(F1) + KV 정리(F2) + head 축소(F3) + softhit(①) + 3-seed(②) + noise/tier3/log1p(C2/C3/③) 6-lever 묶음의 net lift ≈ **0**.
 - → plan-030 의 0.6294 FAIL 은 후보 frame 의 Frenet degeneracy 나 attention 구조 때문이 **아님**. plan-029 `paradigm_root_cause.md` 진단(carrier = **training procedure**, PB multi-phase + pairwise + prior + distill + reverse-pretrain) 을 corroborate. → plan-031 A-track 이 옳은 방향.
 
-### §2.2 G0.5 baseline 모순 증거 — 확정
-- 같은 hit_1cm metric 에서 **F0 0.6320 > Kalman 0.5964** (Δ 0.0356). plan 작성 단계 flag 한 "Kalman standalone < F0" 가 OOF 로 **확정**. Kalman 의 노이즈-필터 잔차 가설(더 learnable)이 selector 위에서 floor 손실(−0.036)을 상쇄 못 함.
+### §2.2 G0.5 baseline 모순 증거 — 확정 (단 **train/OOF split 한정**)
+- 같은 hit_1cm metric 에서 **F0 0.6320 > Kalman 0.5964** (Δ 0.0356, train/OOF). plan 작성 단계 flag 한 "Kalman standalone < F0" 가 OOF 로 **확정**.
+- **split 명확화** (사용자 verify 2026-05-26): 내 Kalman 0.5964 = 노트북 cell-8 `칼만 train R-Hit` assert 와 **diff 0.0000 정확 재현** (kalman_predict full-train 직접 검증). 노트북 §13 표의 **"Kalman LB 0.6452" 는 test set** 수치 — 이 대회는 **train→LB positive gap 이 큼** (Kalman 0.5964→0.6452 +0.0488; sub_09 OOF 0.6612→LB 0.6778 +0.017). 따라서 "Kalman<F0" 는 OOF 한정 결론이고 **LB 거동은 미측정** (양 baseline 모두 OOF 비교라 내부 일관성은 유지; 본 plan 의 모든 hit_1cm 은 OOF). Kalman 의 노이즈-필터 잔차 가설이 selector 위 OOF floor 손실(−0.036)을 상쇄 못 함은 OOF 기준 사실.
 
 ### §2.3 arm 비대칭 — F0 floor 는 selector 로 못 넘는다
 - F0 arm: 모델 < baseline (−0.0024). Kalman arm: 모델 > baseline (+0.0113).
