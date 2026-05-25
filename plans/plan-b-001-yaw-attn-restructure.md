@@ -2,7 +2,7 @@
 plan_id: plan-b-001
 version: 1.0
 date: 2026-05-26 (Asia/Seoul)
-status: written
+status: complete
 track: B (notebook-inspired — anchor-selector 골격 위 LB_0.6780 노트북 lever 이식)
 inspired_by:
   - plan-030 (FAIL_regression OOF 0.6294 < F0 0.6320. + 실측 §2.1/2.2/2.3 = head over-param·raw 잔차 net-zero·logit 안 sharp = attention 약점 evidence. 본 plan 이 직격)
@@ -59,7 +59,9 @@ scope: |
   carry-fix: GRU hidden=196 2-layer · single-head attn=128 · K=14 · 50ep cosine+warmup5 AdamW lr7e-4 batch64 · 5-fold stable_fold_id.
   OUT: ④ binary flags · ⑤ (칼만은 baseline arm 으로만, 추가 aux 아님) · ⑥ 2-config · ⑦ calibration · ⑧ multi-task aux head · ⑨ tanh clip (selector hull bounded) · DACON LB 제출 · PB multi-phase training (plan-031 A-track) · climb-angle 보강 feature (ablation 보류).
 lb_score: null
-band: null
+g3_oof_hit_1cm: 0.6296
+band: FAIL_regression
+result_summary: 양 arm FAIL — best B001(F0) 0.6296 ≈ plan-030 0.6294. frame/attention/feature axis null → carrier=training procedure(plan-031) 확정. G0.5 Kalman 0.5964 < F0 0.6320 확인.
 ---
 
 # plan-b-001 v1 — Yaw-frame Anchor-selector + Attention Restructure (notebook-levers port)
@@ -104,20 +106,14 @@ band: null
 
 | # | type | spec section | status |
 |---|---|---|---|
-| c0 | spec | §0 ~ §6 (본 commit) | [TODO] |
-| c1 | code | `analysis/plan-b-001/kalman_cv.py` — 노트북 cell7 Kalman CV port + 외삽. spec @ §2.1 | [TODO] |
-| c2 | code | `analysis/plan-b-001/yaw_frame.py` — `yaw_angle`, `to_yaw`/`from_yaw` (R_yaw, z 보존), degenerate fallback θ=0. spec @ §2.2 | [TODO] |
-| c3 | code | `analysis/plan-b-001/residual_builder.py` — 잔차(a) yaw 3-coord (GRU input용) + 잔차(b) yaw 3-coord (bias용, no Q flatten). spec @ §2.3 | [TODO] |
-| c4 | code | `analysis/plan-b-001/query_builder.py` — static anchor 정체성 ~29D (anchor_spec + yaw par/perp/dist + interactions + slim7, **잔차b 제거**). spec @ §2.4 | [TODO] |
-| c5 | code | `analysis/plan-b-001/noise_estimator.py` (poly2+savgol) + `tier3.py` (cum_path/rolling/disp 단위통일) + `head_summary.py` (Bz/Tz drop, log1p, noise/Tier3 통합). spec @ §2.5 | [TODO] |
-| c6 | code | `analysis/plan-b-001/model.py` — `GRUNetX3` (F1 잔차b bias + F2 KV=gru_out + F3 head 축소). spec @ §3 | [TODO] |
-| c7 | code | `analysis/plan-b-001/train.py` + `run_oof.py` — softhit loss + 3-seed + 2-arm baseline dispatch. spec @ §4 | [TODO] |
-| c8 | test | `tests/test_planb001_smoke.py` — builder shape + model finite + gradient + yaw 항등성 + kalman R-Hit assert. spec @ §5 | [TODO] |
-| G0 | gate | smoke green + 기존 tests backward-compat | [TODO] |
-| c9 | exp G0.5+G1 | baseline standalone OOF (G0.5) + 1-fold smoke 양 arm (G1). spec @ §5 | [TODO] |
-| c10 | exp G3 | 5-fold OOF B001 + B002 → `results_g3_{f0,kalman}.json/npz`. spec @ §5 | [TODO] |
-| c11 | docs | `analysis/plan-b-001/results.md` + `plans/plan-b-001-yaw-attn-restructure.results.md` (frontmatter best arm/hit/band) | [TODO] |
-| G_final | gate | 위 완료 + §0.5 sync | [TODO] |
+| c0 | spec | §0 ~ §6 | [DONE 3518c06] |
+| c0.rev1 | spec | plan-review-master 정제 (BLOCKER 3 + AMBIGUITY 6) | [DONE 7c320d4] |
+| c1-c8 | code+test | 8 모듈 (kalman_cv, yaw_frame, residual/query/head, noise/tier3, model GRUNetX3, train/run_oof) + smoke | [DONE 78adc6a] |
+| G0 | gate | smoke 8 + pytest 6/6 + 전체 파이프라인 train smoke (f0·kalman) green; 기존 미수정 (backward-compat) | [DONE 78adc6a] |
+| c9 | exp G0.5+G1 | G1 f0 hit_1cm=0.6337 PASS (>0.6290); G0.5 baseline_hit 는 G3 동봉 (f0 0.6320 / kalman 0.5964) | [DONE — data symlink wiring] |
+| c10 | exp G3 | 5-fold OOF: B001(f0) **0.6296** / B002(kalman) 0.6077 — 양 arm **FAIL_regression** | [DONE — results_g3_{f0,kalman}.json/npz] |
+| c11 | docs | results.md + analysis/plan-b-001/results.md | [DONE — 본 commit] |
+| G_final | gate | results 박제 + §0.5 sync + best arm(B001) 식별. band=FAIL_regression (정상 종료, negative result) | [DONE] |
 
 ### Plan-specific severe (WORKFLOW §12.3 default 위 추가)
 

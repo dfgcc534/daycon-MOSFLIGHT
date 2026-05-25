@@ -1,0 +1,41 @@
+{
+  "baseline": "kalman",
+  "hit_1cm": 0.6077,
+  "hit_1p5cm": 0.7968,
+  "baseline_hit_1cm": 0.5964,
+  "baseline_hit_1p5cm": 0.7994,
+  "N_total": 10000,
+  "K": 14,
+  "n_seeds": 3,
+  "elapsed_total_s": 2103.029797284864,
+  "fold_logs": [
+    {
+      "fold": 0,
+      "elapsed_s": 439.6335499966517,
+      "N_te": 2020
+    },
+    {
+      "fold": 1,
+      "elapsed_s": 408.37639339920133,
+      "N_te": 2047
+    },
+    {
+      "fold": 2,
+      "elapsed_s": 418.7186079043895,
+      "N_te": 1921
+    },
+    {
+      "fold": 3,
+      "elapsed_s": 415.56273587141186,
+      "N_te": 2020
+    },
+    {
+      "fold": 4,
+      "elapsed_s": 419.99324741680175,
+      "N_te": 1992
+    }
+  ],
+  "gate": "G3",
+  "band": "FAIL_regression",
+  "PASS": false
+}
