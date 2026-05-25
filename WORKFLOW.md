@@ -74,7 +74,7 @@ plan-{lane}-{NNN}-{slug}.results.md    ← 응답 (server)
 - **도입 사유**: 여러 worktree 가 동시에 plan 을 발행할 때 *전역 단일 `NNN` 카운터*는 race condition (둘 다 같은 다음 번호를 집어 충돌) 을 만든다. lane 을 worktree 별로 분리하면 번호 발행이 lane-local 이 되어 **lock 없이 mutex** 가 성립한다.
 - **lane 점유** = worktree 진입 시 미사용 알파벳 1개 claim. 한 lane 의 번호 발행은 *그 lane 을 점유한 worktree 만* 수행 → 병렬 worktree 간 `plan_id` 충돌 0.
 - **점유 현황 판정**: 별도 lock 파일 불요. `ls plans/plan-{lane}-*` grep 으로 어떤 lane 이 쓰였는지, lane 내 다음 번호가 무엇인지 판정.
-- **lane lifecycle (merge-back 의무)**: worktree 의 작업(plan `G_final`)이 끝나면 그 worktree 브랜치를 **반드시 `main` 으로 merge** 한다. merge 전까지 그 lane 의 plan 파일은 `main` 에 부재 → 다른 worktree 가 위 grep 으로 lane 점유 현황을 판정할 수 없어 **mutex 가 깨진다**. 따라서 *worktree 종료 = main merge* 가 한 짝. merge 후에도 plan 번호는 monotonic 유지 (같은 lane 재진입 시 다음 번호부터 발행).
+- **lane lifecycle (G_final 자율 merge 의무)**: worktree 의 작업(plan `G_final`)이 끝나면 agent 가 **사용자 승인 없이 자율로 그 worktree 브랜치를 `main` 으로 merge** 한다 (절차 = §12.10 G_final auto-merge). merge 전까지 그 lane 의 plan 파일은 `main` 에 부재 → 다른 worktree 가 위 grep 으로 lane 점유 현황을 판정할 수 없어 **mutex 가 깨진다**. 따라서 *G_final = main merge* 가 한 짝. merge 후에도 plan 번호는 monotonic 유지 (같은 lane 재진입 시 다음 번호부터 발행). conflict 시에만 §12.10 대로 escalate.
 - **legacy backward-compat**: lane 없는 `plan-{NNN}-{slug}` (plan-001 ~ plan-032) 는 그대로 유효 — *개명/이전 금지*. 이들은 암묵적으로 *lane 없는 단일 직렬 track* 으로 취급한다. **신규 plan 부터 lane 형식**을 사용한다.
 
 ### Experiment ID
@@ -410,6 +410,17 @@ git log --grep "decision-note" --oneline
 
 | 시나리오 | 조치 |
 |---|---|
-| G_final 도달 | 자연 종료, telegram 알림 ("plan-NNN 완료, hash=...") |
+| G_final 도달 | **worktree → main 자율 merge** (lane plan 한정; 사용자 승인 없이 — §4 lane lifecycle) → 자연 종료, telegram 알림 ("plan-{lane}-NNN 완료 + main merge, hash=...") |
 | severe issue | 멈춤, telegram alert, session 유지 (같은 session 에서 사용자 결정 후 재개) |
 | max_turns (>30) | severe 와 동일 |
+
+**G_final auto-merge 절차** (lane 형식 plan 한정, 사용자 confirm 불필요):
+
+1. 최종 commit + push 확인 (`git log @{u}..` 비어 있음).
+2. `git checkout main && git pull --ff-only origin main`.
+3. `git merge --no-ff worktree-<branch>` (merge commit 으로 lane 작업 묶음을 main 에 박제 — plan-029~032 merge 패턴 답습).
+4. `git push origin main`.
+5. telegram 알림 (merge hash 포함). 이후 worktree 정리는 사용자 재량.
+
+- **conflict 시**: `git_rebase_conflict` 사유 박제 + 1회 재시도(main pull 후 merge). 그래도 실패면 **멈춤 + 사용자 escalate** — 자동 강제 merge / `-X` 전략 / squash 금지.
+- legacy lane 없는 plan 은 본 auto-merge 비대상 (기존 종료 정책대로).
