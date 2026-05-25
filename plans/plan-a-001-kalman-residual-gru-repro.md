@@ -97,7 +97,7 @@ g_yaw_delta: null
 
 ### KR001_notebook-repro
 - **type**: full-stack 재현 (잔차 회귀 paradigm)
-- **baseline (잔차 기준)**: Kalman CV (σ_obs=0.3e-3, σ_proc=1.0). Kalman-alone OOF hit_1cm 도 별도 박제.
+- **baseline (잔차 기준)**: Kalman CV (σ_obs=0.3e-3, σ_proc=1.0). Kalman-alone OOF hit_1cm 도 별도 박제 (= `kalman_predict(X)` world 예측을 동일 5-fold val split 에 GRU/잔차 미적용으로 hit_1cm 계산 → G1 의 "> Kalman-alone" 비교 기준점).
 - **변경 변수**: (vs 프로젝트 기존) paradigm 전체 신규. 노트북 cell 6~33 이식.
 - **config/경로**: `analysis/plan-a-001/run_oof.py` default (input-yaw off)
 - **기대 runtime**: 2cfg × 5fold × 3seed × 200ep. GPU(cuda) ~1.5h 추정. CPU 시 seed 3→1 자동 감소(decision-note) + 재추정.
@@ -107,7 +107,7 @@ g_yaw_delta: null
 ### KR002_input-yaw-rot
 - **type**: 단일 변수 ablation (vs KR001)
 - **baseline**: KR001
-- **변경 변수**: **입력 seq 의 rel/v/a 3개 벡터 묶음에 `rotate_xy(θ)` 적용** (z 보존). magnitude 기반 scalar(speed/acc/turn_cos 등)는 회전불변 → 변경 없음. θ = KR001 과 동일(마지막 속도 yaw). 그 외 model/loss/ensemble/calibration 전부 KR001 동일.
+- **변경 변수**: **입력 seq 의 rel/v/a 3개 벡터 묶음에 `rotate_xy(θ)` 적용** (z 보존). magnitude 기반 scalar(speed/acc/turn_cos 등)는 회전불변 → 변경 없음. θ = KR001 과 동일(마지막 속도 yaw). 그 외 model/loss/ensemble/calibration 전부 KR001 동일. **단일변수 전제**: 40D scalar 는 전부 회전불변(magnitude/cos 류) — 구현 시 절대-heading 방향 scalar 가 1개라도 존재하면 그것도 `rotate_xy(θ)` 대상에 포함해 입력 좌표계 일관성(단일 변수 격리) 유지.
 - **config/경로**: `run_oof.py --input-yaw`
 - **기대 runtime**: KR001 과 동일.
 - **성공 기준**: Δ = KR002 − KR001 OOF hit_1cm. positive band Δ ≥ +0.002 & paired permutation p<0.05.
@@ -123,7 +123,7 @@ g_yaw_delta: null
 - `build_seq_t3(X)` → (N,11,9): ch0-2 rel(=X−X[-1]), ch3-5 v(zero-pad t0), ch6-8 a(zero-pad t0,1). cell 22.
 - `build_scalar_feats(X, noise_p, noise_s, noise_loo)` 21D + `build_tier3_extra(X)` 19D = 40D. cell 11/16. long-tail log1p.
 - noise 추정: `noise_poly2`, `noise_savgol`, `noise_loo_spline` (cell 10). LOO spline 은 캐시(`analysis/plan-a-001/noise_cache.npz`).
-- `--input-yaw` 시 build_seq_t3 출력의 rel/v/a 각 triplet 에 rotate_xy(θ) 적용 (KR002 only).
+- `--input-yaw` 시 build_seq_t3 출력의 rel/v/a 각 triplet 에 rotate_xy(θ) 적용 (KR002 only). 회전 대상/불변 scalar 분류 결과(channel 명 → rotate|invariant)를 `results_kr002.json` 에 표로 박제 → KR002 "단일 변수" 경계 사후 audit.
 
 ### §4.3 model.py / losses.py (c3)
 - `GRUModelMultiAux(n_channels=9, scal_dim=40, hidden=64, layers=1, fc_hidden=128, p, aux_dims=[3,3], main_out_scale_cm=2.0)` — cell 24. main `tanh×2cm`.
@@ -133,7 +133,7 @@ g_yaw_delta: null
 - 5-fold = `stable_fold_id(sid,5)` (KFold shuffle 대신 — 프로젝트 OOF 호환).
 - 각 fold: per-fold StandardScaler(seq 채널별 + scalar), 2 config(A/B) × 3 seed 학습, val 예측은 `inverse_rotate_xy` 로 world 복원 → OOF 누적.
 - test 예측은 본 plan out-of-scope (OOF 만; DACON LB 미제출 — §6).
-- calibration: OOF 에서 per-axis α grid {0.85..1.05 step .025} fit → headline 은 **uncalibrated**, calibrated 는 add-on (overfit-risk flag) + 노트북 (1,0.95,1) cross-check.
+- calibration: OOF 에서 per-axis α grid {0.85..1.05 step .025} fit → headline 은 **uncalibrated**, calibrated 는 add-on (overfit-risk flag) + 노트북 (1,0.95,1) cross-check. **overfit-risk flag 발화 조건**: OOF-fit α 가 노트북 하드코드 (1,0.95,1) 대비 어느 축이든 >2 grid step(>0.05) 이탈, 또는 calibrated OOF hit_1cm 가 uncalibrated 대비 하락 → calibration 신뢰 불가 표식 (headline 은 그대로 uncalibrated 유지).
 
 ## §5. 합격 기준 + Gate
 
