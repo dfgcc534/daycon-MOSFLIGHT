@@ -1,0 +1,35 @@
+{
+  "exp": "FR001",
+  "gate": "g1",
+  "baseline": "f0-perp0",
+  "f0_resid_feats": true,
+  "input_yaw": true,
+  "aux_w_weight": 0.0,
+  "device": "cuda",
+  "N": 10000,
+  "n_predicted": 2020,
+  "folds": [
+    0
+  ],
+  "seeds": [
+    0
+  ],
+  "epochs": 200,
+  "configs": [
+    "A"
+  ],
+  "seq_dim": 12,
+  "scal_dim": 48,
+  "hit_1cm": 0.6737623762376238,
+  "hit_1p5cm": 0.8202970297029702,
+  "config_hit_1cm": {
+    "A": 0.6737623762376238
+  },
+  "baseline_alone_hit_1cm": 0.6440594059405941,
+  "baseline_alone_hit_1p5cm": 0.8158415841584158,
+  "floor_f0perp0": 0.6440594059405941,
+  "pass_bar": 0.6640594059405941,
+  "strong_bar": 0.6663,
+  "g_f0_band": "STRONG_kalman_par",
+  "runtime_sec": 66.7
+}
