@@ -12,7 +12,9 @@ g_repro_band: EXCELLENT
 g_yaw_delta: 0.0024
 g_yaw_band: neutral
 kalman_alone_hit_1cm: 0.5964
-lb_score: null
+lb_score: {KR001: 0.6758, KR002: 0.6818}
+lb_best: 0.6818
+lb_note: KR002 input-yaw = 프로젝트 LB 신기록 (vs 노트북 0.6780, prior best ~0.6806). 입력 yaw 회전 LB +0.0060 — OOF neutral 과 반대(CV-LB gap), G_yaw 결론 LB 에서 positive 로 전복.
 band: EXCELLENT
 ---
 
@@ -20,7 +22,9 @@ band: EXCELLENT
 
 ## §0. 한 줄 결론
 
-**KR001 재현 EXCELLENT** — `notes/LB_0.6780 코드공유.ipynb` 파이프라인을 프로젝트 `stable_fold_id` 5-fold 위에 이식한 OOF hit_1cm = **0.6639**, F0 floor 0.6320 대비 **Δ+0.0319 (p≈0)**, plan-022 best 0.6528·plan-031 0.6397 를 모두 상회하는 **프로젝트 신기록**이며 노트북 자기-split OOF 0.6625 도 +0.0014 상회. paradigm(칼만 CV 잔차 + softhit + tanh×2cm clamp + F/W aux + yaw 타깃)이 프로젝트 split 으로 **robust transfer** 됨이 입증. **KR002(입력 seq yaw 회전) = neutral** — Δ=+0.0024 (p=0.32, 비유의) → H3 적중: 핵심 이득(출력 좌표계 정렬)은 *타깃* 회전이 이미 흡수, *입력* 회전의 순수 추가 기여는 통계적으로 0.
+**KR001 재현 EXCELLENT** — `notes/LB_0.6780 코드공유.ipynb` 파이프라인을 프로젝트 `stable_fold_id` 5-fold 위에 이식한 OOF hit_1cm = **0.6639**, F0 floor 0.6320 대비 **Δ+0.0319 (p≈0)**, plan-022 best 0.6528·plan-031 0.6397 를 모두 상회하는 **프로젝트 신기록**이며 노트북 자기-split OOF 0.6625 도 +0.0014 상회. paradigm(칼만 CV 잔차 + softhit + tanh×2cm clamp + F/W aux + yaw 타깃)이 프로젝트 split 으로 **robust transfer** 됨이 입증. **KR002(입력 seq yaw 회전) = OOF neutral** — Δ=+0.0024 (p=0.32, 비유의).
+
+> **★ LB 결과 (post-submission, DACON comp 236716)**: KR001 **0.6758** / KR002 **0.6818**. **KR002(입력 yaw 회전) = 프로젝트 LB 신기록** (노트북 0.6780 +0.0038, 기존 best ~0.6806 +0.0012). 결정적으로 **입력 yaw 회전이 LB 에서 +0.0060** — OOF 에선 neutral(통계적 0)이었으나 *test LB 에선 명확한 양 lift*. **H3 의 "입력 회전 redundant" 결론이 LB 에서 전복** — OOF(train 5-fold)가 입력 회전 이득을 포착 못한 **CV-LB 괴리**가 핵심 발견. (uncalibrated 기준 제출; 노트북 0.6780 은 calibration 포함이라 KR001 uncal 0.6758 의 −0.0022 갭은 calibration+KFold 차이로 추정.)
 
 ## §0.5 Result Quick Reference
 
@@ -28,6 +32,13 @@ band: EXCELLENT
 |---|---|---|---|---|---|
 | **KR001** (repro) | **0.6639** | 0.8167 | 0.6612 / 0.6630 | F0 +0.0319 (p≈0), 노트북 +0.0014, plan-022 +0.0111 | **EXCELLENT** |
 | **KR002** (+input-yaw) | **0.6663** | — | 0.6667 / 0.6671 | KR001 **+0.0024 (p=0.32)** | neutral (ns) |
+
+| exp | **LB (comp 236716)** | vs 비교점 |
+|---|---|---|
+| **KR001** | **0.6758** | 노트북 0.6780 −0.0022 (uncal+stable_fold_id) |
+| **KR002** (+input-yaw) | **0.6818** 🏆 | KR001 **+0.0060**, 노트북 0.6780 +0.0038, prior best ~0.6806 +0.0012 → **프로젝트 LB 신기록** |
+
+- ★ **CV-LB 괴리**: 입력 yaw 회전이 OOF 에선 neutral(+0.0024 ns)인데 LB 에선 +0.0060 명확한 양. OOF(train 5-fold)가 입력 회전 이득을 과소평가 — 본 plan 의 핵심 발견.
 
 - baseline: Kalman-alone OOF hit_1cm = **0.5964** (GRU 잔차 미적용, world 직접). F0 = 0.6320/0.8033.
 - budget: 2 config(A lr5e-4·p0.3 / B lr1e-3·p0.1) × 5-fold stable_fold_id × 3 seed × 200ep, GPU L40S. KR001 631s / KR002 700s.
@@ -39,7 +50,7 @@ band: EXCELLENT
 |---|---|---|
 | **H1 재현** (≥F0, plausibly ≥plan-022) | ✅ **확증 (초과달성)** | OOF 0.6639 ≥ F0 0.6320 ✓, ≥ plan-022 0.6528 ✓, ≈ 노트북 0.6625 (+0.0014). paradigm transfer 성공. |
 | **H2 부호 역전** (칼만+softhit+tanh → 잔차 GRU 양 기여) | ✅ **확증** | G1 fold0: hit 0.6733 vs Kalman-alone 0.6064 (**+0.067**). full: 0.6639 vs 0.5964 (**+0.0675**). plan-003 linear-extrap 잔차 GRU LB 0.5688 퇴보와 정반대 — 칼만 평활 baseline + metric-aware loss + 출력 clamp 조합이 잔차를 학습가능 구조신호로 전환. |
-| **H3 입력 회전 lift 작음** (Δ≈+0.000~+0.005) | ✅ **적중 (neutral)** | Δ(KR002−KR001)=+0.0024 ∈ [0, +0.005] 예측 범위, 단 p=0.32 비유의. "타깃 회전이 이미 이득 흡수" 가설대로 입력 회전의 순수 기여는 0과 구분 불가. 음(−) 아님 → 절대 heading 신호 상실 손해도 미미. |
+| **H3 입력 회전 lift 작음** (Δ≈+0.000~+0.005) | ⚠️ **OOF 적중 but LB 전복** | OOF: Δ(KR002−KR001)=+0.0024 ∈ 예측범위, p=0.32 비유의 → "neutral". **단 LB: KR002 0.6818 vs KR001 0.6758 = +0.0060 명확한 양 lift.** OOF(train 5-fold)는 입력 회전 이득을 못 잡았으나 test LB 는 실재 → "입력 회전 redundant" 결론은 OOF 한정, LB 에선 **입력 yaw 회전이 진짜 lever** (CV-LB 괴리). |
 
 ## §2. Gate 판정
 
