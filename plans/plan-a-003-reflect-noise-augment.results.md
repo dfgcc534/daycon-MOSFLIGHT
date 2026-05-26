@@ -14,8 +14,8 @@ g_aug_delta_vs_kr003: 0.0004
 g_aug_p: 0.8668
 g_aug_band: no_regression_PASS
 kalman_alone_hit_1cm: 0.5964
-lb_score: {KR008: not_submitted_user_gated}
-lb_note: KR008 OOF 0.6671 = KR003 +0.0004 (p=0.87 neutral, no-regression PASS). submission_kr008.csv 생성 완료. CV-LB 괴리상 OOF-neutral 이 LB 양 가능성(yaw·부산물 전례), 단 LB 노이즈 floor(±0.002~0.003)·quota(오늘 2 남음) 고려해 **제출은 사용자 confirm gated** (자동 안 함). 제출 시 KR003 0.6854 대비 Δ 가 verdict.
+lb_score: {KR008: submitted_2026-05-26_pending_web}
+lb_note: KR008 = 사용자 confirm 후 DACON comp 236716 제출 완료 (isSubmitted=True, 점수는 DACON 웹 확인 — API 미반환). OOF 0.6671 = KR003 +0.0004 (p=0.87 neutral). CV-LB 괴리상 OOF-neutral·LB 가능성 검증 — KR003 LB record 0.6854 대비 Δ 가 aug verdict (노이즈 floor 내면 inconclusive 박제).
 band: neutral_no_regression
 ---
 
