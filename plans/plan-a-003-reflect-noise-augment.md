@@ -56,16 +56,16 @@ exp_ids:
 
 | commit | spec | status |
 |---|---|---|
-| c0 spec | §0~§7 (본 파일) | [TODO] |
-| c1 augmentation | §4.1 `run_oof.py` train_one 확장 — `--reflect-aug --noise-aug`, 반사(채널명 `_y` 자동 식별)·노이즈 in-loop. default off | [TODO] |
-| c2 smoke | §5 `tests/test_plan_a003_smoke.py` — 반사 항등성(2회=원본)·aug off==KR003 bit-identical·1f1s1e finite | [TODO] |
+| c0 spec | §0~§7 (본 파일) | [DONE] |
+| c1 augmentation | §4.1 `run_oof.py` train_one 확장 — `--reflect-aug --noise-aug`, 반사(채널명 `_y` 자동 식별)·노이즈 in-loop. default off | [DONE] (aug-off bit-identical) |
+| c2 smoke | §5 `tests/test_plan_a003_smoke.py` — 반사 항등성(2회=원본)·aug off==KR003 bit-identical·1f1s1e finite | [DONE] (4 pass; off=0.6637) |
 | c3 G1 | §5 KR008 1-fold 1-seed full-ep — finite & ≥ KR003 1-fold − 0.005 | [TODO] |
 | c4 KR008 full + submission | §5 2cfg×5fold×3seed OOF + `--predict-test` → `results_kr008.json/.npz` + `submission_kr008.csv` | [TODO] |
 | c5 results + (LB 제출 user-gated) + merge | §5 `plan-a-003-...results.md` + §0.5 sync + lane-a worktree→main merge | [TODO] |
 
 ### G-gates
 
-- G0: c1~c2 인프라 + smoke green + 반사 항등성 + aug-off repro 불변
+- G0: c1~c2 인프라 + smoke green + 반사 항등성 + aug-off repro 불변  **[DONE]** (pytest 4 pass, aug-off 0.6637 bit-identical, aug-on finite)
 - G1: KR008 1-fold 1-seed hit_1cm finite & ≥ KR003 1-fold − 0.005 (aug 가 학습 안정성 안 깨뜨림 sanity)
 - G_aug (G2): KR008 full OOF band 판정 (vs KR003 0.6667 + paired permutation). no-regression hard 요구, neutral/positive 모두 LB 후보
 - G_lb (G3): KR008 LB 제출 (사용자 confirm gated) vs KR003 0.6854 — **진짜 verdict**

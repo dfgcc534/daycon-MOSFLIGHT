@@ -82,10 +82,14 @@ def paired_perm(hit_b, hit_a, n_resample=10000, seed=0):
 def train_one(cfg, seq_tr, scal_tr, tgt_main, tgt_F, tgt_W,
               seq_va, scal_va, theta_va, kal_va, y_va,
               seed, device, epochs, patience, batch=256,
-              seq_test=None, scal_test=None):
+              seq_test=None, scal_test=None,
+              reflect_aug=False, noise_aug=0.0, reflect_idx_seq=None, reflect_idx_scal=None):
     """단일 config×seed×fold 학습 → (best_val_out_rot, best_rhit, test_out_rot|None). n_channels 동적.
 
     test_out_rot = best-val-epoch state 로 예측한 test (rotated frame). seq_test 미지정 시 None.
+    augmentation (plan-a-003, train-only): reflect_aug=yaw frame y→−y (p=0.5/sample),
+    noise_aug=표준화 seq 에 N(0,σ) 가산. 둘 다 off(default) 면 KR002/KR003 과 bit-identical
+    (RNG 미소비 guard). reflect_idx_seq/scal = `_y`/`cvca_y` 채널 index (main 에서 채널명 식별).
     """
     torch.manual_seed(seed)
     np.random.seed(seed)
@@ -113,11 +117,28 @@ def train_one(cfg, seq_tr, scal_tr, tgt_main, tgt_F, tgt_W,
         perm = torch.randperm(n, device=device)
         for i in range(0, n, batch):
             idx = perm[i:i + batch]
+            bsq, bsc = sq[idx], sc[idx]
+            btm, btF, btW = tm[idx], tF[idx], tW[idx]
+            # augmentation (train-only). off 면 RNG 미소비 → KR003 bit-identical.
+            if noise_aug > 0:
+                bsq = bsq + noise_aug * torch.randn_like(bsq)
+            if reflect_aug:
+                sign = torch.ones(bsq.shape[0], device=device)
+                sign[torch.rand(bsq.shape[0], device=device) < 0.5] = -1.0
+                bsq = bsq.clone()
+                if reflect_idx_seq:
+                    bsq[:, :, reflect_idx_seq] = bsq[:, :, reflect_idx_seq] * sign[:, None, None]
+                bsc = bsc.clone()
+                if reflect_idx_scal:
+                    bsc[:, reflect_idx_scal] = bsc[:, reflect_idx_scal] * sign[:, None]
+                btm = btm.clone(); btm[:, 1] = btm[:, 1] * sign
+                btF = btF.clone(); btF[:, 1] = btF[:, 1] * sign
+                btW = btW.clone(); btW[:, 1] = btW[:, 1] * sign
             opt.zero_grad()
-            om, ax = net(sq[idx], sc[idx])
-            loss = (_losses.loss_combo(om, tm[idx])
-                    + _losses.LAMBDA_AUX * _losses.loss_aux_euclid(ax[0], tF[idx])
-                    + _losses.LAMBDA_AUX * _losses.loss_aux_euclid(ax[1], tW[idx]))
+            om, ax = net(bsq, bsc)
+            loss = (_losses.loss_combo(om, btm)
+                    + _losses.LAMBDA_AUX * _losses.loss_aux_euclid(ax[0], btF)
+                    + _losses.LAMBDA_AUX * _losses.loss_aux_euclid(ax[1], btW))
             loss.backward()
             nn.utils.clip_grad_norm_(net.parameters(), 1.0)
             opt.step()
@@ -148,7 +169,8 @@ def train_one(cfg, seq_tr, scal_tr, tgt_main, tgt_F, tgt_W,
 
 def run_config(cfg_name, X, y, fold_ids, theta, kalman_main, seq, scal,
                tgt_main, tgt_F, tgt_W, folds, seeds, epochs, patience, device, quiet,
-               seq_test=None, scal_test=None, theta_test=None):
+               seq_test=None, scal_test=None, theta_test=None,
+               reflect_aug=False, noise_aug=0.0, reflect_idx_seq=None, reflect_idx_scal=None):
     """config 1개의 5-fold → (oof_res_world (N,3), test_res_world (Nt,3)|None). n_channels 동적.
 
     test 는 fold 별 seed-평균(rotated)→inverse_rotate→fold 평균 (plan-a-001 동일).
@@ -174,7 +196,9 @@ def run_config(cfg_name, X, y, fold_ids, theta, kalman_main, seq, scal,
                 cfg, seq_tr, scal_tr, tgt_main[tr], tgt_F[tr], tgt_W[tr],
                 seq_va, scal_va, theta[va], kalman_main[va], y[va],
                 s, device, epochs, patience,
-                seq_test=seq_te_n, scal_test=scal_te_n)
+                seq_test=seq_te_n, scal_test=scal_te_n,
+                reflect_aug=reflect_aug, noise_aug=noise_aug,
+                reflect_idx_seq=reflect_idx_seq, reflect_idx_scal=reflect_idx_scal)
             seed_outs.append(out_rot)
             if test_rot is not None:
                 seed_test.append(test_rot)
@@ -203,6 +227,8 @@ def main():
     ap.add_argument("--patience", type=int, default=30)
     ap.add_argument("--seeds-cpu", type=int, default=1, help="CPU 시 seed 수 (decision-note carry)")
     ap.add_argument("--predict-test", action="store_true", help="test 10000 예측 → submission_{exp}.csv (full only)")
+    ap.add_argument("--reflect-aug", action="store_true", help="plan-a-003: yaw frame 반사 augment (y→−y, p=0.5, train-only)")
+    ap.add_argument("--noise-aug", type=float, default=0.0, help="plan-a-003: 표준화 seq 노이즈 jitter σ (train-only, 0=off)")
     ap.add_argument("--quiet", action="store_true")
     args = ap.parse_args()
 
@@ -261,6 +287,13 @@ def main():
         cv_ca_arr=cv_ca_arr, theta=theta, input_yaw=args.input_yaw)
     seq_rot = {n: "rotate" for n in seq_names}  # 전부 벡터 triplet
 
+    # plan-a-003: 반사 augment 대상 채널 index (채널명 `_y`/`cvca_y` 자동 식별 — 하드코딩 회피)
+    reflect_idx_seq = [i for i, nm in enumerate(seq_names) if nm.endswith("_y")]
+    reflect_idx_scal = [i for i, nm in enumerate(scal_names) if nm == "cvca_y"]
+    if args.reflect_aug or args.noise_aug > 0:
+        print(f"  [aug] reflect={args.reflect_aug} (seq_y_idx={reflect_idx_seq}, scal_y_idx={reflect_idx_scal}) "
+              f"noise_sigma={args.noise_aug}", flush=True)
+
     # test 예측 features (--predict-test) — DACON submission. test internals 도 관측창 산출(leakage-safe).
     seq_test = scal_test = theta_test = kalman_test = test_ids = None
     if args.predict_test:
@@ -291,7 +324,9 @@ def main():
         oof_res[c], test_res[c] = run_config(
             c, X, y, fold_ids, theta, kalman_main, seq, scal,
             tgt_main, tgt_F, tgt_W, folds, seeds, epochs, args.patience, device, args.quiet,
-            seq_test=seq_test, scal_test=scal_test, theta_test=theta_test)
+            seq_test=seq_test, scal_test=scal_test, theta_test=theta_test,
+            reflect_aug=args.reflect_aug, noise_aug=args.noise_aug,
+            reflect_idx_seq=reflect_idx_seq, reflect_idx_scal=reflect_idx_scal)
         h = hit_rate((kalman_main + oof_res[c])[pm], y[pm])
         print(f"  config {c} OOF hit_1cm={h:.4f}", flush=True)
 
@@ -348,7 +383,9 @@ def main():
     result = dict(
         exp=args.exp, gate=args.gate, device=str(device),
         flags=dict(input_yaw=args.input_yaw, innov=args.innov, filtered_v=args.filtered_v,
-                   cv_ca=args.cv_ca, filtered_yaw=args.filtered_yaw),
+                   cv_ca=args.cv_ca, filtered_yaw=args.filtered_yaw,
+                   reflect_aug=args.reflect_aug, noise_aug=args.noise_aug,
+                   reflect_idx_seq=reflect_idx_seq, reflect_idx_scal=reflect_idx_scal),
         N=int(N), n_predicted=int(pm.sum()),
         folds=[int(f) for f in folds], seeds=[int(s) for s in seeds],
         epochs=epochs, configs=configs,
