@@ -80,8 +80,12 @@ def rotate_seq_input(seq, theta):
 
 def train_one(cfg, seq_tr, scal_tr, tgt_main, tgt_F, tgt_W,
               seq_va, scal_va, theta_va, kal_va, y_va,
-              seed, device, epochs, patience, batch=256, quiet=True):
-    """단일 config×seed×fold 학습 → (best_val_out_rot (n_va,3), best_rhit)."""
+              seed, device, epochs, patience, batch=256, quiet=True,
+              seq_test=None, scal_test=None):
+    """단일 config×seed×fold 학습 → (best_val_out_rot, best_rhit, best_test_out_rot|None).
+
+    best_test_out_rot = best-val-epoch state 로 예측한 test (rotated frame). seq_test 미지정 시 None.
+    """
     torch.manual_seed(seed)
     np.random.seed(seed)
     net = _model.GRUModelMultiAux(
@@ -101,7 +105,7 @@ def train_one(cfg, seq_tr, scal_tr, tgt_main, tgt_F, tgt_W,
     sc_va = torch.as_tensor(scal_va, device=device)
     n = sq.shape[0]
 
-    best_rhit, best_out, no_imp = -1.0, None, 0
+    best_rhit, best_out, best_state, no_imp = -1.0, None, None, 0
     for ep in range(epochs):
         net.train()
         perm = torch.randperm(n, device=device)
@@ -121,24 +125,38 @@ def train_one(cfg, seq_tr, scal_tr, tgt_main, tgt_F, tgt_W,
         with torch.no_grad():
             om_va, _ = net(sq_va, sc_va)
         out_rot = om_va.cpu().numpy()
-        out_world = _yaw.inverse_rotate_xy(out_rot, theta_va)
-        pred = kal_va + out_world
+        pred = kal_va + _yaw.inverse_rotate_xy(out_rot, theta_va)
         rh = hit_rate(pred, y_va)
         if rh > best_rhit:
             best_rhit, best_out, no_imp = rh, out_rot.copy(), 0
+            best_state = {k: v.detach().clone() for k, v in net.state_dict().items()}
         else:
             no_imp += 1
             if no_imp >= patience:
                 break
-    return best_out, best_rhit
+
+    test_out = None
+    if seq_test is not None:
+        net.load_state_dict(best_state)
+        net.eval()
+        with torch.no_grad():
+            om_te, _ = net(torch.as_tensor(seq_test, device=device),
+                           torch.as_tensor(scal_test, device=device))
+        test_out = om_te.cpu().numpy()
+    return best_out, best_rhit, test_out
 
 
 def run_config(cfg_name, X, y, ids, fold_ids, theta, kalman_main, seq, scal,
-               tgt_main, tgt_F, tgt_W, folds, seeds, epochs, patience, device, quiet):
-    """config 1개의 5-fold OOF residual(rotated→world) → (oof_res_world (N,3))."""
+               tgt_main, tgt_F, tgt_W, folds, seeds, epochs, patience, device, quiet,
+               seq_test=None, scal_test=None, theta_test=None):
+    """config 1개의 5-fold → (oof_res_world (N,3), test_res_world (Nt,3)|None).
+
+    test 는 fold 별 seed-평균(rotated)→inverse_rotate→fold 평균 (노트북 동일).
+    """
     cfg = CONFIGS[cfg_name]
     N = X.shape[0]
     oof_rot = np.zeros((N, 3), dtype=np.float64)
+    test_world_folds = []
     for f in folds:
         tr = np.where(fold_ids != f)[0]
         va = np.where(fold_ids == f)[0]
@@ -148,18 +166,27 @@ def run_config(cfg_name, X, y, ids, fold_ids, theta, kalman_main, seq, scal,
         seq_va = _feat.normalize_seq(seq[va], sc_seq)
         scal_tr = sc_scal.transform(scal[tr]).astype(np.float32)
         scal_va = sc_scal.transform(scal[va]).astype(np.float32)
-        seed_outs = []
+        seq_te_n = _feat.normalize_seq(seq_test, sc_seq) if seq_test is not None else None
+        scal_te_n = sc_scal.transform(scal_test).astype(np.float32) if scal_test is not None else None
+        seed_outs, seed_test = [], []
         for s in seeds:
-            out_rot, rh = train_one(
+            out_rot, rh, test_rot = train_one(
                 cfg, seq_tr, scal_tr, tgt_main[tr], tgt_F[tr], tgt_W[tr],
                 seq_va, scal_va, theta[va], kalman_main[va], y[va],
-                s, device, epochs, patience, quiet=quiet)
+                s, device, epochs, patience, quiet=quiet,
+                seq_test=seq_te_n, scal_test=scal_te_n)
             seed_outs.append(out_rot)
+            if test_rot is not None:
+                seed_test.append(test_rot)
             if not quiet:
                 print(f"    [{cfg_name}] fold{f} seed{s} val_rhit={rh:.4f}", flush=True)
         oof_rot[va] = np.mean(seed_outs, axis=0)
+        if seed_test:
+            test_mean_rot = np.mean(seed_test, axis=0)
+            test_world_folds.append(_yaw.inverse_rotate_xy(test_mean_rot, theta_test))
     oof_res_world = _yaw.inverse_rotate_xy(oof_rot, theta)
-    return oof_res_world
+    test_res_world = np.mean(test_world_folds, axis=0) if test_world_folds else None
+    return oof_res_world, test_res_world
 
 
 def fit_alpha_grid(residual, kalman, y):
@@ -186,6 +213,8 @@ def main():
     ap.add_argument("--gate", choices=["smoke", "g1", "full"], default="full")
     ap.add_argument("--input-yaw", action="store_true", help="KR002: 입력 seq rel/v/a 회전")
     ap.add_argument("--out", default=None, help="결과 json 파일명 (analysis/plan-a-001/ 하위)")
+    ap.add_argument("--predict-test", action="store_true",
+                    help="test 10000 예측 → submission.csv (DACON 제출용, full gate only)")
     ap.add_argument("--epochs", type=int, default=200)
     ap.add_argument("--patience", type=int, default=30)
     ap.add_argument("--quiet", action="store_true")
@@ -233,17 +262,31 @@ def main():
     seq_rot_class = {c: ("rotate" if i < 6 else ("rotate" if i < 9 else "invariant"))
                      for i, c in enumerate(_feat.SEQ_CHANNELS)}  # rel/v/a 전부 rotate 대상
 
+    # test features (predict_test) — DACON submission 용. test noise: loo→savgol fallback (노트북 동일).
+    seq_test = scal_test = theta_test = kalman_test = test_ids = None
+    if args.predict_test:
+        test_ids, X_test = load_all_samples("test")
+        theta_test = _yaw.yaw_from_last_step(X_test)
+        kalman_test = _kalman.kalman_predict(
+            X_test, sigma_obs=_kalman.SIGMA_OBS_MAIN, sigma_proc=_kalman.SIGMA_PROC_MAIN)
+        noise_te = _feat.compute_noise(X_test, cache_path=cache, key="test", with_loo=False)
+        seq_test = _feat.build_seq_t3(X_test)
+        scal_test, _ = _feat.build_scalar_40d(X_test, noise_te["poly2"], noise_te["savgol"], noise_te["loo"])
+        if args.input_yaw:
+            seq_test = rotate_seq_input(seq_test, theta_test)
+
     # Kalman-alone baseline (G1 비교 기준점 — GRU/잔차 미적용). predicted_mask subset 기준.
     pm = predicted_mask
     kalman_alone_hit = hit_rate(kalman_main[pm], y[pm])
     kalman_alone_hit15 = hit_rate(kalman_main[pm], y[pm], R_HIT_LOOSE)
 
     # per-config OOF residual
-    oof_res = {}
+    oof_res, test_res = {}, {}
     for c in configs:
-        oof_res[c] = run_config(
+        oof_res[c], test_res[c] = run_config(
             c, X, y, ids, fold_ids, theta, kalman_main, seq, scal,
-            tgt_main, tgt_F, tgt_W, folds, seeds, epochs, args.patience, device, args.quiet)
+            tgt_main, tgt_F, tgt_W, folds, seeds, epochs, args.patience, device, args.quiet,
+            seq_test=seq_test, scal_test=scal_test, theta_test=theta_test)
         h = hit_rate((kalman_main + oof_res[c])[pm], y[pm])
         print(f"  config {c} OOF hit_1cm={h:.4f}", flush=True)
 
@@ -298,6 +341,18 @@ def main():
                  per_sample_hit=per_sample_hit, y=y, kalman_main=kalman_main,
                  fold_ids=fold_ids)
     print(f"[saved] {out_name}", flush=True)
+
+    if args.predict_test and test_ids is not None:
+        import pandas as pd
+        ens_test_res = np.mean([test_res[c] for c in configs], axis=0)
+        test_pred = kalman_test + ens_test_res  # uncalibrated headline (OOF 와 동일 기준)
+        sub = pd.DataFrame({"id": test_ids, "x": test_pred[:, 0],
+                            "y": test_pred[:, 1], "z": test_pred[:, 2]})
+        sub_name = f"submission_{'kr002' if args.input_yaw else 'kr001'}.csv"
+        sub.to_csv(out_dir / sub_name, index=False)
+        result["submission"] = sub_name
+        print(f"[submission] {sub_name} ({len(sub)} rows, uncalibrated, "
+              f"finite={bool(np.isfinite(test_pred).all())})", flush=True)
     return result
 
 
