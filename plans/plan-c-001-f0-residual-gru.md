@@ -2,7 +2,7 @@
 plan_id: c-001
 version: 2
 date: 2026-05-26 (Asia/Seoul)
-status: draft
+status: G_final (FR001 OOF 0.6622, PASS — results.md)
 lane: c
 inspired_by:
   - a-002 (Kalman 부산물 feature plan. **본 plan = a-002 의 구조·실험 프로토콜을 그대로 carry 하되 baseline predictor 를 Kalman CV → F0(perp=0.0) 로 교체**. a-002 의 모든 입력 feature·frame·aux 가 Kalman 부산물이라 전부 제외 → §1.2 제외 보고)
@@ -73,14 +73,14 @@ exp_ids:
 
 | commit | spec | status |
 |---|---|---|
-| c0 spec | §0~§7 (본 파일) | [TODO] |
-| c1 f0 baseline | §4.1 `analysis/plan-c-001/f0_baseline.py` — `f0_perp0(X, end_idx=10)` → (N,3) [PERP=0.0 override]. + F0(perp=0.0) floor OOF (hit_1cm/1p5cm) 산출 → `f0_perp0_floor.json` | [TODO] |
-| c2 f0 잔차 feat | §4.2 `analysis/plan-c-001/f0_residual_feats.py` — `f0_resid_feats(X, theta)` → L2 잔차 seq(N,11,3 yaw-rot zero-pad) + f0_conf(N,2) + EWMA(N,3) + STA/LTA(N,3). `_build_L2_L4` 로직 재사용(f0_perp0 주입), Frenet→yaw frame. **leakage assert: step t 는 raw(t+2)≤t_obs 만 사용** | [TODO] |
-| c3 runner flag | §4.3 `run_oof.py` 확장 — `--baseline f0-perp0` (kalman_predict→f0_perp0 swap, 잔차 target + final 복원), `--f0-resid-feats` (seq 9→12·scalar 40→48 concat), `--aux-w-weight 0` (W aux 비활성). `--input-yaw` carry | [TODO] |
-| c4 smoke | §5 `tests/test_plan_c001_smoke.py` — import + 1f1s1e finite + **target⇄복원 정합 assert** (target=`rotate_xy(y−f0_perp0,θ)`·복원=`f0_perp0+inverse_rotate_xy(·,θ)` 가 *동일 θ·동일 f0_perp0 인스턴스* 로 y 재구성 → θ source/baseline mismatch·부호버그 검출; 자명 항등 회피용으로 target 과 복원이 분리 코드경로임을 전제, atol=1e-6) + **음성통제**: θ_복원=θ_target+0.1rad 또는 baseline 부호 뒤집기 주입 시 assert 가 *반드시 fail* (자명 항등 아님 입증) + 실제 GRU_out 경유 복원 finite·(N,3) shape 체크 + F0-잔차 leakage assert + W-aux gradient 0 assert | [TODO] |
-| c5 G1 | §5 FR001 1-fold 1-seed full-ep — finite & ≥ F0(perp=0.0) floor(1-fold) | [TODO] |
-| c6 FR001 full | §5 2cfg×5fold×3seed OOF → `results_fr001.json/.npz` | [TODO] |
-| c7 results + merge | §5 `plan-c-001-...results.md` + §0.5 sync + lane-c worktree→main merge | [TODO] |
+| c0 spec | §0~§7 (본 파일) | [DONE] |
+| c1 f0 baseline | §4.1 `f0_baseline.py` f0_perp0 + floor → `f0_perp0_floor.json` (**floor 0.6320**) | [DONE] |
+| c2 f0 잔차 feat | §4.2 `f0_residual_feats.py` — L2 seq(N,11,3)+f0_conf(N,2)+EWMA(N,3)+STA/LTA(N,3), f0_perp0 주입, yaw frame, leakage assert | [DONE] |
+| c3 runner flag | §4.3 `run_oof.py` — `--baseline f0-perp0`+`--f0-resid-feats`(seq9→12·scal40→48)+`--aux-w-weight 0`+`--input-yaw`. plan-a-001 모듈 import 재사용 | [DONE] |
+| c4 smoke | §5 `tests/test_plan_c001_smoke.py` — 5 assert (정합+음성통제+leakage+W-aux grad0) **PASS** | [DONE] |
+| c5 G1 | §5 FR001 1-fold 1-seed 200ep — **0.6738** ≥ floor−0.005. PASS | [DONE] |
+| c6 FR001 full | §5 2cfg×5fold×3seed OOF → `results_fr001.json/.npz` — **OOF 0.6622, PASS** | [DONE] |
+| c7 results + merge | §5 `plan-c-001-...results.md` 박제 + §0.5 sync + lane-c worktree→main merge | [DONE] |
 
 ### G-gates
 
