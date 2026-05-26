@@ -2,7 +2,7 @@
 plan_id: a-004
 version: 1
 date: 2026-05-26 (Asia/Seoul)
-status: draft
+status: all_complete
 lane: a
 inspired_by:
   - a-003 (KR008 LB 0.6862 record. 단일 회귀 head — 본 plan baseline. lever ROI 수확 체감)
@@ -60,17 +60,17 @@ exp_ids:
 | c1 multi-head model + WTA loss | §4.1 `analysis/plan-a-004/model_mh.py` (GRUMultiHead: K head + selector), `losses_mcl.py` (WTA combo + selector CE) | [DONE] |
 | c2 runner | §4.2 `run_oof_mh.py` — KR008 파이프라인 + `--n-heads --gen --route` flag. n_heads=1 → KR008 bit-identical | [DONE] |
 | c3 smoke | §5 `tests/test_plan_a004_smoke.py` — n_heads=1 repro·WTA loss·selector·1f1s1e finite | [DONE] (5 pass; smoke end-to-end OK) |
-| c4 G1_decisive (KR010) | §5 2-head MCL 1f full-ep — **oracle@2 vs KR008 headroom 판정** (KILL gate) | [TODO] |
-| c5 G_mh 생성·선택 axis (KR011/12) | §5 G1 통과 시만 — 생성×선택×K sweep, best realized-hit OOF | [TODO] |
-| c6 results + (LB gated) + merge | §5 `plan-a-004-...results.md` + §0.5 sync + lane-a merge | [TODO] |
+| c4 G1_decisive (KR010) | §5 2-head MCL 1f full-ep — **oracle@2 vs KR008 headroom 판정** (KILL gate) | [DONE] oracle@2 0.6787<0.696 → **KILL** |
+| c5 G_mh 생성·선택 axis (KR011/12) | §5 G1 통과 시만 — 생성×선택×K sweep, best realized-hit OOF | [SKIP] (G1 KILL, fail-fast) |
+| c6 results + (LB gated) + merge | §5 `plan-a-004-...results.md` + §0.5 sync + lane-a merge | [DONE] (KILL, LB 미제출) |
 
 ### G-gates
 
 - G0: c1~c3 인프라 + smoke green + n_heads=1 KR008 repro 불변  **[DONE]** (pytest 5 pass, runner smoke OK; 1ep dead-head 관측 → G1 은 soft_top=2)
-- **G1_decisive (KR010, ★ fail-fast)**: 2-head MCL 1-fold(fold0/seed0/cfgA) full-ep. **oracle@2(best-of-2 학습 head) ≥ 0.696 (= KR008 동일 1-fold baseline 0.6757 + 0.02)** & realized-hit ≥ **0.6757 − 0.005 = 0.6707**. **미달 → KILL** (단일 GRU 가 conditional 최적 = MoE 무용, 정보 박제, plan 조기 종료).
-- G_mh (G2): G1 통과 시 — 생성×선택×K axis sweep, best realized-hit OOF vs KR008 + paired permutation.
-- G_lb (G3): best config LB (사용자 gated) vs KR008 0.6862. +0.01(≥0.696) 목표, noise floor 내면 inconclusive.
-- G_final: results 박제 + §0.5 sync + main merge.
+- **G1_decisive (KR010, ★ fail-fast)**: 2-head MCL 1-fold(fold0/seed0/cfgA, soft_top=2) full-ep. **결과: oracle@2 = 0.6787 < 0.696 → KILL** (단일 head +0.003 뿐, +0.02 미달). realized 0.6767≈KR008. **단일 GRU = conditional 최적 확정, multi-hypothesis 무용.**
+- G_mh (G2): **SKIP** (G1 KILL, fail-fast).
+- G_lb (G3): **SKIP** (KR008 못 넘음, 미제출).
+- G_final: results 박제 + §0.5 sync + main merge.  **[DONE]** (KILL 경로, 축소)
 
 ### Plan-specific 주의
 

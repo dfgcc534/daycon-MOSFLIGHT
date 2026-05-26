@@ -1,0 +1,34 @@
+{
+  "exp": "KR010",
+  "gate": "g1",
+  "n_heads": 2,
+  "gen": "mcl",
+  "route": "joint",
+  "soft_top": 2,
+  "N": 10000,
+  "n_pred": 2020,
+  "folds": [
+    0
+  ],
+  "seeds": [
+    0
+  ],
+  "epochs": 200,
+  "configs": [
+    "A"
+  ],
+  "oracle_at_k": 0.6787128712871288,
+  "realized_hit": 0.6767326732673268,
+  "per_head_usage": [
+    1277,
+    743
+  ],
+  "kalman_alone": 0.6064356435643564,
+  "runtime_sec": 96.1,
+  "compare": {
+    "base": "results_kr008.npz",
+    "base_hit": 0.6782178217821783,
+    "delta": -0.0014851485148514852,
+    "p": 0.7467
+  }
+}
