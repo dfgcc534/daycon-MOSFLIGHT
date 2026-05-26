@@ -73,19 +73,19 @@ exp_ids:
 | commit | spec | status |
 |---|---|---|
 | c0 spec | §0~§7 (본 파일) | [DONE] (plan-review-master BLOCKER 5→0) |
-| c1 kalman internals | §4.1 `analysis/plan-a-002/kalman_features.py` — `kalman_with_internals(X,model)` → (pred, innov_seq (N,T,3), filtered_v (N,T,3)); `cv_ca_disagreement(X)` → (N,3) | [TODO] |
-| c2 feature 확장 | §4.2 `features_ext.py` — KR002 seq/scalar 위에 innov(+3)·filtered_v(+3) seq 채널, cv/ca(+4) scalar. yaw 회전 적용 (flag 별) | [TODO] |
-| c3 runner flag | §4.3 `run_oof.py` 확장 — `--innov --filtered-v --cv-ca --filtered-yaw` flag. 채널/스칼라 dim 자동 전달 | [TODO] |
-| c4 smoke | §5 `tests/test_plan_a002_smoke.py` — import + 1f1s1e finite + leakage assert (innov/filtered 가 t+2 미관측 미사용) | [TODO] |
-| c5 G1 | §5 KR003 1-fold 1-seed full-ep — finite & ≥ KR002 1-fold (−tol) | [TODO] |
+| c1 kalman internals | §4.1 `analysis/plan-a-002/kalman_features.py` — `kalman_with_internals(X,model)` → (pred, innov_seq (N,T,3), filtered_v (N,T,3)); `cv_ca_disagreement(X)` → (N,3) | [DONE] (smoke green, leakage-safe) |
+| c2 feature 확장 | §4.2 `features_ext.py` — KR002 seq/scalar 위에 innov(+3)·filtered_v(+3) seq 채널, cv/ca(+4) scalar. yaw 회전 적용 (flag 별) | [DONE] (seq 9/12/15·scalar 44) |
+| c3 runner flag | §4.3 `run_oof.py` (plan-a-002 자체 orchestrator) — `--innov --filtered-v --cv-ca --filtered-yaw` flag, n_channels 동적. | [DONE] |
+| c4 smoke | §5 `tests/test_plan_a002_smoke.py` — import + 1f1s1e finite + leakage assert | [DONE] (7 passed) |
+| c5 G1 | §5 KR003 1-fold 1-seed full-ep — finite & ≥ KR002 1-fold (−tol) | [DONE] (KR003 0.6762 vs KR002base 0.6767, Δ−0.0005 PASS) |
 | c6 KR003 full | §5 2cfg×5fold×3seed OOF → `results_kr003.json/.npz` | [TODO] |
 | c7 KR004 full | §5 동일 budget + `--filtered-yaw` → `results_kr004.json/.npz` | [TODO] |
 | c8 results + merge | §5 `plan-a-002-...results.md` + §0.5 sync + lane-a worktree→main merge | [TODO] |
 
 ### G-gates
 
-- G0: c1~c4 인프라 + smoke green + leakage assert
-- G1: KR003 1-fold 1-seed hit_1cm finite & ≥ KR002 1-fold − 0.005 (신규 채널이 학습 안정성 안 깨뜨림 sanity)
+- G0: c1~c4 인프라 + smoke green + leakage assert  **[DONE]** (7 pass, t_pred-invariant)
+- G1: KR003 1-fold 1-seed hit_1cm finite & ≥ KR002 1-fold − 0.005 (신규 채널이 학습 안정성 안 깨뜨림 sanity)  **[DONE]** (0.6762 ≥ 0.6717)
 - G_kalman (G2): KR003 full OOF band 판정 (vs KR002 0.6663 + paired permutation)
 - G_frame (G3): KR004 full OOF Δ vs KR003 + paired permutation
 - G_final: 양 exp results 박제 + §0.5 sync + main merge
