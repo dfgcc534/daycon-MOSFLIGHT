@@ -57,16 +57,16 @@ exp_ids:
 | commit | spec | status |
 |---|---|---|
 | c0 spec | §0~§7 (본 파일) | [DONE] (plan-review-master BLOCKER 5→0) |
-| c1 multi-head model + WTA loss | §4.1 `analysis/plan-a-004/model_mh.py` (GRUMultiHead: K head + selector), `losses_mcl.py` (WTA combo + selector CE) | [TODO] |
-| c2 runner | §4.2 `run_oof_mh.py` — KR008 파이프라인 + `--n-heads --gen --route` flag. n_heads=1 → KR008 bit-identical | [TODO] |
-| c3 smoke | §5 `tests/test_plan_a004_smoke.py` — n_heads=1 repro·WTA loss·selector·1f1s1e finite | [TODO] |
+| c1 multi-head model + WTA loss | §4.1 `analysis/plan-a-004/model_mh.py` (GRUMultiHead: K head + selector), `losses_mcl.py` (WTA combo + selector CE) | [DONE] |
+| c2 runner | §4.2 `run_oof_mh.py` — KR008 파이프라인 + `--n-heads --gen --route` flag. n_heads=1 → KR008 bit-identical | [DONE] |
+| c3 smoke | §5 `tests/test_plan_a004_smoke.py` — n_heads=1 repro·WTA loss·selector·1f1s1e finite | [DONE] (5 pass; smoke end-to-end OK) |
 | c4 G1_decisive (KR010) | §5 2-head MCL 1f full-ep — **oracle@2 vs KR008 headroom 판정** (KILL gate) | [TODO] |
 | c5 G_mh 생성·선택 axis (KR011/12) | §5 G1 통과 시만 — 생성×선택×K sweep, best realized-hit OOF | [TODO] |
 | c6 results + (LB gated) + merge | §5 `plan-a-004-...results.md` + §0.5 sync + lane-a merge | [TODO] |
 
 ### G-gates
 
-- G0: c1~c3 인프라 + smoke green + n_heads=1 KR008 repro 불변
+- G0: c1~c3 인프라 + smoke green + n_heads=1 KR008 repro 불변  **[DONE]** (pytest 5 pass, runner smoke OK; 1ep dead-head 관측 → G1 은 soft_top=2)
 - **G1_decisive (KR010, ★ fail-fast)**: 2-head MCL 1-fold(fold0/seed0/cfgA) full-ep. **oracle@2(best-of-2 학습 head) ≥ 0.696 (= KR008 동일 1-fold baseline 0.6757 + 0.02)** & realized-hit ≥ **0.6757 − 0.005 = 0.6707**. **미달 → KILL** (단일 GRU 가 conditional 최적 = MoE 무용, 정보 박제, plan 조기 종료).
 - G_mh (G2): G1 통과 시 — 생성×선택×K axis sweep, best realized-hit OOF vs KR008 + paired permutation.
 - G_lb (G3): best config LB (사용자 gated) vs KR008 0.6862. +0.01(≥0.696) 목표, noise floor 내면 inconclusive.
