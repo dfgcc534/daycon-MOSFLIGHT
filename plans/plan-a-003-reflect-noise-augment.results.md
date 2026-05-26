@@ -102,4 +102,32 @@ python analysis/plan-a-002/run_oof.py --gate full --innov --filtered-v --cv-ca -
 # aug-off repro (KR003 bit-identical 확인) + smoke
 python analysis/plan-a-002/run_oof.py --gate smoke --innov --filtered-v --cv-ca --input-yaw --exp chk  # → 0.6637
 python -m pytest tests/test_plan_a003_smoke.py -q
+# 통계 분석 (read-only, 재학습 0)
+python analysis/plan-a-002/kr008_stats.py   # → kr008_stats.json
 ```
+
+## §7. 통계 분석 (KR008 — `kr008_stats.py`)
+
+**방법**: OOF per_sample_hit (n=10000) 기반 — McNemar exact(`binomtest`) + paired permutation + bootstrap 95% CI. **LB 유의성은 test 라벨 부재로 OOF discordant rate 를 proxy SD(=√(b+c)/n)로 추론** (근사이나 verdict 가 2.6/2.5 vs 0.45 로 비-경계라 robust).
+
+### Pairwise lever 유의성 (lever-decay 검정)
+
+| pair (lever) | OOF Δ | disc b/c | McNemar p | bootstrap 95% CI | noise SD | **LB Δ** | LB Δ/SD | **verdict** |
+|---|---|---|---|---|---|---|---|---|
+| KR002 vs KR001 (입력 yaw) | +0.0024 | 276/252 | 0.317 | [−0.0021,+0.0069] | 0.0023 | **+0.0060** | +2.61 | **real** |
+| KR003 vs KR002 (부산물) | +0.0004 | 108/104 | 0.837 | [−0.0025,+0.0033] | 0.0015 | **+0.0036** | +2.47 | **real** |
+| **KR008 vs KR003 (aug)** | +0.0004 | 160/156 | **0.866** | **[−0.0031,+0.0039]** | 0.0018 | **+0.0008** | **+0.45** | **noise** |
+
+→ yaw·부산물 LB lift 는 proxy SD 의 **>2.4배 = real** (OOF 로는 비유의였으나 LB 에서 실재 = CV-LB 괴리). **aug 는 0.45 SD = noise** — 방법론이 신호(yaw/부산물)와 noise(aug)를 깨끗이 구분하므로 verdict 신뢰 가능.
+
+### 보강 4축 (aug = noise 확증)
+
+1. **McNemar p=0.866** (discordant b=160/c=156, net=4 → 동전던지기).
+2. **bootstrap Δ_OOF 95% CI [−0.0031, +0.0039]** — 0 포함.
+3. **per-fold sign 불일치** (2/5 양, Δ −0.0064~+0.0049) → 일관 shift 아닌 fold-noise.
+4. **config A/B spread 0.0034 > aug effect 0.0004** → aug 이득이 *config 선택 noise 보다 작음* (KR008 A 0.6643 / B 0.6677).
+- **Power**: α=0.05 min detectable Δ = 1.96·0.0018 = **0.0035** > 실제 LB +0.0008 → **검출 불가**.
+
+### 결론
+
+KR008 LB 0.6862 = 프로젝트 top 이나 **+0.0008 은 4축(McNemar p=0.87 · CI 0 포함 · per-fold sign 불일치 · config spread > effect) + power(0.0008 < 0.0035 검출불가)으로 noise floor 내 — aug lift 통계적 미확정**. 동시에 yaw(+2.61 SD)·부산물(+2.47 SD)은 real 로 확정돼 **lever-decay(real→real→noise)** 가 검정으로 박제. artifact: `analysis/plan-a-002/kr008_stats.py` + `kr008_stats.json`.

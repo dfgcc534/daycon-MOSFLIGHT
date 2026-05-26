@@ -1,0 +1,135 @@
+{
+  "n": 10000,
+  "pairs": {
+    "KR002_vs_KR001": {
+      "lever": "입력 yaw 회전",
+      "oof_delta": 0.0024,
+      "b": 276,
+      "c": 252,
+      "mcnemar_p": 0.3169,
+      "perm_delta": 0.0024,
+      "perm_p": 0.3195,
+      "bootstrap_ci": [
+        -0.0021,
+        0.0069
+      ],
+      "noise_sd": 0.0023,
+      "lb_delta": 0.006,
+      "lb_delta_over_sd": 2.61,
+      "verdict": "real"
+    },
+    "KR003_vs_KR002": {
+      "lever": "Kalman 부산물 feature",
+      "oof_delta": 0.0004,
+      "b": 108,
+      "c": 104,
+      "mcnemar_p": 0.8368,
+      "perm_delta": 0.0004,
+      "perm_p": 0.8347,
+      "bootstrap_ci": [
+        -0.0025,
+        0.0033
+      ],
+      "noise_sd": 0.0015,
+      "lb_delta": 0.0036,
+      "lb_delta_over_sd": 2.47,
+      "verdict": "real"
+    },
+    "KR008_vs_KR003": {
+      "lever": "반사+노이즈 augmentation",
+      "oof_delta": 0.0004,
+      "b": 160,
+      "c": 156,
+      "mcnemar_p": 0.866,
+      "perm_delta": 0.0004,
+      "perm_p": 0.8668,
+      "bootstrap_ci": [
+        -0.0031,
+        0.0039
+      ],
+      "noise_sd": 0.0018,
+      "lb_delta": 0.0008,
+      "lb_delta_over_sd": 0.45,
+      "verdict": "noise"
+    }
+  },
+  "per_fold_kr008_vs_kr003": {
+    "fold0": {
+      "n": 2020,
+      "kr003": 0.6787,
+      "kr008": 0.6782,
+      "delta": -0.0005
+    },
+    "fold1": {
+      "n": 2047,
+      "kr003": 0.6585,
+      "kr008": 0.6634,
+      "delta": 0.0049
+    },
+    "fold2": {
+      "n": 1921,
+      "kr003": 0.6648,
+      "kr008": 0.6689,
+      "delta": 0.0042
+    },
+    "fold3": {
+      "n": 2020,
+      "kr003": 0.6748,
+      "kr008": 0.6683,
+      "delta": -0.0064
+    },
+    "fold4": {
+      "n": 1992,
+      "kr003": 0.6566,
+      "kr008": 0.6566,
+      "delta": 0.0
+    },
+    "sign_consistent": false,
+    "n_positive": 2
+  },
+  "config_variance": {
+    "KR001": {
+      "A": 0.6612,
+      "B": 0.663,
+      "spread": 0.0018
+    },
+    "KR002": {
+      "A": 0.6667,
+      "B": 0.6671,
+      "spread": 0.0004
+    },
+    "KR003": {
+      "A": 0.6648,
+      "B": 0.6676,
+      "spread": 0.0028
+    },
+    "KR008": {
+      "A": 0.6643,
+      "B": 0.6677,
+      "spread": 0.0034
+    }
+  },
+  "lever_decay": [
+    {
+      "lever": "입력 yaw 회전",
+      "lb_delta": 0.006,
+      "verdict": "real"
+    },
+    {
+      "lever": "Kalman 부산물 feature",
+      "lb_delta": 0.0036,
+      "verdict": "real"
+    },
+    {
+      "lever": "반사+노이즈 augmentation",
+      "lb_delta": 0.0008,
+      "verdict": "noise"
+    }
+  ],
+  "power": {
+    "noise_sd": 0.0018,
+    "min_detectable_delta_2sided": 0.0035,
+    "lb_delta": 0.0008,
+    "detectable": false
+  }
+}
