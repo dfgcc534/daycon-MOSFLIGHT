@@ -65,6 +65,7 @@ Floors: F0 single-formula = 0.6320 · Kalman-alone = 0.5964 · B001 linear-2pt =
 | b-001 | Yaw-frame anchor-selector + attention restructure | yaw-frame anchor | 0.6296 (B001 F0) / 0.6077 (B002 Kalman) | 0.6162 (kalman_only) | negative | 양 arm G3 FAIL_regression; "frame degeneracy 가 plan-030 실패 carrier" 가설 기각, training procedure carrier 재확증 |
 | c-001 | F0(perp=0.0) 잔차 GRU (FR001) | F0-residual GRU | 0.6622 (FR001) | not_submitted | positive | F0 floor +0.0302 lift = KR001 Kalman 위 +0.0319 와 동급 → "lift 는 baseline 품질보다 GRU 잔차 학습에서 온다" 지지 |
 | d-001 | Neural ODE 노트북 재현 (NODE001) | Neural ODE | 0.6330 (NODE001) | not_submitted | inconclusive | F0 +0.0010 통계 동률 (p=0.79); fold0 ep3 peak 0.6663 → ep15 0.6307 overfitting; "학습 물리 ≈ F0 < 잔차" paradigm 서열 확장 |
+| w-001 | rank1 euijin42 GOH30 재현 (GRU+ODE+HyperPhysics 30모델 블렌드, private 1위) | multi-arch blend | n/a (full-fit) | 0.703 (notebook 0.7035 Δ-0.0005) | EXCELLENT | 노트북 출력 4자리 일치 재현; KR008 +0.0168 lift carrier = 3-arch inductive bias 다양성 + cv_1step yaw 잔차 공통 backbone + Soft R-Hit loss + cache pretrain interior + Y-flip TTA + θ-가중 oversample stack; 단일 lever ablation 후속 plan w-2~7 박제 |
 
 ## Notes
 
@@ -73,7 +74,7 @@ Floors: F0 single-formula = 0.6320 · Kalman-alone = 0.5964 · B001 linear-2pt =
 - `plan-024` = number skipped (no plan).
 - `plan-026/027` = abandoned (LGBM/GRU-attention paradigm mismatch).
 - `plan-009` LB carry-over closed in plan-009.1; `plan-008` LB carry to plan-008.1.
-- LB record trajectory (시계열, *historical only — not a ranking*): linear 0.60 → plan-004 0.6806 → a-001 KR002 0.6818 → a-002 KR003 0.6854 → a-003 KR008 0.6862 (noise floor).
+- LB record trajectory (시계열, *historical only — not a ranking*): linear 0.60 → plan-004 0.6806 → a-001 KR002 0.6818 → a-002 KR003 0.6854 → a-003 KR008 0.6862 (noise floor) → w-001 GOH30 0.703 (rank1 reproduce).
 - OOF record trajectory: F0 0.6320 → plan-022 0.6528 → plan-031 0.6397 (different paradigm) → a-001 KR001 0.6639 → a-002 KR003 0.6667 → a-003 KR008 0.6671 → c-001 FR001 0.6622 (F0-baseline).
 
 ## 어디서 더 보나
