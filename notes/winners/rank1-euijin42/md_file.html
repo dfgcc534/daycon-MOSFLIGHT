@@ -1,0 +1,821 @@
+<link rel="stylesheet" href="https://dacon.io/codecss/notebook2.css">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@9.15.10/build/styles/zenburn.min.css" crossorigin="anonymous">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.11.1/dist/katex.min.css" crossorigin="anonymous">
+        <div class="nb-notebook"><section class="nb-cell nb-markdown-cell"><h1 id="dacon-모기-비행-궤적-예측--private-lb-07035-재현-ipynb"><a class="anchor" href="#dacon-모기-비행-궤적-예측--private-lb-07035-재현-ipynb" aria-hidden="true"></a>DACON 모기 비행 궤적 예측 — Private LB 0.7035 재현 .ipynb</h1><p>11스텝(−400~0ms, 40ms 간격) 3D 위치로 <strong>+80ms 위치</strong>를 예측. 지표 <strong>R-Hit@1cm</strong>(정답과 ≤1cm 비율).</p>
+<p><strong>최종 = GOH30</strong>: GRU + Neural ODE + HyperPhysics 3개 아키텍처 각 10시드, 등가중 30모델 블렌드.</p>
+<p><strong>이 노트북 하나로 raw 데이터 → 전처리 → 학습 → 제출까지 전 과정을 자체 완결</strong> (외부 .py/.pt/.npz 불필요).</p>
+<p><strong>공통 레시피:</strong> cv_1step base + yaw회전 잔차학습 + Soft R-Hit 손실 + 내부전이 사전학습 + EMA + Y-flip TTA.</p>
+<table>
+<thead>
+<tr>
+<th>섹션</th>
+<th>내용</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>cell 1</td>
+<td>설정 (import·device·상수·토글)</td>
+</tr>
+<tr>
+<td>cell 2</td>
+<td>피처 엔지니어링</td>
+</tr>
+<tr>
+<td>cell 3</td>
+<td>전처리 (norm_stats + 캐시, raw에서 생성)</td>
+</tr>
+<tr>
+<td>cell 4</td>
+<td>모델 정의 (GRU / ODE / HyperPhysics)</td>
+</tr>
+<tr>
+<td>cell 5</td>
+<td>손실 + 학습 함수</td>
+</tr>
+<tr>
+<td>cell 6</td>
+<td>학습 실행 (30모델)</td>
+</tr>
+<tr>
+<td>cell 7</td>
+<td>예측 + 블렌드 → 제출</td>
+</tr>
+<tr>
+<td>cell 8</td>
+<td>요약</td>
+</tr>
+</tbody></table>
+</section><section class="nb-cell nb-markdown-cell"><h2 id="개발-환경"><a class="anchor" href="#개발-환경" aria-hidden="true"></a>개발 환경</h2><ul>
+<li>Python 3.11.15 (conda env: DA_project)</li>
+<li>torch 2.12.0 · numpy 2.4.6 · pandas 3.0.3 · scikit-learn 1.8.0</li>
+<li>macOS (Apple Silicon, arm64) / 디바이스: MPS (CUDA·CPU 자동 fallback)</li>
+</ul>
+<h2 id="raw-데이터-파일-설정-위치"><a class="anchor" href="#raw-데이터-파일-설정-위치" aria-hidden="true"></a>RAW 데이터 파일 설정 위치</h2><p><strong>📂 폴더 구조</strong> — <code>Data/</code>만 직접 배치하면 되고, <code>models_goh30/</code>(.pt)와 <code>submission_GOH30.csv</code>는 <strong>실행 시 자동 생성</strong>된다:</p>
+<pre><code class="language-text">&lt;&gt;/
+├── GOH30_reproduce.ipynb         # 현재 재현 노트북
+│
+├── Data/                         # [입력] 직접 배치 (DACON 원본, DATA_DIR=./Data)
+│   ├── train/                    #       학습 궤적 CSV 10,000개
+│   ├── test/                     #       테스트 궤적 CSV 10,000개
+│   └── train_labels.csv          #       정답 라벨
+│
+├── models_goh30/                 # [생성] cell 1이 폴더 생성 → cell 6학습 실행시 .pt 생성 및 저장
+│   ├── phaseG_full_0-9.pt        #       GRU 10개
+│   ├── phaseODE_full_0-9.pt      #       ODE 10개
+│   └── phaseH_full_0-9.pt        #       HyperPhysics 10개   (합 30개)
+│
+└── submission_GOH30.csv          # [생성] cell 7 실행시 생성. 예측 단계 결과 = 최종 제출 .csv
+</code></pre>
+<h2 id="런타임"><a class="anchor" href="#런타임" aria-hidden="true"></a>런타임</h2><ul>
+<li>.ipynb에서는 모델 학습 병렬처리가 힘든 것 같습니다.</li>
+<li>첫 학습하는데 걸리는 시간은 약 2시간 10분입니다(MPS 기준).</li>
+<li>학습된 모델은 <code>./models_goh30/</code>에 저장되며, 모델 학습 후 cell 1를 <code>FROM_SCRATCH=False</code>로 수정 후 재실행 시 로 ~2분에 재현 가능.</li>
+</ul>
+<h2 id="모델-개요--goh30-private-lb-07035"><a class="anchor" href="#모델-개요--goh30-private-lb-07035" aria-hidden="true"></a>모델 개요 — GOH30 (Private LB 0.7035)</h2><p>GRU + Neural ODE + HyperPhysics 3개 아키텍처를 각 10시드씩, 등가중 평균한 30모델 블렌드.</p>
+<ul>
+<li>GRU: 양방향 GRU(h=128, 3층) + attention pooling</li>
+<li>Neural ODE: GRU 인코더 → 댐핑 가속도장 RK4 적분(nsteps=4)</li>
+<li>HyperPhysics: 물리 gray-box (roll 기반 Rodrigues 회전 + θ/speed 게이팅)
+공통: cv_1step base, yaw회전 잔차학습, Soft R-Hit 손실, 내부전이 사전학습, EMA, Y-flip TTA.</li>
+</ul>
+</section><section class="nb-cell nb-code-cell"><div class="nb-source nb-input" data-execution-count="1" data-prompt-number="1"><pre><code class="lang-python" data-language="python"><span class="hljs-comment"># ══════════════════════════════════════════════════════════════════════</span>
+<span class="hljs-comment"># cell 0 · 의존성 설치  (최초 1회 실행 · 로컬에 이미 있으면 생략 가능)</span>
+<span class="hljs-comment">#   검증 환경: Python 3.11.15 · torch 2.12.0 · numpy 2.4.6 · pandas 3.0.3</span>
+<span class="hljs-comment"># ══════════════════════════════════════════════════════════════════════</span>
+!pip install -q numpy pandas torch
+
+<span class="hljs-comment"># 정확한 버전 고정이 필요하면 아래 사용:</span>
+<span class="hljs-comment"># !pip install -q numpy==2.4.6 pandas==3.0.3 torch==2.12.0</span></code></pre></div></section><section class="nb-cell nb-markdown-cell"><h2 id="cell-1-설정-import-·-device-·-토글-·-상수"><a class="anchor" href="#cell-1-설정-import-·-device-·-토글-·-상수" aria-hidden="true"></a>cell 1. 설정 (import · device · 토글 · 상수)</h2><p>라이브러리 import → 연산 디바이스 자동 선택(CUDA→MPS→CPU) → 실행 제어값 정의.</p>
+<p>설정값은 두 종류로 나뉜다.</p>
+<ul>
+<li><strong>토글</strong> — 환경·실행 방식에 맞춰 자유롭게 바꾸는 스위치<ul>
+<li><code>DATA_DIR</code> : DACON 원본 데이터 위치</li>
+<li><code>FROM_SCRATCH</code> : <code>True</code>=30모델 처음부터 학습(<del>2시간 10분) / <code>False</code>=<code>./models_goh30/</code> 학습본 로드(</del>2분)</li>
+<li><code>MODELS_DIR</code> : 학습 가중치 저장·로드 폴더</li>
+</ul>
+</li>
+<li><strong>상수</strong> — 하이퍼파라미터. <strong>0.7035 재현을 위해 고정</strong>(바꾸면 결과가 달라짐). 각 값의 의미는 아래 코드 주석 참고.</li>
+</ul>
+<blockquote>
+<p>💡 set_seed()로 시드를 고정. 검증 환경(Apple Silicon MPS)에서는 처음부터 재학습해도 동일 점수(0.7035)가 재현됨. (다른 환경에선 부동소수점 차이로 미세하게 다를 수 있음)</p>
+</blockquote>
+</section><section class="nb-cell nb-code-cell"><div class="nb-source nb-input" data-execution-count="2" data-prompt-number="2"><pre><code class="lang-python" data-language="python"><span class="hljs-keyword">import</span> os, glob, random, time
+<span class="hljs-keyword">from</span> datetime <span class="hljs-keyword">import</span> datetime
+<span class="hljs-keyword">import</span> numpy <span class="hljs-keyword">as</span> np, pandas <span class="hljs-keyword">as</span> pd
+<span class="hljs-keyword">import</span> torch, torch.nn <span class="hljs-keyword">as</span> nn, torch.nn.functional <span class="hljs-keyword">as</span> F
+<span class="hljs-keyword">from</span> torch.utils.data <span class="hljs-keyword">import</span> Dataset, DataLoader, WeightedRandomSampler   <span class="hljs-comment"># WeightedRandomSampler: H 학습의 θ-가중 오버샘플</span>
+
+<span class="hljs-comment"># ── 토글 (실행 환경/방식에 맞춰 바꾸는 스위치) ──────────────────────────────</span>
+DATA_DIR     = os.environ.get(<span class="hljs-string">&#x27;DATA_DIR&#x27;</span>, <span class="hljs-string">&#x27;./Data&#x27;</span>)   <span class="hljs-comment"># DACON 원본 위치 (Data/train, Data/test, train_labels.csv). 환경변수로도 지정 가능</span>
+FROM_SCRATCH = <span class="hljs-literal">True</span>            <span class="hljs-comment"># True: 30모델 처음부터 학습(~2시간 10분, MPS) / False: ./models_goh30/*.pt 로드(~2분)</span>
+MODELS_DIR   = <span class="hljs-string">&#x27;./models_goh30&#x27;</span>                         <span class="hljs-comment"># 학습 가중치 저장·로드 폴더</span>
+os.makedirs(MODELS_DIR, exist_ok=<span class="hljs-literal">True</span>)                 <span class="hljs-comment"># 폴더 없으면 생성</span>
+
+<span class="hljs-comment"># 연산 디바이스 자동 선택: CUDA &gt; MPS(Apple Silicon) &gt; CPU</span>
+DEVICE = (torch.device(<span class="hljs-string">&#x27;cuda&#x27;</span>) <span class="hljs-keyword">if</span> torch.cuda.is_available()
+          <span class="hljs-keyword">else</span> torch.device(<span class="hljs-string">&#x27;mps&#x27;</span>) <span class="hljs-keyword">if</span> torch.backends.mps.is_available() <span class="hljs-keyword">else</span> torch.device(<span class="hljs-string">&#x27;cpu&#x27;</span>))
+
+<span class="hljs-comment"># ── 상수 (우승 레시피 하이퍼파라미터 · 0.7035 재현 위해 고정 — 바꾸면 결과 달라짐) ──</span>
+DT = <span class="hljs-number">0.04</span>; PRED_DT = <span class="hljs-number">0.08</span>; CLIP_THR = <span class="hljs-number">1.33</span>     <span class="hljs-comment"># 관측간격 40ms · 예측시점 +80ms · 센서 클리핑 속력기준(scalar clip_flag용)</span>
+SPEED_BINS = [<span class="hljs-number">0.0</span>, <span class="hljs-number">0.3</span>, <span class="hljs-number">0.6</span>, <span class="hljs-number">0.9</span>, <span class="hljs-number">1.2</span>, np.inf]                       <span class="hljs-comment"># scalar 피처의 속력 구간 one-hot(5칸) 경계</span>
+SIGMA = <span class="hljs-number">0.02</span>; RHIT_TAU = <span class="hljs-number">0.0015</span>; RHIT_W = <span class="hljs-number">2.0</span>; HW = <span class="hljs-number">0.5</span>; GW = <span class="hljs-number">0.5</span>     <span class="hljs-comment"># GRU/ODE 손실: 가우시안폭 σ · R-Hit 날카로움 τ · R-Hit가중 · Huber/soft 가중</span>
+FLIP_PROB = <span class="hljs-number">0.5</span>; NOISE_STD = <span class="hljs-number">0.02</span>; Y_FLIP = [<span class="hljs-number">1</span>, <span class="hljs-number">4</span>, <span class="hljs-number">7</span>, <span class="hljs-number">10</span>]; INTERIOR_E = [<span class="hljs-number">5</span>, <span class="hljs-number">6</span>, <span class="hljs-number">7</span>, <span class="hljs-number">8</span>]   <span class="hljs-comment"># 증강: y-flip 확률·입력노이즈 / Y_FLIP=좌우대칭 시 부호반전할 seq채널 / INTERIOR_E=내부전이 사전학습 지점 e</span>
+N_EACH = <span class="hljs-number">10</span>                                                          <span class="hljs-comment"># 아키텍처당 시드 수 (GRU10 + ODE10 + H10 = 30모델)</span>
+GRU_ODE_EPOCHS = <span class="hljs-number">55</span>; H_EPOCHS = <span class="hljs-number">12</span>; EMA_DECAY = <span class="hljs-number">0.9</span>                  <span class="hljs-comment"># 전체학습 에폭(GRU·ODE / HyperPhysics) · EMA 가중평균 감쇠율</span>
+
+<span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">set_seed</span>(<span class="hljs-params">s</span>):</span>
+    random.seed(s); np.random.seed(s); torch.manual_seed(s)         <span class="hljs-comment"># random·numpy·torch 시드 동시 고정 → 재현성 확보</span>
+
+<span class="hljs-built_in">print</span>(<span class="hljs-string">&#x27;device:&#x27;</span>, DEVICE, <span class="hljs-string">&#x27;| FROM_SCRATCH:&#x27;</span>, FROM_SCRATCH, <span class="hljs-string">&#x27;| DATA_DIR:&#x27;</span>, DATA_DIR)</code></pre></div><div class="nb-output" data-execution-count="2" data-prompt-number="2"><pre class="nb-stdout">device: mps | FROM_SCRATCH: True | DATA_DIR: ./Data
+</pre></div></section><section class="nb-cell nb-markdown-cell"><h2 id="cell-2-피처-엔지니어링"><a class="anchor" href="#cell-2-피처-엔지니어링" aria-hidden="true"></a>cell 2. 피처 엔지니어링</h2><p>원본 <code>src/preprocess.py</code> + <code>src/features_clean.py</code> + <code>window_features</code>를 노트북에 인라인.</p>
+<p><strong>핵심 설계</strong></p>
+<ul>
+<li><strong>base = cv_1step</strong> = <code>last + 2·(last−prev)</code> — 등속 가정 +80ms 예측. 모든 모델은 이 base의 <em>잔차</em>만 학습(난이도↓·안정성↑).</li>
+<li><strong>yaw 정렬</strong> — 마지막 속도의 xy 방향을 +x축으로 회전(z축). 절대 방위에 불변 → 모기가 어느 방향을 향하든 같은 패턴으로 학습 → 일반화↑.</li>
+<li><strong>속도·가속·저크</strong> = <code>np.gradient</code> 중앙차분 (Kalman 미사용).</li>
+</ul>
+<p><strong>산출 피처</strong></p>
+<ul>
+<li><code>seq</code> (11, 13): 상대위치3 · 회전속도3 · 가속3 · 저크3 · 각속도1</li>
+<li><code>scalar</code> (22): 속력·가속·직선성·클리핑·방향일관성 등 14 + 추가 통계 8</li>
+</ul>
+</section><section class="nb-cell nb-code-cell"><div class="nb-source nb-input" data-execution-count="3" data-prompt-number="3"><pre><code class="lang-python" data-language="python"><span class="hljs-comment"># ── raw CSV(11×xyz) 로드 ──</span>
+<span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">load_sample</span>(<span class="hljs-params">path</span>):</span>
+    df = pd.read_csv(path)
+    <span class="hljs-keyword">return</span> df[[<span class="hljs-string">&#x27;x&#x27;</span>, <span class="hljs-string">&#x27;y&#x27;</span>, <span class="hljs-string">&#x27;z&#x27;</span>]].to_numpy(dtype=np.float32)   <span class="hljs-comment"># (11,3) 위치 배열</span>
+
+<span class="hljs-comment"># ── yaw 회전행렬: xy 속도방향을 +x축에 정렬(z축 회전) → 방위 불변 ──</span>
+<span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">yaw_rotation_matrix</span>(<span class="hljs-params">velocity</span>):</span>
+    vx, vy = <span class="hljs-built_in">float</span>(velocity[<span class="hljs-number">0</span>]), <span class="hljs-built_in">float</span>(velocity[<span class="hljs-number">1</span>])
+    speed_xy = np.sqrt(vx ** <span class="hljs-number">2</span> + vy ** <span class="hljs-number">2</span>)
+    <span class="hljs-keyword">if</span> speed_xy &lt; <span class="hljs-number">1e-6</span>:   <span class="hljs-comment"># 정지면 회전 없음(단위행렬)</span>
+        <span class="hljs-keyword">return</span> np.eye(<span class="hljs-number">3</span>, dtype=np.float32)
+    cos_yaw, sin_yaw = vx / speed_xy, vy / speed_xy
+    <span class="hljs-keyword">return</span> np.array([[cos_yaw, sin_yaw, <span class="hljs-number">0.0</span>], [-sin_yaw, cos_yaw, <span class="hljs-number">0.0</span>], [<span class="hljs-number">0.0</span>, <span class="hljs-number">0.0</span>, <span class="hljs-number">1.0</span>]], dtype=np.float32)   <span class="hljs-comment"># z축 회전행렬 (3,3)</span>
+
+<span class="hljs-comment"># ── 시퀀스 피처 (11,13): 회전프레임 위치/속도/가속/저크/각속도 ──</span>
+<span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">extract_seq_features</span>(<span class="hljs-params">smoothed_pos, smoothed_vel, rot</span>):</span>
+    last_pos = smoothed_pos[-<span class="hljs-number">1</span>]
+    rel_pos = (smoothed_pos - last_pos) @ rot.T   <span class="hljs-comment"># 마지막 위치 기준 상대위치 → 회전프레임</span>
+    vel_rot = smoothed_vel @ rot.T   <span class="hljs-comment"># 속도도 회전프레임 (11,3)</span>
+    accel = np.zeros_like(vel_rot)
+    accel[<span class="hljs-number">1</span>:-<span class="hljs-number">1</span>] = (vel_rot[<span class="hljs-number">2</span>:] - vel_rot[:-<span class="hljs-number">2</span>]) / (<span class="hljs-number">2</span> * DT); accel[<span class="hljs-number">0</span>] = accel[<span class="hljs-number">1</span>]; accel[-<span class="hljs-number">1</span>] = accel[-<span class="hljs-number">2</span>]   <span class="hljs-comment"># 가속도=속도 중앙차분(양끝 복제)</span>
+    jerk = np.zeros_like(accel)
+    jerk[<span class="hljs-number">1</span>:-<span class="hljs-number">1</span>] = (accel[<span class="hljs-number">2</span>:] - accel[:-<span class="hljs-number">2</span>]) / (<span class="hljs-number">2</span> * DT); jerk[<span class="hljs-number">0</span>] = jerk[<span class="hljs-number">1</span>]; jerk[-<span class="hljs-number">1</span>] = jerk[-<span class="hljs-number">2</span>]   <span class="hljs-comment"># 저크=가속도 중앙차분</span>
+    speed = np.linalg.norm(vel_rot, axis=<span class="hljs-number">1</span>, keepdims=<span class="hljs-literal">True</span>)
+    v_norm = vel_rot / (speed + <span class="hljs-number">1e-12</span>)
+    cos_sim = (v_norm[:-<span class="hljs-number">1</span>] * v_norm[<span class="hljs-number">1</span>:]).<span class="hljs-built_in">sum</span>(axis=<span class="hljs-number">1</span>)
+    angular_vel = np.concatenate([[cos_sim[<span class="hljs-number">0</span>]], cos_sim])   <span class="hljs-comment"># 연속 속도방향 코사인유사도(선회 정도)</span>
+    features = np.concatenate([rel_pos, vel_rot, accel, jerk, angular_vel[:, <span class="hljs-literal">None</span>]], axis=<span class="hljs-number">1</span>)   <span class="hljs-comment"># 3+3+3+3+1=13채널</span>
+    <span class="hljs-keyword">return</span> features.astype(np.float32)
+
+<span class="hljs-comment"># ── 스칼라 피처: 궤적 요약 통계 ──</span>
+<span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">extract_scalar_features</span>(<span class="hljs-params">smoothed_pos, smoothed_vel</span>):</span>
+    speeds = np.linalg.norm(smoothed_vel, axis=<span class="hljs-number">1</span>); last_speed = <span class="hljs-built_in">float</span>(speeds[-<span class="hljs-number">1</span>])
+    vel_diff = np.diff(smoothed_vel, axis=<span class="hljs-number">0</span>) / DT; accel_mag = np.linalg.norm(vel_diff, axis=<span class="hljs-number">1</span>)
+    last_accel = <span class="hljs-built_in">float</span>(accel_mag[-<span class="hljs-number">1</span>]); mean_accel = <span class="hljs-built_in">float</span>(accel_mag.mean())
+    t = np.arange(<span class="hljs-built_in">len</span>(smoothed_pos), dtype=np.float32); r2_list = []
+    <span class="hljs-keyword">for</span> dim <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">3</span>):
+        y = smoothed_pos[:, dim]; coeffs = np.polyfit(t, y, <span class="hljs-number">1</span>); y_pred = np.polyval(coeffs, t)
+        ss_res = <span class="hljs-built_in">float</span>(np.<span class="hljs-built_in">sum</span>((y - y_pred) ** <span class="hljs-number">2</span>)); ss_tot = <span class="hljs-built_in">float</span>(np.<span class="hljs-built_in">sum</span>((y - y.mean()) ** <span class="hljs-number">2</span>))
+        r2_list.append(<span class="hljs-number">1.0</span> - ss_res / (ss_tot + <span class="hljs-number">1e-10</span>))
+    linearity = <span class="hljs-built_in">float</span>(np.mean(r2_list)); clip_flag = <span class="hljs-built_in">float</span>(last_speed &gt; CLIP_THR)   <span class="hljs-comment"># 직선성(R²) · 클리핑여부(속력&gt;1.33)</span>
+    v_norm = smoothed_vel / (np.linalg.norm(smoothed_vel, axis=<span class="hljs-number">1</span>, keepdims=<span class="hljs-literal">True</span>) + <span class="hljs-number">1e-12</span>)
+    cos_sim_all = (v_norm[:-<span class="hljs-number">1</span>] * v_norm[<span class="hljs-number">1</span>:]).<span class="hljs-built_in">sum</span>(axis=<span class="hljs-number">1</span>)
+    dir_consistency = <span class="hljs-built_in">float</span>(cos_sim_all.mean()); delta_speed = <span class="hljs-built_in">float</span>(speeds[-<span class="hljs-number">1</span>] - speeds[-<span class="hljs-number">2</span>])
+    last_dir_change = <span class="hljs-built_in">float</span>(cos_sim_all[-<span class="hljs-number">1</span>])
+    last_vel_norm = v_norm[-<span class="hljs-number">1</span>]; last_accel_vec = vel_diff[-<span class="hljs-number">1</span>]
+    tangential = np.dot(last_accel_vec, last_vel_norm) * last_vel_norm
+    last_normal_accel = <span class="hljs-built_in">float</span>(np.linalg.norm(last_accel_vec - tangential))   <span class="hljs-comment"># 법선(구심)가속 = 선회 강도</span>
+    speed_bin = np.zeros(<span class="hljs-number">5</span>, dtype=np.float32)
+    <span class="hljs-keyword">for</span> k <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">5</span>):   <span class="hljs-comment"># 마지막 속력 → 5구간 one-hot</span>
+        <span class="hljs-keyword">if</span> SPEED_BINS[k] &lt;= last_speed &lt; SPEED_BINS[k + <span class="hljs-number">1</span>]: speed_bin[k] = <span class="hljs-number">1.0</span>; <span class="hljs-keyword">break</span>
+    scalar = np.array([last_speed, last_accel, mean_accel, linearity, clip_flag,
+                       dir_consistency, delta_speed, last_dir_change, last_normal_accel], dtype=np.float32)
+    <span class="hljs-keyword">return</span> np.concatenate([scalar, speed_bin])   <span class="hljs-comment"># 9 + 5 = 14</span>
+
+<span class="hljs-comment"># ── 가변길이 윈도우(L≥4) → 피처 (build_features_clean의 일반화) ──</span>
+<span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">window_features</span>(<span class="hljs-params">W</span>):</span>
+    <span class="hljs-string">&#x27;&#x27;&#x27;길이 L&gt;=4 윈도우 → seq(L,13), scalar(22), rot, base, last_pos. (build_features_clean의 일반화)&#x27;&#x27;&#x27;</span>
+    W = W.astype(np.float64); vel = np.gradient(W, DT, axis=<span class="hljs-number">0</span>); rot = yaw_rotation_matrix(vel[-<span class="hljs-number">1</span>])   <span class="hljs-comment"># 속도=중앙차분, 회전=마지막 속도방향</span>
+    seq = extract_seq_features(W, vel, rot); b14 = extract_scalar_features(W, vel)
+    sp = np.linalg.norm(vel, axis=<span class="hljs-number">1</span>); steps = np.linalg.norm(np.diff(W, axis=<span class="hljs-number">0</span>), axis=<span class="hljs-number">1</span>); L = <span class="hljs-built_in">len</span>(W)
+    path = <span class="hljs-built_in">float</span>(steps.<span class="hljs-built_in">sum</span>()); net = <span class="hljs-built_in">float</span>(np.linalg.norm(W[-<span class="hljs-number">1</span>] - W[<span class="hljs-number">0</span>])); straight = net / (path + <span class="hljs-number">1e-8</span>)
+    t = np.arange(<span class="hljs-built_in">float</span>(L)); noise = <span class="hljs-built_in">float</span>(np.mean([(W[:, d] - np.polyval(np.polyfit(t, W[:, d], <span class="hljs-number">2</span>), t)).std() <span class="hljs-keyword">for</span> d <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">3</span>)]))
+    k = <span class="hljs-built_in">min</span>(<span class="hljs-number">4</span>, L); acc_trend = <span class="hljs-built_in">float</span>(np.polyfit(np.arange(<span class="hljs-built_in">float</span>(k)), sp[-k:], <span class="hljs-number">1</span>)[<span class="hljs-number">0</span>])
+    sc = np.concatenate([b14, [<span class="hljs-built_in">float</span>(sp.<span class="hljs-built_in">max</span>()), <span class="hljs-built_in">float</span>(sp.std()), <span class="hljs-built_in">float</span>(sp[-<span class="hljs-number">3</span>:].mean()), <span class="hljs-built_in">float</span>(sp[-<span class="hljs-number">5</span>:].mean()),   <span class="hljs-comment"># 추가 8: 최대·표준편차·최근3/5평균 속력 등</span>
+                               path, straight, noise, acc_trend]]).astype(np.float32)
+    base = (W[-<span class="hljs-number">1</span>] + <span class="hljs-number">2.0</span> * (W[-<span class="hljs-number">1</span>] - W[-<span class="hljs-number">2</span>])).astype(np.float32)   <span class="hljs-comment"># base = cv_1step (+80ms 등속)</span>
+    <span class="hljs-keyword">return</span> seq.astype(np.float32), sc, rot.astype(np.float32), base, W[-<span class="hljs-number">1</span>].astype(np.float32)   <span class="hljs-comment"># seq, scalar22, rot, base, last_pos</span>
+
+<span class="hljs-comment"># ── L=11 전용 진입점(테스트 전처리) ──</span>
+<span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">build_features_clean</span>(<span class="hljs-params">X</span>):</span>
+    <span class="hljs-string">&#x27;&#x27;&#x27;L=11 전용 (window_features와 동일 산식). 테스트 전처리용.&#x27;&#x27;&#x27;</span>
+    <span class="hljs-keyword">return</span> window_features(X)
+
+<span class="hljs-comment"># ── norm_stats로 표준화 ──</span>
+<span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">normalize</span>(<span class="hljs-params">seq, scalar, stats</span>):</span>
+    seq_n = ((seq - stats[<span class="hljs-string">&#x27;seq_mean&#x27;</span>]) / stats[<span class="hljs-string">&#x27;seq_std&#x27;</span>]).astype(np.float32)
+    scal_n = ((scalar - stats[<span class="hljs-string">&#x27;scalar_mean&#x27;</span>]) / stats[<span class="hljs-string">&#x27;scalar_std&#x27;</span>]).astype(np.float32)
+    <span class="hljs-keyword">return</span> seq_n, scal_n
+
+<span class="hljs-built_in">print</span>(<span class="hljs-string">&#x27;피처 함수 정의 완료&#x27;</span>)</code></pre></div><div class="nb-output" data-execution-count="3" data-prompt-number="3"><pre class="nb-stdout">피처 함수 정의 완료
+</pre></div></section><section class="nb-cell nb-markdown-cell"><h2 id="cell-3-전처리--norm_stats--학습-캐시-raw에서-직접-생성"><a class="anchor" href="#cell-3-전처리--norm_stats--학습-캐시-raw에서-직접-생성" aria-hidden="true"></a>cell 3. 전처리 — norm_stats + 학습 캐시 (raw에서 직접 생성)</h2><p><code>Data/train</code>(10,000 궤적)에서 두 가지를 메모리에 생성.</p>
+<ol>
+<li><strong>norm_stats</strong> — 전체 학습셋 피처의 평균/표준편차(seq 13 + scalar 22). 입력 표준화에 사용.</li>
+<li><strong>학습 캐시</strong> — 궤적당 5개 예시 = 총 50,000:<ul>
+<li><strong>real</strong> (e=10): 11스텝 전체 → 실제 라벨(+80ms)</li>
+<li><strong>interior</strong> (e∈{5,6,7,8}): 앞부분만 잘라 내부 지점 <code>X[e+2]</code>를 타깃으로 = <em>내부 전이 사전학습</em>. 짧은 윈도우는 좌측 zero-pad + mask.</li>
+<li>타깃은 base 기준 잔차를 yaw 프레임으로: <code>rot @ (tgt − base)</code>.</li>
+</ul>
+</li>
+</ol>
+<blockquote>
+<p>이 캐시로 GRU·ODE를 학습. (HyperPhysics는 raw 궤적을 직접 사용 — cell 4c/5 참고.)</p>
+</blockquote>
+</section><section class="nb-cell nb-code-cell"><div class="nb-source nb-input" data-execution-count="4" data-prompt-number="4"><pre><code class="lang-python" data-language="python">TRAIN_DIR = <span class="hljs-string">f&#x27;<span class="hljs-subst">{DATA_DIR}</span>/train&#x27;</span>; TEST_DIR = <span class="hljs-string">f&#x27;<span class="hljs-subst">{DATA_DIR}</span>/test&#x27;</span>
+train_paths = <span class="hljs-built_in">sorted</span>(glob.glob(<span class="hljs-string">f&#x27;<span class="hljs-subst">{TRAIN_DIR}</span>/*.csv&#x27;</span>))
+labels = pd.read_csv(<span class="hljs-string">f&#x27;<span class="hljs-subst">{DATA_DIR}</span>/train_labels.csv&#x27;</span>).sort_values(<span class="hljs-string">&#x27;id&#x27;</span>).reset_index(drop=<span class="hljs-literal">True</span>)[[<span class="hljs-string">&#x27;x&#x27;</span>, <span class="hljs-string">&#x27;y&#x27;</span>, <span class="hljs-string">&#x27;z&#x27;</span>]].to_numpy(np.float32)   <span class="hljs-comment"># id 정렬 후 (x,y,z) 라벨</span>
+<span class="hljs-keyword">assert</span> <span class="hljs-built_in">len</span>(train_paths) == <span class="hljs-built_in">len</span>(labels), (<span class="hljs-built_in">len</span>(train_paths), <span class="hljs-built_in">len</span>(labels))
+<span class="hljs-built_in">print</span>(<span class="hljs-string">f&#x27;train 궤적 <span class="hljs-subst">{<span class="hljs-built_in">len</span>(train_paths):,}</span>개&#x27;</span>)
+
+<span class="hljs-comment"># ── (1) norm_stats: 전체 학습셋 피처의 평균/표준편차 ───────────────────</span>
+_SEQ, _SC = [], []
+<span class="hljs-keyword">for</span> p <span class="hljs-keyword">in</span> train_paths:
+    X = pd.read_csv(p)[[<span class="hljs-string">&#x27;x&#x27;</span>, <span class="hljs-string">&#x27;y&#x27;</span>, <span class="hljs-string">&#x27;z&#x27;</span>]].to_numpy(); s, sc, *_ = build_features_clean(X); _SEQ.append(s); _SC.append(sc)   <span class="hljs-comment"># 궤적별 피처</span>
+_SEQ = np.stack(_SEQ); _SC = np.stack(_SC)
+STATS = {<span class="hljs-string">&#x27;seq_mean&#x27;</span>: _SEQ.reshape(-<span class="hljs-number">1</span>, <span class="hljs-number">13</span>).mean(<span class="hljs-number">0</span>), <span class="hljs-string">&#x27;seq_std&#x27;</span>: _SEQ.reshape(-<span class="hljs-number">1</span>, <span class="hljs-number">13</span>).std(<span class="hljs-number">0</span>),   <span class="hljs-comment"># 채널별 평균/표준편차</span>
+         <span class="hljs-string">&#x27;scalar_mean&#x27;</span>: _SC.mean(<span class="hljs-number">0</span>), <span class="hljs-string">&#x27;scalar_std&#x27;</span>: _SC.std(<span class="hljs-number">0</span>)}
+<span class="hljs-built_in">print</span>(<span class="hljs-string">&#x27;norm_stats 생성 (seq 13 + scalar 22)&#x27;</span>)
+
+<span class="hljs-comment"># ── (2) 캐시: real(e=10) + interior(e∈{5,6,7,8}) 전이, 좌측 zero-pad ──</span>
+SEQ, SCAL, MASK, TGT, ROT, SPD, TRAJ, REAL = [], [], [], [], [], [], [], []
+<span class="hljs-keyword">for</span> i, p <span class="hljs-keyword">in</span> <span class="hljs-built_in">enumerate</span>(train_paths):
+    X = load_sample(p).astype(np.float64)
+    ex = [(<span class="hljs-number">10</span>, labels[i])] + [(e, X[e + <span class="hljs-number">2</span>]) <span class="hljs-keyword">for</span> e <span class="hljs-keyword">in</span> INTERIOR_E]   <span class="hljs-comment"># real(e=10,라벨)+interior(e∈{5,6,7,8}, X[e+2])</span>
+    <span class="hljs-keyword">for</span> e, tgt <span class="hljs-keyword">in</span> ex:
+        W = X[:e + <span class="hljs-number">1</span>]; L = <span class="hljs-built_in">len</span>(W)   <span class="hljs-comment"># 앞에서 e+1스텝만 사용</span>
+        seq, sc, rot, base, lp = window_features(W)
+        seq_n = ((seq - STATS[<span class="hljs-string">&#x27;seq_mean&#x27;</span>]) / STATS[<span class="hljs-string">&#x27;seq_std&#x27;</span>]).astype(np.float32)
+        sc_n = ((sc - STATS[<span class="hljs-string">&#x27;scalar_mean&#x27;</span>]) / STATS[<span class="hljs-string">&#x27;scalar_std&#x27;</span>]).astype(np.float32)
+        pad = <span class="hljs-number">11</span> - L   <span class="hljs-comment"># 11보다 짧으면 좌측 zero-pad</span>
+        seq11 = np.zeros((<span class="hljs-number">11</span>, <span class="hljs-number">13</span>), np.float32); seq11[pad:] = seq_n
+        mask = np.zeros(<span class="hljs-number">11</span>, np.float32); mask[pad:] = <span class="hljs-number">1.0</span>   <span class="hljs-comment"># 유효 스텝=1, pad=0</span>
+        tgt_rot = (rot @ (tgt - base)).astype(np.float32)   <span class="hljs-comment"># 타깃을 base 잔차 → 회전프레임</span>
+        SEQ.append(seq11); SCAL.append(sc_n); MASK.append(mask); TGT.append(tgt_rot); ROT.append(rot)
+        SPD.append(<span class="hljs-built_in">float</span>(np.linalg.norm(np.gradient(W, DT, axis=<span class="hljs-number">0</span>)[-<span class="hljs-number">1</span>]))); TRAJ.append(i); REAL.append(<span class="hljs-built_in">int</span>(e == <span class="hljs-number">10</span>))   <span class="hljs-comment"># 마지막 속력(분석용)</span>
+CACHE = <span class="hljs-built_in">dict</span>(seq=np.stack(SEQ), scal=np.stack(SCAL), mask=np.stack(MASK), tgt=np.stack(TGT),
+             rot=np.stack(ROT), spd=np.array(SPD, np.float32), traj=np.array(TRAJ), real=np.array(REAL), labels=labels)
+<span class="hljs-built_in">print</span>(<span class="hljs-string">f&#x27;캐시 생성: <span class="hljs-subst">{<span class="hljs-built_in">len</span>(SEQ):,}</span> examples (real <span class="hljs-subst">{<span class="hljs-built_in">sum</span>(REAL):,}</span>)&#x27;</span>)</code></pre></div><div class="nb-output" data-execution-count="4" data-prompt-number="4"><pre class="nb-stdout">train 궤적 10,000개
+norm_stats 생성 (seq 13 + scalar 22)
+캐시 생성: 50,000 examples (real 10,000)
+</pre></div></section><section class="nb-cell nb-markdown-cell"><h2 id="cell-4-모델-정의"><a class="anchor" href="#cell-4-모델-정의" aria-hidden="true"></a>cell 4. 모델 정의</h2><p>3개 아키텍처를 정의한다 — <strong>GRU</strong>(시퀀스), <strong>Neural ODE</strong>(물리 적분), <strong>HyperPhysics</strong>(선회 물리). 각 10시드 학습 → 등가중 30모델 블렌드.</p>
+<blockquote>
+<p>서로 다른 귀납 편향(inductive bias)을 가진 모델을 섞어 <strong>탈상관</strong>시키는 것이 핵심. 세 모델이 서로 다른 메커니즘이라 블렌드 다양성이 확보된다.</p>
+</blockquote>
+</section><section class="nb-cell nb-markdown-cell"><h3 id="cell-4a-gru--양방향-gru--attention-pooling"><a class="anchor" href="#cell-4a-gru--양방향-gru--attention-pooling" aria-hidden="true"></a>cell 4a. GRU — 양방향 GRU + attention pooling</h3><p>시퀀스를 양방향 GRU(h=128, 3층)로 인코딩 → <strong>3종 풀링</strong>(마지막 스텝 · mask 평균 · attention)을 이어붙이고 scalar를 결합해 base의 <em>잔차</em>(3D)를 예측.</p>
+</section><section class="nb-cell nb-code-cell"><div class="nb-source nb-input" data-execution-count="5" data-prompt-number="5"><pre><code class="lang-python" data-language="python"><span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">AttnGRU</span>(<span class="hljs-params">nn.Module</span>):</span>   <span class="hljs-comment"># phaseG_full</span>
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">__init__</span>(<span class="hljs-params">self, seq_dim=<span class="hljs-number">13</span>, scal_dim=<span class="hljs-number">22</span>, h=<span class="hljs-number">128</span>, nl=<span class="hljs-number">3</span>, dr=<span class="hljs-number">0.15</span></span>):</span>
+        <span class="hljs-built_in">super</span>().__init__()
+        self.proj = nn.Sequential(nn.Linear(seq_dim, h), nn.LayerNorm(h))   <span class="hljs-comment"># 13→128 입력 투영</span>
+        self.gru = nn.GRU(h, h, nl, batch_first=<span class="hljs-literal">True</span>, bidirectional=<span class="hljs-literal">True</span>, dropout=dr <span class="hljs-keyword">if</span> nl &gt; <span class="hljs-number">1</span> <span class="hljs-keyword">else</span> <span class="hljs-number">0</span>)   <span class="hljs-comment"># 양방향 GRU(128,3층)→256</span>
+        self.attn = nn.Linear(h*<span class="hljs-number">2</span>, <span class="hljs-number">1</span>)   <span class="hljs-comment"># attention 점수</span>
+        self.head = nn.Sequential(nn.Linear(h*<span class="hljs-number">6</span>+scal_dim, <span class="hljs-number">256</span>), nn.GELU(), nn.Dropout(dr),   <span class="hljs-comment"># 풀링3(768)+scalar22 → 3D 잔차</span>
+                                  nn.Linear(<span class="hljs-number">256</span>, <span class="hljs-number">64</span>), nn.GELU(), nn.Linear(<span class="hljs-number">64</span>, <span class="hljs-number">3</span>))
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">forward</span>(<span class="hljs-params">self, seq, scal, mask</span>):</span>
+        x = self.proj(seq); out, _ = self.gru(x); last = out[:, -<span class="hljs-number">1</span>, :]; m = mask.unsqueeze(-<span class="hljs-number">1</span>)   <span class="hljs-comment"># last=마지막 스텝</span>
+        mean = (out*m).<span class="hljs-built_in">sum</span>(<span class="hljs-number">1</span>)/m.<span class="hljs-built_in">sum</span>(<span class="hljs-number">1</span>).clamp(<span class="hljs-built_in">min</span>=<span class="hljs-number">1</span>)   <span class="hljs-comment"># mask 평균 풀링(pad 제외)</span>
+        score = self.attn(out).squeeze(-<span class="hljs-number">1</span>).masked_fill(mask &lt; <span class="hljs-number">0.5</span>, -<span class="hljs-number">1e9</span>)   <span class="hljs-comment"># pad는 softmax에서 제외</span>
+        att = (torch.softmax(score, dim=<span class="hljs-number">1</span>).unsqueeze(-<span class="hljs-number">1</span>)*out).<span class="hljs-built_in">sum</span>(<span class="hljs-number">1</span>)   <span class="hljs-comment"># attention 가중 풀링</span>
+        <span class="hljs-keyword">return</span> self.head(torch.cat([last, mean, att, scal], -<span class="hljs-number">1</span>))   <span class="hljs-comment"># 3풀링+scalar → 잔차</span></code></pre></div></section><section class="nb-cell nb-markdown-cell"><h3 id="cell-4b-neural-ode--댐핑-가속도장을-rk4-적분"><a class="anchor" href="#cell-4b-neural-ode--댐핑-가속도장을-rk4-적분" aria-hidden="true"></a>cell 4b. Neural ODE — 댐핑 가속도장을 RK4 적분</h3><p>GRU로 시퀀스를 latent로 인코딩 → 신경망 가속도장 <code>a(x,v) = NN(x,v,latent) − damping·v</code> 를 RK4로 0.08초 적분해 변위(잔차)를 얻는다. 명시적 적분 구조가 GRU와 다른 귀납 편향을 준다.</p>
+</section><section class="nb-cell nb-code-cell"><div class="nb-source nb-input" data-execution-count="6" data-prompt-number="6"><pre><code class="lang-python" data-language="python"><span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ODEModel</span>(<span class="hljs-params">nn.Module</span>):</span>   <span class="hljs-comment"># phaseODE_full (train_phaseODE의 MaskedBiGRU와 동일)</span>
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">__init__</span>(<span class="hljs-params">self, seq_dim=<span class="hljs-number">13</span>, scal_dim=<span class="hljs-number">22</span>, h=<span class="hljs-number">128</span>, nl=<span class="hljs-number">2</span>, dr=<span class="hljs-number">0.15</span>, latent=<span class="hljs-number">96</span>, nsteps=<span class="hljs-number">4</span></span>):</span>
+        <span class="hljs-built_in">super</span>().__init__()
+        self.proj = nn.Sequential(nn.Linear(seq_dim, h), nn.LayerNorm(h))
+        self.gru = nn.GRU(h, h, nl, batch_first=<span class="hljs-literal">True</span>, bidirectional=<span class="hljs-literal">True</span>, dropout=dr <span class="hljs-keyword">if</span> nl &gt; <span class="hljs-number">1</span> <span class="hljs-keyword">else</span> <span class="hljs-number">0</span>)
+        self.to_latent = nn.Sequential(nn.Linear(h*<span class="hljs-number">4</span>+scal_dim, latent), nn.LayerNorm(latent), nn.GELU())   <span class="hljs-comment"># GRU표현(256)+scalar → latent 96</span>
+        self.accel = nn.Sequential(nn.Linear(<span class="hljs-number">3</span>+<span class="hljs-number">3</span>+latent, <span class="hljs-number">128</span>), nn.LayerNorm(<span class="hljs-number">128</span>), nn.GELU(), nn.Dropout(dr),   <span class="hljs-comment"># 가속도장 NN: (pos3,vel3,latent)→acc3</span>
+                                   nn.Linear(<span class="hljs-number">128</span>, <span class="hljs-number">64</span>), nn.GELU(), nn.Linear(<span class="hljs-number">64</span>, <span class="hljs-number">3</span>))
+        self.damping = nn.Parameter(torch.tensor([<span class="hljs-number">1.0</span>, <span class="hljs-number">1.0</span>, <span class="hljs-number">1.0</span>]))   <span class="hljs-comment"># 축별 댐핑(학습 파라미터)</span>
+        self.bias = nn.Parameter(torch.zeros(<span class="hljs-number">3</span>))
+        self.nsteps = nsteps; self.dt = <span class="hljs-number">0.08</span>/nsteps   <span class="hljs-comment"># +80ms를 4스텝으로 적분</span>
+    <span class="hljs-comment"># 미분방정식 우변(댐핑 가속도장)</span>
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">_deriv</span>(<span class="hljs-params">self, rpos, rvel, lat</span>):</span>
+        a = self.accel(torch.cat([rpos, rvel, lat], -<span class="hljs-number">1</span>))
+        <span class="hljs-keyword">return</span> rvel, -self.damping*rvel+a   <span class="hljs-comment"># dx/dt=v, dv/dt=a_NN−damping·v</span>
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">forward</span>(<span class="hljs-params">self, seq, scal, mask</span>):</span>
+        x = self.proj(seq); out, _ = self.gru(x); m = mask.unsqueeze(-<span class="hljs-number">1</span>)
+        mean = (out*m).<span class="hljs-built_in">sum</span>(<span class="hljs-number">1</span>)/m.<span class="hljs-built_in">sum</span>(<span class="hljs-number">1</span>).clamp(<span class="hljs-built_in">min</span>=<span class="hljs-number">1</span>)
+        lat = self.to_latent(torch.cat([out[:, -<span class="hljs-number">1</span>, :], mean, scal], -<span class="hljs-number">1</span>))   <span class="hljs-comment"># 시퀀스→latent</span>
+        rpos = torch.zeros(seq.size(<span class="hljs-number">0</span>), <span class="hljs-number">3</span>, device=seq.device); rvel = torch.zeros_like(rpos)   <span class="hljs-comment"># 잔차 위치/속도 0에서 시작</span>
+        <span class="hljs-keyword">for</span> _ <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(self.nsteps):   <span class="hljs-comment"># RK4 4스텝 적분</span>
+            dt = self.dt
+            dp1, dv1 = self._deriv(rpos, rvel, lat)
+            dp2, dv2 = self._deriv(rpos+<span class="hljs-number">0.5</span>*dt*dp1, rvel+<span class="hljs-number">0.5</span>*dt*dv1, lat)
+            dp3, dv3 = self._deriv(rpos+<span class="hljs-number">0.5</span>*dt*dp2, rvel+<span class="hljs-number">0.5</span>*dt*dv2, lat)
+            dp4, dv4 = self._deriv(rpos+dt*dp3, rvel+dt*dv3, lat)
+            rpos = rpos+(dt/<span class="hljs-number">6</span>)*(dp1+<span class="hljs-number">2</span>*dp2+<span class="hljs-number">2</span>*dp3+dp4)
+            rvel = rvel+(dt/<span class="hljs-number">6</span>)*(dv1+<span class="hljs-number">2</span>*dv2+<span class="hljs-number">2</span>*dv3+dv4)
+        <span class="hljs-keyword">return</span> rpos+self.bias   <span class="hljs-comment"># 적분 변위(잔차)+bias</span></code></pre></div></section><section class="nb-cell nb-markdown-cell"><h3 id="cell-4c-hyperphysics--물리-gray-box-roll-기반-선회-모델"><a class="anchor" href="#cell-4c-hyperphysics--물리-gray-box-roll-기반-선회-모델" aria-hidden="true"></a>cell 4c. HyperPhysics — 물리 gray-box (roll 기반 선회 모델)</h3><p>모기 선회의 물리(roll 뱅킹 턴)를 명시적으로 모델링한 gray-box 모델. GRU·ODE와 다른 귀납편향이라 블렌드에 함께 사용(탈상관).</p>
+<p><strong>예측식</strong>
+<code>pred = last + R · [ w_v · e^(−exp_v) · Rodrigues(v_ema, ω)  +  w_a · e^(−exp_a) · a_ema ]</code></p>
+<ul>
+<li><code>R</code> : forward·right·up 로컬 프레임 (3step 평균 heading 기준)</li>
+<li><code>v_ema, a_ema</code> : EMA로 평활한 로컬 속도/가속 (<code>temporal_net</code>이 EMA 계수 출력)</li>
+<li><strong><code>Rodrigues(v_ema, ω)</code></strong> : 각속도 ω로 속도벡터를 회전 = <strong>뱅킹 턴</strong>. ω = 과거 회전(omega_hist) + 신경망 보정(omega_delta)</li>
+<li><code>w_v, w_a, exp_v, exp_a</code> : <code>dynamics_net</code>이 속도·θ로 만든 감쇠 가중 (빠르거나 급선회면 보수적으로)</li>
+<li><strong>게이팅</strong> : θ(선회각)·속력이 임계값(θ_thr=1.087618, speed_thr=0.034583)을 넘을 때만 회전 발동 → 직진 구간 오차 방지</li>
+</ul>
+<p><strong>보조 클래스/함수</strong></p>
+<ul>
+<li><code>SlidingWindowDataset</code> — 가변 윈도우 + 확장 타깃[4–10,12] + θ-가중(급선회 최대 5× 오버샘플)</li>
+<li><code>PriorBiasedLinear</code> — 마지막 층 0 초기화 + prior_bias에서 출발(안정적 물리 prior)</li>
+<li><code>ResBlock</code> · <code>rodrigues_rotate</code> · <code>extract_features</code>(24차원 물리 피처) · <code>_soft_hit_loss</code>(1.3cm soft R-Hit)</li>
+</ul>
+</section><section class="nb-cell nb-code-cell"><div class="nb-source nb-input" data-execution-count="7" data-prompt-number="7"><pre><code class="lang-python" data-language="python"><span class="hljs-comment"># ── 학습 데이터셋: 가변 윈도우 + 확장 타깃 + θ-가중 오버샘플 ──</span>
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">SlidingWindowDataset</span>(<span class="hljs-params">Dataset</span>):</span>
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">__init__</span>(<span class="hljs-params">self, X, y, min_win=<span class="hljs-number">3</span>, mode=<span class="hljs-string">&quot;extended&quot;</span>, device=<span class="hljs-string">&quot;cpu&quot;</span></span>):</span>
+        X_tensor = torch.tensor(X, dtype=torch.float32); y_tensor = torch.tensor(y, dtype=torch.float32)
+        windows = []
+        <span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-built_in">len</span>(X)):
+            targets = [<span class="hljs-number">4</span>, <span class="hljs-number">5</span>, <span class="hljs-number">6</span>, <span class="hljs-number">7</span>, <span class="hljs-number">8</span>, <span class="hljs-number">9</span>, <span class="hljs-number">10</span>, <span class="hljs-number">12</span>] <span class="hljs-keyword">if</span> mode == <span class="hljs-string">&quot;extended&quot;</span> <span class="hljs-keyword">else</span> [<span class="hljs-number">12</span>, <span class="hljs-number">10</span>]   <span class="hljs-comment"># 내부 지점들도 타깃(확장)</span>
+            <span class="hljs-keyword">for</span> target_idx <span class="hljs-keyword">in</span> targets:
+                end_idx = target_idx - <span class="hljs-number">2</span>
+                max_w = end_idx + <span class="hljs-number">2</span> <span class="hljs-keyword">if</span> mode == <span class="hljs-string">&quot;extended&quot;</span> <span class="hljs-keyword">else</span> (<span class="hljs-number">12</span> <span class="hljs-keyword">if</span> target_idx == <span class="hljs-number">12</span> <span class="hljs-keyword">else</span> <span class="hljs-number">10</span>)
+                <span class="hljs-keyword">for</span> w <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(min_win, max_w):
+                    windows.append((i, w, target_idx))
+        X_list = []; y_list = []
+        <span class="hljs-keyword">for</span> i, w, target_idx <span class="hljs-keyword">in</span> windows:
+            X_orig = X_tensor[i]; end_idx = target_idx - <span class="hljs-number">2</span>
+            pts = X_orig[end_idx - w + <span class="hljs-number">1</span>: end_idx + <span class="hljs-number">1</span>]
+            target = y_tensor[i] <span class="hljs-keyword">if</span> target_idx == <span class="hljs-number">12</span> <span class="hljs-keyword">else</span> X_orig[target_idx]
+            <span class="hljs-keyword">if</span> w &lt; <span class="hljs-number">11</span>:
+                v0 = pts[<span class="hljs-number">1</span>] - pts[<span class="hljs-number">0</span>]; n_pad = <span class="hljs-number">11</span> - w
+                js = torch.arange(n_pad, <span class="hljs-number">0</span>, -<span class="hljs-number">1</span>, dtype=torch.float32)
+                pad = pts[<span class="hljs-number">0</span>:<span class="hljs-number">1</span>] - js.unsqueeze(<span class="hljs-number">1</span>) * v0.unsqueeze(<span class="hljs-number">0</span>)
+                X_padded = torch.cat([pad, pts], dim=<span class="hljs-number">0</span>)
+            <span class="hljs-keyword">else</span>:
+                X_padded = pts.clone()
+            X_list.append(X_padded); y_list.append(target)
+        self.X_all = torch.stack(X_list).to(device); self.y_all = torch.stack(y_list).to(device)
+        diffs = self.X_all[:, <span class="hljs-number">1</span>:] - self.X_all[:, :-<span class="hljs-number">1</span>]
+        n1 = diffs[:, <span class="hljs-number">1</span>:].norm(dim=<span class="hljs-number">2</span>).clamp(<span class="hljs-built_in">min</span>=<span class="hljs-number">1e-8</span>); n2 = diffs[:, :-<span class="hljs-number">1</span>].norm(dim=<span class="hljs-number">2</span>).clamp(<span class="hljs-built_in">min</span>=<span class="hljs-number">1e-8</span>)
+        cos_t = ((diffs[:, <span class="hljs-number">1</span>:] * diffs[:, :-<span class="hljs-number">1</span>]).<span class="hljs-built_in">sum</span>(dim=<span class="hljs-number">2</span>) / (n1 * n2)).clamp(-<span class="hljs-number">1</span>, <span class="hljs-number">1</span>)
+        theta_last = torch.acos(cos_t[:, -<span class="hljs-number">1</span>])
+        self.theta_weights = (<span class="hljs-number">1.0</span> + <span class="hljs-number">4.0</span> * (theta_last / <span class="hljs-number">1.0</span>).clamp(<span class="hljs-number">0</span>, <span class="hljs-number">1</span>)).cpu().numpy()   <span class="hljs-comment"># 급선회(θ↑)일수록 최대 5× 가중</span>
+
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">__len__</span>(<span class="hljs-params">self</span>):</span> <span class="hljs-keyword">return</span> <span class="hljs-built_in">len</span>(self.X_all)
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">__getitem__</span>(<span class="hljs-params">self, idx</span>):</span> <span class="hljs-keyword">return</span> self.X_all[idx], self.y_all[idx]
+
+
+<span class="hljs-comment"># ───────────────────────── 원본 cell[5]: 피처/손실/블록 ─────────────────────────</span>
+<span class="hljs-comment"># ── EMA로 로컬 속도(vl)·가속(al) 평활 ──</span>
+<span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">_ema_va_local</span>(<span class="hljs-params">diffs_local, alpha, beta</span>):</span>
+    B, T, _ = diffs_local.shape
+    one_m_a = <span class="hljs-number">1.0</span> - alpha; one_m_b = <span class="hljs-number">1.0</span> - beta
+    vs = diffs_local.new_empty(B, T, <span class="hljs-number">3</span>); v = diffs_local[:, <span class="hljs-number">0</span>]; vs[:, <span class="hljs-number">0</span>] = v
+    <span class="hljs-keyword">for</span> t <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">1</span>, T):
+        v = alpha * diffs_local[:, t] + one_m_a * v; vs[:, t] = v
+    vl = vs[:, -<span class="hljs-number">1</span>]
+    ad = vs[:, <span class="hljs-number">1</span>:] - vs[:, :-<span class="hljs-number">1</span>]; a = ad[:, <span class="hljs-number">0</span>]
+    <span class="hljs-keyword">for</span> t <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">1</span>, T - <span class="hljs-number">1</span>):
+        a = beta * ad[:, t] + one_m_b * a
+    <span class="hljs-keyword">return</span> vl, a
+
+
+<span class="hljs-comment"># ── soft R-Hit 손실: 1.3cm 임계 sigmoid 근사 ──</span>
+<span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">_soft_hit_loss</span>(<span class="hljs-params">pred, target, thr=<span class="hljs-number">0.013012</span>, k=<span class="hljs-number">408.348</span></span>):</span>
+    <span class="hljs-keyword">return</span> (<span class="hljs-number">1</span> - torch.sigmoid(-(torch.norm(pred - target, dim=<span class="hljs-number">1</span>) - thr) * k)).mean()
+
+
+<span class="hljs-comment"># ── 24차원 물리 피처 + 로컬 프레임 R + diffs 추출 ──</span>
+<span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">extract_features</span>(<span class="hljs-params">X, mean_stats=<span class="hljs-literal">None</span>, std_stats=<span class="hljs-literal">None</span>, dir_net=<span class="hljs-literal">None</span>, heading_mode=<span class="hljs-string">&quot;3step&quot;</span></span>):</span>
+    device = X.device
+    p_last = X[:, <span class="hljs-number">10</span>]; diffs = X[:, <span class="hljs-number">1</span>:] - X[:, :-<span class="hljs-number">1</span>]
+    n1 = diffs[:, <span class="hljs-number">1</span>:].norm(dim=<span class="hljs-number">2</span>, keepdim=<span class="hljs-literal">True</span>) + <span class="hljs-number">1e-8</span>; n2 = diffs[:, :-<span class="hljs-number">1</span>].norm(dim=<span class="hljs-number">2</span>, keepdim=<span class="hljs-literal">True</span>) + <span class="hljs-number">1e-8</span>
+    cos_t = ((diffs[:, <span class="hljs-number">1</span>:] * diffs[:, :-<span class="hljs-number">1</span>]).<span class="hljs-built_in">sum</span>(dim=<span class="hljs-number">2</span>, keepdim=<span class="hljs-literal">True</span>) / (n1 * n2)).clamp(-<span class="hljs-number">1</span>, <span class="hljs-number">1</span>)
+    theta_seq = torch.acos(cos_t).squeeze(<span class="hljs-number">2</span>)
+    theta = theta_seq[:, -<span class="hljs-number">1</span>:]; theta_mean = theta_seq.mean(<span class="hljs-number">1</span>, keepdim=<span class="hljs-literal">True</span>); theta_std = theta_seq.std(<span class="hljs-number">1</span>, keepdim=<span class="hljs-literal">True</span>)
+    theta_vel = theta_seq[:, -<span class="hljs-number">1</span>:] - theta_seq[:, -<span class="hljs-number">2</span>:-<span class="hljs-number">1</span>]
+    theta_acc = theta_seq[:, -<span class="hljs-number">1</span>:] - <span class="hljs-number">2</span> * theta_seq[:, -<span class="hljs-number">2</span>:-<span class="hljs-number">1</span>] + theta_seq[:, -<span class="hljs-number">3</span>:-<span class="hljs-number">2</span>]
+    theta_trend = theta_seq[:, -<span class="hljs-number">1</span>:] - theta_seq[:, -<span class="hljs-number">3</span>:].mean(<span class="hljs-number">1</span>, keepdim=<span class="hljs-literal">True</span>)
+    <span class="hljs-keyword">if</span> dir_net <span class="hljs-keyword">is</span> <span class="hljs-keyword">not</span> <span class="hljs-literal">None</span>:
+        speed_seq = diffs.norm(dim=<span class="hljs-number">2</span>); state = torch.cat([speed_seq, theta_seq], dim=<span class="hljs-number">1</span>)
+        <span class="hljs-keyword">if</span> dir_net[<span class="hljs-number">0</span>].in_features == <span class="hljs-number">29</span>:
+            z_speed_seq = diffs[:, :, <span class="hljs-number">2</span>].<span class="hljs-built_in">abs</span>(); state = torch.cat([state, z_speed_seq], dim=<span class="hljs-number">1</span>)
+        weights = F.softmax(dir_net(state), dim=<span class="hljs-number">1</span>); v_sm = (diffs * weights.unsqueeze(<span class="hljs-number">2</span>)).<span class="hljs-built_in">sum</span>(dim=<span class="hljs-number">1</span>)
+    <span class="hljs-keyword">else</span>:
+        v_sm = (<span class="hljs-number">3</span> * diffs[:, -<span class="hljs-number">1</span>] + <span class="hljs-number">2</span> * diffs[:, -<span class="hljs-number">2</span>] + diffs[:, -<span class="hljs-number">3</span>]) / <span class="hljs-number">6.0</span> <span class="hljs-keyword">if</span> heading_mode == <span class="hljs-string">&quot;3step&quot;</span> <span class="hljs-keyword">else</span> diffs[:, -<span class="hljs-number">1</span>]
+    fwd = v_sm / (v_sm.norm(dim=<span class="hljs-number">1</span>, keepdim=<span class="hljs-literal">True</span>) + <span class="hljs-number">1e-8</span>)
+    up_w = torch.zeros_like(fwd); up_w[:, <span class="hljs-number">2</span>] = <span class="hljs-number">1.0</span>
+    up_w[fwd[:, <span class="hljs-number">2</span>].<span class="hljs-built_in">abs</span>() &gt; <span class="hljs-number">0.99</span>] = torch.tensor([<span class="hljs-number">0.</span>, <span class="hljs-number">1.</span>, <span class="hljs-number">0.</span>], device=device)
+    right = torch.cross(fwd, up_w, dim=<span class="hljs-number">1</span>); right = right / (right.norm(dim=<span class="hljs-number">1</span>, keepdim=<span class="hljs-literal">True</span>) + <span class="hljs-number">1e-8</span>)
+    up = torch.cross(right, fwd, dim=<span class="hljs-number">1</span>); up = up / (up.norm(dim=<span class="hljs-number">1</span>, keepdim=<span class="hljs-literal">True</span>) + <span class="hljs-number">1e-8</span>)
+    R = torch.stack([fwd, right, up], dim=<span class="hljs-number">2</span>)   <span class="hljs-comment"># 로컬 프레임(forward,right,up)</span>
+    v_last = diffs[:, -<span class="hljs-number">1</span>]; v_prev1 = diffs[:, -<span class="hljs-number">2</span>]; speed = v_last.norm(dim=<span class="hljs-number">1</span>, keepdim=<span class="hljs-literal">True</span>)
+    a_last = v_last - v_prev1; acc_mag = a_last.norm(dim=<span class="hljs-number">1</span>, keepdim=<span class="hljs-literal">True</span>)
+    v_local = torch.matmul(v_last.unsqueeze(<span class="hljs-number">1</span>), R).squeeze(<span class="hljs-number">1</span>)
+    a_local = torch.matmul(a_last.unsqueeze(<span class="hljs-number">1</span>), R).squeeze(<span class="hljs-number">1</span>)
+    X_local = torch.matmul(X - p_last.unsqueeze(<span class="hljs-number">1</span>), R); p_std_local = X_local.std(<span class="hljs-number">1</span>)
+    v_local_abs = v_local.<span class="hljs-built_in">abs</span>()
+    jerk_g = diffs[:, -<span class="hljs-number">1</span>] - <span class="hljs-number">2</span> * diffs[:, -<span class="hljs-number">2</span>] + diffs[:, -<span class="hljs-number">3</span>]
+    jerk_l = torch.matmul(jerk_g.unsqueeze(<span class="hljs-number">1</span>), R).squeeze(<span class="hljs-number">1</span>); jerk_mag = jerk_g.norm(dim=<span class="hljs-number">1</span>, keepdim=<span class="hljs-literal">True</span>)
+    features = torch.cat([v_local, a_local, speed, acc_mag, theta, theta_mean, theta_std, theta_trend,   <span class="hljs-comment"># 24차원 물리 피처</span>
+                          theta_vel, theta_acc, p_std_local, v_local_abs, jerk_l, jerk_mag], dim=<span class="hljs-number">1</span>)
+    <span class="hljs-keyword">if</span> mean_stats <span class="hljs-keyword">is</span> <span class="hljs-literal">None</span> <span class="hljs-keyword">or</span> std_stats <span class="hljs-keyword">is</span> <span class="hljs-literal">None</span>:
+        mean_stats = features.mean(<span class="hljs-number">0</span>, keepdim=<span class="hljs-literal">True</span>); std_stats = features.std(<span class="hljs-number">0</span>, keepdim=<span class="hljs-literal">True</span>) + <span class="hljs-number">1e-8</span>
+    <span class="hljs-keyword">return</span> (features - mean_stats) / std_stats, diffs, p_last, theta, theta_mean, theta_std, theta_seq, R, speed, mean_stats, std_stats
+
+
+<span class="hljs-comment"># ── 잔차 블록(LayerNorm+GELU) ──</span>
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ResBlock</span>(<span class="hljs-params">nn.Module</span>):</span>
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">__init__</span>(<span class="hljs-params">self, dim</span>):</span>
+        <span class="hljs-built_in">super</span>().__init__()
+        self.net = nn.Sequential(nn.Linear(dim, dim), nn.LayerNorm(dim), nn.GELU(), nn.Dropout(<span class="hljs-number">0.15</span>), nn.Linear(dim, dim))
+        self.ln = nn.LayerNorm(dim)
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">forward</span>(<span class="hljs-params">self, x</span>):</span> <span class="hljs-keyword">return</span> self.ln(x + self.net(x))
+
+
+<span class="hljs-comment"># ── 마지막 층 0 + prior_bias에서 출발(물리 prior) ──</span>
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">PriorBiasedLinear</span>(<span class="hljs-params">nn.Module</span>):</span>
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">__init__</span>(<span class="hljs-params">self, in_features, out_features, prior_bias</span>):</span>
+        <span class="hljs-built_in">super</span>().__init__()
+        self.linear = nn.Linear(in_features, out_features)
+        self.register_buffer(<span class="hljs-string">&#x27;prior_bias&#x27;</span>, prior_bias.clone().detach())
+        <span class="hljs-keyword">with</span> torch.no_grad():
+            nn.init.zeros_(self.linear.weight); nn.init.zeros_(self.linear.bias)
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">forward</span>(<span class="hljs-params">self, x</span>):</span> <span class="hljs-keyword">return</span> self.linear(x) + self.prior_bias
+
+
+<span class="hljs-comment"># ── Rodrigues 회전: v를 각속도 w로 회전(뱅킹 턴) ──</span>
+<span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">rodrigues_rotate</span>(<span class="hljs-params">v, w</span>):</span>
+    theta = w.norm(dim=<span class="hljs-number">1</span>, keepdim=<span class="hljs-literal">True</span>); k = w / (theta + <span class="hljs-number">1e-8</span>)
+    cos_t = torch.cos(theta); sin_t = torch.sin(theta)
+    dot = (v * k).<span class="hljs-built_in">sum</span>(dim=<span class="hljs-number">1</span>, keepdim=<span class="hljs-literal">True</span>); cross = torch.cross(k, v, dim=<span class="hljs-number">1</span>)
+    <span class="hljs-keyword">return</span> v * cos_t + cross * sin_t + k * dot * (<span class="hljs-number">1.0</span> - cos_t)
+
+
+<span class="hljs-comment"># ───────────────────────── 원본 cell[7]: HyperPhysics_xy2 ─────────────────────────</span>
+<span class="hljs-comment"># ── HyperPhysics 본체 (예측식은 위 마크다운 cell 4c 참고) ──</span>
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">HyperPhysics_xy2</span>(<span class="hljs-params">nn.Module</span>):</span>
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">__init__</span>(<span class="hljs-params">self, input_dim=<span class="hljs-number">24</span>, **kwargs</span>):</span>
+        <span class="hljs-built_in">super</span>().__init__()
+        self.sh_thr = kwargs.pop(<span class="hljs-string">&#x27;sh_thr&#x27;</span>, <span class="hljs-number">0.013012</span>); self.sh_k = kwargs.pop(<span class="hljs-string">&#x27;sh_k&#x27;</span>, <span class="hljs-number">408.348044</span>)
+        self.mse_w = kwargs.pop(<span class="hljs-string">&#x27;mse_w&#x27;</span>, <span class="hljs-number">129.172037</span>); self.local_w = kwargs.pop(<span class="hljs-string">&#x27;local_w&#x27;</span>, <span class="hljs-number">0.050941</span>)
+        self.theta_thr = kwargs.pop(<span class="hljs-string">&#x27;theta_thr&#x27;</span>, <span class="hljs-number">1.087618</span>); self.speed_thr = kwargs.pop(<span class="hljs-string">&#x27;speed_thr&#x27;</span>, <span class="hljs-number">0.034583</span>)   <span class="hljs-comment"># 회전 게이팅 임계값(원본 튜닝 고정)</span>
+        self.lr = <span class="hljs-number">0.005400</span>; self.wd = <span class="hljs-number">0.005659</span>
+        self.register_buffer(<span class="hljs-string">&quot;mean_stats&quot;</span>, torch.zeros(<span class="hljs-number">1</span>, input_dim)); self.register_buffer(<span class="hljs-string">&quot;std_stats&quot;</span>, torch.ones(<span class="hljs-number">1</span>, input_dim))
+        prior_dir = torch.tensor([-<span class="hljs-number">10.</span>, -<span class="hljs-number">10.</span>, -<span class="hljs-number">10.</span>, -<span class="hljs-number">10.</span>, -<span class="hljs-number">10.</span>, -<span class="hljs-number">10.</span>, -<span class="hljs-number">10.</span>, <span class="hljs-number">0.</span>, <span class="hljs-number">0.693</span>, <span class="hljs-number">1.098</span>])
+        self.dir_net = nn.Sequential(nn.Linear(<span class="hljs-number">29</span>, <span class="hljs-number">24</span>), nn.LayerNorm(<span class="hljs-number">24</span>), nn.GELU(), PriorBiasedLinear(<span class="hljs-number">24</span>, <span class="hljs-number">10</span>, prior_dir))   <span class="hljs-comment"># heading 가중(3step 방향) 학습</span>
+        prior_ema = torch.zeros(<span class="hljs-number">6</span>)
+        self.temporal_net = nn.Sequential(nn.Linear(<span class="hljs-number">9</span>, <span class="hljs-number">32</span>), nn.LayerNorm(<span class="hljs-number">32</span>), nn.GELU(), PriorBiasedLinear(<span class="hljs-number">32</span>, <span class="hljs-number">6</span>, prior_ema))   <span class="hljs-comment"># EMA 계수(alpha,beta) 출력</span>
+        prior_dyn = torch.tensor([<span class="hljs-number">0.</span>, <span class="hljs-number">0.</span>, <span class="hljs-number">0.</span>, <span class="hljs-number">0.</span>, <span class="hljs-number">0.</span>, <span class="hljs-number">0.</span>] + [-<span class="hljs-number">4.</span>] * <span class="hljs-number">24</span>)
+        self.dynamics_net = nn.Sequential(nn.Linear(input_dim, <span class="hljs-number">96</span>), nn.LayerNorm(<span class="hljs-number">96</span>), nn.GELU(), ResBlock(<span class="hljs-number">96</span>), PriorBiasedLinear(<span class="hljs-number">96</span>, <span class="hljs-number">30</span>, prior_dyn))   <span class="hljs-comment"># w_v,w_a,exp_v,exp_a 동역학 계수</span>
+        self.omega_w = nn.Parameter(torch.tensor([<span class="hljs-number">0.0</span>, -<span class="hljs-number">0.5</span>, -<span class="hljs-number">1.0</span>]))
+        self.omega_net = nn.Sequential(nn.LayerNorm(input_dim), nn.Linear(input_dim, <span class="hljs-number">48</span>), nn.GELU(), nn.Linear(<span class="hljs-number">48</span>, <span class="hljs-number">3</span>))   <span class="hljs-comment"># 각속도 보정(omega_delta)</span>
+        <span class="hljs-keyword">with</span> torch.no_grad():
+            nn.init.normal_(self.omega_net[-<span class="hljs-number">1</span>].weight, std=<span class="hljs-number">0.01</span>); nn.init.zeros_(self.omega_net[-<span class="hljs-number">1</span>].bias)
+        self.diffusion_net = nn.Sequential(nn.Linear(input_dim, <span class="hljs-number">32</span>), nn.LayerNorm(<span class="hljs-number">32</span>), nn.GELU(), nn.Linear(<span class="hljs-number">32</span>, <span class="hljs-number">3</span>))
+
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">get_features</span>(<span class="hljs-params">self, X, mean_stats=<span class="hljs-literal">None</span>, std_stats=<span class="hljs-literal">None</span></span>):</span>
+        <span class="hljs-keyword">return</span> extract_features(X, mean_stats, std_stats, self.dir_net, heading_mode=<span class="hljs-string">&quot;3step&quot;</span>)
+
+<span class="hljs-meta">    @staticmethod</span>
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">_rotation_vector</span>(<span class="hljs-params">d_prev, d_curr</span>):</span>
+        n_prev = d_prev.norm(dim=<span class="hljs-number">1</span>, keepdim=<span class="hljs-literal">True</span>).clamp(<span class="hljs-built_in">min</span>=<span class="hljs-number">1e-8</span>); n_curr = d_curr.norm(dim=<span class="hljs-number">1</span>, keepdim=<span class="hljs-literal">True</span>).clamp(<span class="hljs-built_in">min</span>=<span class="hljs-number">1e-8</span>)
+        d_hat_prev = d_prev / n_prev; d_hat_curr = d_curr / n_curr
+        cross = torch.linalg.cross(d_hat_prev, d_hat_curr, dim=<span class="hljs-number">1</span>); sin_t = cross.norm(dim=<span class="hljs-number">1</span>, keepdim=<span class="hljs-literal">True</span>).clamp(<span class="hljs-built_in">min</span>=<span class="hljs-number">1e-8</span>)
+        cos_t = (d_hat_prev * d_hat_curr).<span class="hljs-built_in">sum</span>(<span class="hljs-number">1</span>, keepdim=<span class="hljs-literal">True</span>).clamp(-<span class="hljs-number">0.9999</span>, <span class="hljs-number">0.9999</span>); theta = torch.atan2(sin_t, cos_t)
+        speed_gate = torch.sigmoid((n_prev + n_curr) * <span class="hljs-number">500</span> - <span class="hljs-number">5</span>)
+        <span class="hljs-keyword">return</span> cross / sin_t * theta * speed_gate
+
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">forward</span>(<span class="hljs-params">self, features, diffs, p_last, theta, speed, R</span>):</span>
+        B = diffs.shape[<span class="hljs-number">0</span>]
+        ema_raw = self.temporal_net(features[:, <span class="hljs-number">8</span>:<span class="hljs-number">17</span>])
+        alpha = torch.sigmoid(ema_raw[:, <span class="hljs-number">0</span>:<span class="hljs-number">3</span>]) * <span class="hljs-number">0.8</span> + <span class="hljs-number">0.1</span>; beta = torch.sigmoid(ema_raw[:, <span class="hljs-number">3</span>:<span class="hljs-number">6</span>]) * <span class="hljs-number">0.199</span> + <span class="hljs-number">0.8</span>   <span class="hljs-comment"># EMA 계수 범위 제한</span>
+        dyn_raw = self.dynamics_net(features)
+        w_v = <span class="hljs-number">2.0</span> + dyn_raw[:, <span class="hljs-number">0</span>:<span class="hljs-number">3</span>]; w_a = <span class="hljs-number">1.0</span> + dyn_raw[:, <span class="hljs-number">3</span>:<span class="hljs-number">6</span>]   <span class="hljs-comment"># 속도/가속 기여 가중(prior 2.0/1.0)</span>
+        v_local_abs = features[:, <span class="hljs-number">17</span>:<span class="hljs-number">20</span>]; v_local_abs2 = v_local_abs * v_local_abs; theta2 = theta * theta
+        exp_v = (F.softplus(dyn_raw[:, <span class="hljs-number">6</span>:<span class="hljs-number">9</span>]) * v_local_abs + F.softplus(dyn_raw[:, <span class="hljs-number">9</span>:<span class="hljs-number">12</span>]) * v_local_abs2 +
+                 F.softplus(dyn_raw[:, <span class="hljs-number">12</span>:<span class="hljs-number">15</span>]) * theta + F.softplus(dyn_raw[:, <span class="hljs-number">15</span>:<span class="hljs-number">18</span>]) * theta2)
+        exp_a = (F.softplus(dyn_raw[:, <span class="hljs-number">18</span>:<span class="hljs-number">21</span>]) * v_local_abs + F.softplus(dyn_raw[:, <span class="hljs-number">21</span>:<span class="hljs-number">24</span>]) * v_local_abs2 +
+                 F.softplus(dyn_raw[:, <span class="hljs-number">24</span>:<span class="hljs-number">27</span>]) * theta + F.softplus(dyn_raw[:, <span class="hljs-number">27</span>:<span class="hljs-number">30</span>]) * theta2)
+        diffs_local = torch.matmul(diffs, R)   <span class="hljs-comment"># 변위들을 로컬 프레임으로</span>
+        vl, al = _ema_va_local(diffs_local, alpha, beta)   <span class="hljs-comment"># EMA 평활 속도/가속</span>
+        diff_speed = diffs_local.norm(dim=<span class="hljs-number">2</span>)
+        <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">rv_masked</span>(<span class="hljs-params">ka, kb</span>):</span>
+            rv = self._rotation_vector(diffs_local[:, ka], diffs_local[:, kb])
+            valid = ((diff_speed[:, ka] &gt; <span class="hljs-number">1e-5</span>) &amp; (diff_speed[:, kb] &gt; <span class="hljs-number">1e-5</span>)).<span class="hljs-built_in">float</span>()
+            <span class="hljs-keyword">return</span> rv * valid.unsqueeze(<span class="hljs-number">1</span>), valid
+        ov1, vm1 = rv_masked(-<span class="hljs-number">2</span>, -<span class="hljs-number">1</span>); ov2, vm2 = rv_masked(-<span class="hljs-number">3</span>, -<span class="hljs-number">2</span>); ov3, vm3 = rv_masked(-<span class="hljs-number">4</span>, -<span class="hljs-number">3</span>)
+        w_logits = self.omega_w.view(<span class="hljs-number">1</span>, <span class="hljs-number">3</span>).expand(B, -<span class="hljs-number">1</span>)
+        masks = torch.stack([vm1, vm2, vm3], dim=<span class="hljs-number">1</span>)
+        w_attn = F.softmax(w_logits.masked_fill(masks == <span class="hljs-number">0</span>, -<span class="hljs-number">1e9</span>), dim=<span class="hljs-number">1</span>)
+        omega_hist = (w_attn[:, <span class="hljs-number">0</span>].unsqueeze(<span class="hljs-number">1</span>) * ov1 + w_attn[:, <span class="hljs-number">1</span>].unsqueeze(<span class="hljs-number">1</span>) * ov2 + w_attn[:, <span class="hljs-number">2</span>].unsqueeze(<span class="hljs-number">1</span>) * ov3)
+        current_speed = speed.view(B, <span class="hljs-number">1</span>) <span class="hljs-keyword">if</span> speed <span class="hljs-keyword">is</span> <span class="hljs-keyword">not</span> <span class="hljs-literal">None</span> <span class="hljs-keyword">else</span> diff_speed[:, -<span class="hljs-number">1</span>].unsqueeze(<span class="hljs-number">1</span>)
+        omega_speed_gate = torch.sigmoid(current_speed * <span class="hljs-number">500</span> - <span class="hljs-number">5</span>)
+        omega_delta = self.omega_net(features) * omega_speed_gate
+        theta_scalar = theta.view(B, <span class="hljs-number">1</span>)
+        theta_gate = torch.sigmoid((theta_scalar - self.theta_thr) * <span class="hljs-number">10</span>)   <span class="hljs-comment"># θ가 임계 넘어야 회전 ON</span>
+        speed_gate_strong = torch.sigmoid((current_speed - self.speed_thr) * <span class="hljs-number">200</span>)   <span class="hljs-comment"># 속력 임계 게이트</span>
+        rotation_gate = theta_gate * speed_gate_strong
+        omega = (omega_hist + omega_delta) * rotation_gate   <span class="hljs-comment"># 최종 각속도(게이팅 적용)</span>
+        v_rotated = rodrigues_rotate(vl, omega)   <span class="hljs-comment"># 속도벡터를 ω로 회전 = 뱅킹 턴</span>
+        pred_local = (w_v * torch.exp(-exp_v)) * v_rotated + (w_a * torch.exp(-exp_a)) * al   <span class="hljs-comment"># 로컬 잔차 = 감쇠(회전속도)+감쇠(가속)</span>
+        log_var = self.diffusion_net(features).clamp(<span class="hljs-built_in">min</span>=-<span class="hljs-number">5.0</span>, <span class="hljs-built_in">max</span>=<span class="hljs-number">5.0</span>)
+        pred_global = p_last + torch.einsum(<span class="hljs-string">&#x27;nij,nj-&gt;ni&#x27;</span>, R, pred_local)   <span class="hljs-comment"># 글로벌: last + R·pred_local</span>
+        <span class="hljs-keyword">return</span> pred_global, pred_local, log_var
+
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">compute_loss</span>(<span class="hljs-params">self, pp, yr, pred_local=<span class="hljs-literal">None</span>, yr_local=<span class="hljs-literal">None</span>, log_var=<span class="hljs-literal">None</span>, **kwargs</span>):</span>
+        sh = _soft_hit_loss(pp, yr, thr=self.sh_thr, k=self.sh_k)
+        loss = sh + self.mse_w * F.mse_loss(pp, yr)   <span class="hljs-comment"># soft-hit + MSE</span>
+        <span class="hljs-keyword">if</span> pred_local <span class="hljs-keyword">is</span> <span class="hljs-keyword">not</span> <span class="hljs-literal">None</span> <span class="hljs-keyword">and</span> yr_local <span class="hljs-keyword">is</span> <span class="hljs-keyword">not</span> <span class="hljs-literal">None</span> <span class="hljs-keyword">and</span> log_var <span class="hljs-keyword">is</span> <span class="hljs-keyword">not</span> <span class="hljs-literal">None</span>:
+            squared_error = (pred_local - yr_local) ** <span class="hljs-number">2</span>
+            nll_loss = <span class="hljs-number">0.5</span> * (torch.exp(-log_var) * squared_error + log_var)   <span class="hljs-comment"># 로컬 잔차 NLL(불확실성 가중)</span>
+            loss = loss + self.local_w * nll_loss.mean()
+        <span class="hljs-keyword">return</span> loss
+
+
+<span class="hljs-comment"># ───────────────────────── 우리 fold OOF 래퍼 ─────────────────────────</span>
+<span class="hljs-comment"># ── (참고용) OOF 검증 래퍼 — GOH30 재현 경로엔 미사용 ──</span>
+<span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">load_train</span>():</span>
+    paths = <span class="hljs-built_in">sorted</span>((ROOT/<span class="hljs-string">&#x27;Data&#x27;</span>/<span class="hljs-string">&#x27;train&#x27;</span>).glob(<span class="hljs-string">&#x27;*.csv&#x27;</span>))
+    labs = pd.read_csv(ROOT/<span class="hljs-string">&#x27;Data&#x27;</span>/<span class="hljs-string">&#x27;train_labels.csv&#x27;</span>).sort_values(<span class="hljs-string">&#x27;id&#x27;</span>).reset_index(drop=<span class="hljs-literal">True</span>)[[<span class="hljs-string">&#x27;x&#x27;</span>, <span class="hljs-string">&#x27;y&#x27;</span>, <span class="hljs-string">&#x27;z&#x27;</span>]].to_numpy(np.float32)
+    X = np.stack([pd.read_csv(p)[[<span class="hljs-string">&#x27;x&#x27;</span>, <span class="hljs-string">&#x27;y&#x27;</span>, <span class="hljs-string">&#x27;z&#x27;</span>]].to_numpy(np.float32) <span class="hljs-keyword">for</span> p <span class="hljs-keyword">in</span> paths])
+    <span class="hljs-keyword">return</span> X, labs
+
+
+<span class="hljs-comment"># ── 평가지표 R-Hit@1cm ──</span>
+<span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">r_hit</span>(<span class="hljs-params">p, t, thr=<span class="hljs-number">0.01</span></span>):</span> <span class="hljs-keyword">return</span> <span class="hljs-built_in">float</span>(np.mean(np.linalg.norm(p - t, axis=<span class="hljs-number">1</span>) &lt;= thr))</code></pre></div></section><section class="nb-cell nb-markdown-cell"><h2 id="cell-5-손실--학습-함수"><a class="anchor" href="#cell-5-손실--학습-함수" aria-hidden="true"></a>cell 5. 손실 + 학습 함수</h2><ul>
+<li><strong>GRU/ODE</strong> (<code>combined_loss</code>, <code>train_cache_seed</code>): base 잔차를 학습. 손실 = Huber + 가우시안-soft + <strong>Soft R-Hit</strong>(1cm sigmoid 근사, 가중 2.0). 캐시 전체로 55ep, Cosine LR, EMA, y-flip/노이즈 증강.</li>
+<li><strong>HyperPhysics</strong> (<code>train_h_seed</code>): 자체 손실(1.3cm soft-hit + MSE + 로컬 NLL). raw 궤적으로 12ep, StepLR(step4, γ0.6), EMA, θ-가중 오버샘플.</li>
+</ul>
+<blockquote>
+<p>Soft R-Hit는 &quot;1cm 이내&quot; 지표를 미분 가능하게 근사 → 평균(mean)이 아니라 **적중(mode)**을 직접 최적화. 0.7대 진입의 공통 기법.</p>
+</blockquote>
+</section><section class="nb-cell nb-code-cell"><div class="nb-source nb-input" data-execution-count="8" data-prompt-number="8"><pre><code class="lang-python" data-language="python"><span class="hljs-comment"># ── GRU/ODE 손실: Huber + 가우시안-soft + Soft R-Hit ──</span>
+<span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">combined_loss</span>(<span class="hljs-params">pred,true</span>):</span>
+    d=<span class="hljs-number">0.01</span>; hub=F.huber_loss(pred,true,delta=d)/(<span class="hljs-number">0.5</span>*d*d)   <span class="hljs-comment"># ① Huber(1cm) 정규화</span>
+    d2=(pred-true).<span class="hljs-built_in">pow</span>(<span class="hljs-number">2</span>).<span class="hljs-built_in">sum</span>(-<span class="hljs-number">1</span>); soft=(<span class="hljs-number">1</span>-torch.exp(-d2/(<span class="hljs-number">2</span>*SIGMA**<span class="hljs-number">2</span>))).mean()   <span class="hljs-comment"># ② 가우시안-soft(σ=0.02)</span>
+    dd=torch.sqrt(d2+<span class="hljs-number">1e-12</span>); sr=-torch.sigmoid((<span class="hljs-number">0.01</span>-dd)/RHIT_TAU).mean()   <span class="hljs-comment"># ③ Soft R-Hit: 1cm 적중 미분근사</span>
+    <span class="hljs-keyword">return</span> HW*hub+GW*soft+RHIT_W*sr   <span class="hljs-comment"># 0.5·Huber + 0.5·soft + 2.0·R-Hit</span>
+
+<span class="hljs-comment"># ── 평가지표 R-Hit@1cm ──</span>
+<span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">r_hit</span>(<span class="hljs-params">p, t, thr=<span class="hljs-number">0.01</span></span>):</span>
+    <span class="hljs-keyword">return</span> <span class="hljs-built_in">float</span>(np.mean(np.linalg.norm(p - t, axis=<span class="hljs-number">1</span>) &lt;= thr))</code></pre></div></section><section class="nb-cell nb-code-cell"><div class="nb-source nb-input" data-execution-count="9" data-prompt-number="9"><pre><code class="lang-python" data-language="python"><span class="hljs-comment"># ── GRU/ODE 학습(캐시) → EMA 가중치 반환 ──</span>
+<span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">train_cache_seed</span>(<span class="hljs-params">seed, factory</span>):</span>
+    <span class="hljs-string">&#x27;&#x27;&#x27;GRU/ODE 전체데이터 학습 (캐시 사용) → EMA state_dict 반환.&#x27;&#x27;&#x27;</span>
+    dev = DEVICE
+    seq = torch.tensor(CACHE[<span class="hljs-string">&#x27;seq&#x27;</span>]); scal = torch.tensor(CACHE[<span class="hljs-string">&#x27;scal&#x27;</span>])
+    msk = torch.tensor(CACHE[<span class="hljs-string">&#x27;mask&#x27;</span>]); tgt = torch.tensor(CACHE[<span class="hljs-string">&#x27;tgt&#x27;</span>])
+    N = <span class="hljs-built_in">len</span>(seq); idx_all = np.arange(N)
+    torch.manual_seed(<span class="hljs-number">1000</span> + seed); np.random.seed(<span class="hljs-number">1000</span> + seed)   <span class="hljs-comment"># 시드별 재현 고정</span>
+    model = factory().to(dev)
+    opt = torch.optim.AdamW(model.parameters(), lr=<span class="hljs-number">2e-4</span>, weight_decay=<span class="hljs-number">1e-4</span>)   <span class="hljs-comment"># AdamW (lr 2e-4)</span>
+    sch = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=GRU_ODE_EPOCHS)   <span class="hljs-comment"># Cosine LR (55ep)</span>
+    flip = torch.tensor(Y_FLIP, device=dev)
+    ema = {k: v.detach().clone() <span class="hljs-keyword">for</span> k, v <span class="hljs-keyword">in</span> model.state_dict().items()}
+    <span class="hljs-keyword">for</span> ep <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">1</span>, GRU_ODE_EPOCHS + <span class="hljs-number">1</span>):
+        model.train(); np.random.shuffle(idx_all)
+        <span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">0</span>, N, <span class="hljs-number">256</span>):
+            b = idx_all[i:i + <span class="hljs-number">256</span>]
+            s = seq[b].to(dev); c = scal[b].to(dev); mk = msk[b].to(dev); tg = tgt[b].to(dev)
+            <span class="hljs-keyword">if</span> torch.rand(<span class="hljs-number">1</span>).item() &lt; FLIP_PROB:   <span class="hljs-comment"># 50% 확률 y-flip 증강(좌우대칭)</span>
+                s = s.clone(); s[:, :, flip] *= -<span class="hljs-number">1</span>; tg = tg.clone(); tg[:, <span class="hljs-number">1</span>] *= -<span class="hljs-number">1</span>   <span class="hljs-comment"># seq y채널 + 타깃 y 부호반전</span>
+            s = s + torch.randn_like(s) * NOISE_STD * mk.unsqueeze(-<span class="hljs-number">1</span>)   <span class="hljs-comment"># 입력 노이즈 증강(유효 스텝만)</span>
+            opt.zero_grad(); loss = combined_loss(model(s, c, mk), tg); loss.backward()   <span class="hljs-comment"># 잔차 예측 → combined_loss</span>
+            torch.nn.utils.clip_grad_norm_(model.parameters(), <span class="hljs-number">0.5</span>); opt.step()   <span class="hljs-comment"># grad clip 0.5</span>
+        sch.step()
+        <span class="hljs-keyword">with</span> torch.no_grad():
+            <span class="hljs-keyword">for</span> k, v <span class="hljs-keyword">in</span> model.state_dict().items():
+                <span class="hljs-keyword">if</span> v.dtype.is_floating_point: ema[k].mul_(EMA_DECAY).add_(v, alpha=<span class="hljs-number">1</span> - EMA_DECAY)
+                <span class="hljs-keyword">else</span>: ema[k] = v.detach().clone()
+    <span class="hljs-keyword">return</span> ema
+
+<span class="hljs-comment"># ── HyperPhysics 학습(raw 궤적) → EMA 가중치 반환 ──</span>
+<span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">train_h_seed</span>(<span class="hljs-params">seed, X, Y</span>):</span>
+    <span class="hljs-string">&#x27;&#x27;&#x27;HyperPhysics 전체데이터 학습 (raw 궤적 사용) → EMA state_dict 반환.&#x27;&#x27;&#x27;</span>
+    dev = DEVICE; set_seed(<span class="hljs-number">1000</span> + seed)
+    ds = SlidingWindowDataset(X, Y, min_win=<span class="hljs-number">3</span>, mode=<span class="hljs-string">&quot;extended&quot;</span>, device=dev)   <span class="hljs-comment"># 가변윈도우 데이터셋</span>
+    loader = DataLoader(ds, batch_size=<span class="hljs-number">256</span>, sampler=WeightedRandomSampler(ds.theta_weights, <span class="hljs-built_in">len</span>(ds), replacement=<span class="hljs-literal">True</span>))   <span class="hljs-comment"># θ-가중 오버샘플(급선회 강조)</span>
+    model = HyperPhysics_xy2().to(dev)
+    <span class="hljs-keyword">with</span> torch.no_grad():
+        *_, mn, st = model.get_features(torch.tensor(X, dtype=torch.float32, device=dev))
+        model.mean_stats.copy_(mn); model.std_stats.copy_(st)   <span class="hljs-comment"># 피처 표준화 통계 주입</span>
+    opt = torch.optim.AdamW(model.parameters(), lr=model.lr, weight_decay=model.wd)   <span class="hljs-comment"># AdamW (lr=model.lr 0.0054)</span>
+    sch = torch.optim.lr_scheduler.StepLR(opt, step_size=<span class="hljs-number">4</span>, gamma=<span class="hljs-number">0.6</span>)   <span class="hljs-comment"># StepLR (4ep마다 ×0.6)</span>
+    ema = {k: v.detach().clone() <span class="hljs-keyword">for</span> k, v <span class="hljs-keyword">in</span> model.state_dict().items()}
+    <span class="hljs-keyword">for</span> ep <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">1</span>, H_EPOCHS + <span class="hljs-number">1</span>):
+        model.train()
+        <span class="hljs-keyword">for</span> Xb, yb <span class="hljs-keyword">in</span> loader:
+            opt.zero_grad(set_to_none=<span class="hljs-literal">True</span>)
+            ft, df, pl, th, _, _, _, Rt, sp, _, _ = model.get_features(Xb, model.mean_stats, model.std_stats)   <span class="hljs-comment"># 물리 피처/프레임 추출</span>
+            pp, pred_local, log_var = model(ft, df, pl, th, sp, Rt)
+            yr_local = torch.matmul((yb - pl).unsqueeze(<span class="hljs-number">1</span>), Rt).squeeze(<span class="hljs-number">1</span>)   <span class="hljs-comment"># 타깃 잔차를 로컬 프레임으로(NLL용)</span>
+            loss = model.compute_loss(pp, yb, pred_local, yr_local, log_var)   <span class="hljs-comment"># soft-hit+MSE+NLL</span>
+            loss.backward(); torch.nn.utils.clip_grad_norm_(model.parameters(), <span class="hljs-number">1.0</span>); opt.step()   <span class="hljs-comment"># grad clip 1.0</span>
+        sch.step()
+        <span class="hljs-keyword">with</span> torch.no_grad():
+            <span class="hljs-keyword">for</span> k, v <span class="hljs-keyword">in</span> model.state_dict().items():
+                <span class="hljs-keyword">if</span> v.dtype.is_floating_point: ema[k].mul_(EMA_DECAY).add_(v, alpha=<span class="hljs-number">1</span> - EMA_DECAY)
+                <span class="hljs-keyword">else</span>: ema[k] = v.detach().clone()
+    <span class="hljs-keyword">return</span> ema
+
+<span class="hljs-built_in">print</span>(<span class="hljs-string">&#x27;학습 함수 정의 완료&#x27;</span>)</code></pre></div><div class="nb-output" data-execution-count="9" data-prompt-number="9"><pre class="nb-stdout">학습 함수 정의 완료
+</pre></div></section><section class="nb-cell nb-markdown-cell"><h2 id="cell-6-학습-실행-30모델--gru-10--ode-10--hyperphysics-10"><a class="anchor" href="#cell-6-학습-실행-30모델--gru-10--ode-10--hyperphysics-10" aria-hidden="true"></a>cell 6. 학습 실행 (30모델 = GRU 10 + ODE 10 + HyperPhysics 10)</h2><p>cell 1의 <code>FROM_SCRATCH=True</code>면 처음부터 순차 학습(~2시간 10분, MPS) 후 <code>./models_goh30/</code>에 저장. <code>False</code>면 기존 .pt 30개를 로드(개수 assert 포함).</p>
+<blockquote>
+<p>시드 0~9를 아키텍처마다 돌려 다양성 확보. 검증 환경(Apple Silicon MPS)에서는 처음부터 재학습해도 가중치가 재현됨. (다른 환경에선 부동소수점 차이로 미세하게 다를 수 있음)</p>
+</blockquote>
+</section><section class="nb-cell nb-code-cell"><div class="nb-source nb-input" data-execution-count="10" data-prompt-number="10"><pre><code class="lang-python" data-language="python">X_train = np.stack([load_sample(p) <span class="hljs-keyword">for</span> p <span class="hljs-keyword">in</span> train_paths]).astype(np.float32)   <span class="hljs-comment"># raw 궤적 (H용)</span>
+Y_train = labels
+
+<span class="hljs-comment"># True: 30모델 순차 학습 / False: 기존 .pt 로드</span>
+<span class="hljs-keyword">if</span> FROM_SCRATCH:
+    t0 = time.time()
+    <span class="hljs-keyword">for</span> k <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(N_EACH):
+        torch.save({<span class="hljs-string">&#x27;model_state&#x27;</span>: train_cache_seed(k, AttnGRU)}, <span class="hljs-string">f&#x27;<span class="hljs-subst">{MODELS_DIR}</span>/phaseG_full_<span class="hljs-subst">{k}</span>.pt&#x27;</span>)   <span class="hljs-comment"># GRU 시드 k 학습→저장</span>
+        <span class="hljs-built_in">print</span>(<span class="hljs-string">f&#x27;  GRU seed<span class="hljs-subst">{k}</span> 완료 (<span class="hljs-subst">{(time.time()-t0)/<span class="hljs-number">60</span>:<span class="hljs-number">.1</span>f}</span>min)&#x27;</span>)
+    <span class="hljs-keyword">for</span> k <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(N_EACH):
+        torch.save({<span class="hljs-string">&#x27;model_state&#x27;</span>: train_cache_seed(k, ODEModel)}, <span class="hljs-string">f&#x27;<span class="hljs-subst">{MODELS_DIR}</span>/phaseODE_full_<span class="hljs-subst">{k}</span>.pt&#x27;</span>)   <span class="hljs-comment"># ODE 시드 k</span>
+        <span class="hljs-built_in">print</span>(<span class="hljs-string">f&#x27;  ODE seed<span class="hljs-subst">{k}</span> 완료 (<span class="hljs-subst">{(time.time()-t0)/<span class="hljs-number">60</span>:<span class="hljs-number">.1</span>f}</span>min)&#x27;</span>)
+    <span class="hljs-keyword">for</span> k <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(N_EACH):
+        torch.save({<span class="hljs-string">&#x27;model_state&#x27;</span>: train_h_seed(k, X_train, Y_train)}, <span class="hljs-string">f&#x27;<span class="hljs-subst">{MODELS_DIR}</span>/phaseH_full_<span class="hljs-subst">{k}</span>.pt&#x27;</span>)   <span class="hljs-comment"># HyperPhysics 시드 k</span>
+        <span class="hljs-built_in">print</span>(<span class="hljs-string">f&#x27;  H   seed<span class="hljs-subst">{k}</span> 완료 (<span class="hljs-subst">{(time.time()-t0)/<span class="hljs-number">60</span>:<span class="hljs-number">.1</span>f}</span>min)&#x27;</span>)
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">f&#x27;전체 학습 완료 (<span class="hljs-subst">{(time.time()-t0)/<span class="hljs-number">60</span>:<span class="hljs-number">.1</span>f}</span>min)&#x27;</span>)
+<span class="hljs-keyword">else</span>:
+    n = <span class="hljs-built_in">len</span>(glob.glob(<span class="hljs-string">f&#x27;<span class="hljs-subst">{MODELS_DIR}</span>/phase*_full_*.pt&#x27;</span>))
+    <span class="hljs-keyword">assert</span> n == <span class="hljs-number">30</span>, <span class="hljs-string">f&#x27;<span class="hljs-subst">{MODELS_DIR}</span>에 30개 .pt 필요 (현재 <span class="hljs-subst">{n}</span>개). FROM_SCRATCH=True로 학습하세요.&#x27;</span>   <span class="hljs-comment"># 로드 모드: 30개 확인</span>
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">f&#x27;기존 학습본 <span class="hljs-subst">{n}</span>개 로드 사용&#x27;</span>)</code></pre></div><div class="nb-output" data-execution-count="10" data-prompt-number="10"><pre class="nb-stdout">  GRU seed0 완료 (5.2min)
+  GRU seed1 완료 (10.4min)
+  GRU seed2 완료 (15.6min)
+  GRU seed3 완료 (21.0min)
+  GRU seed4 완료 (25.9min)
+  GRU seed5 완료 (30.9min)
+  GRU seed6 완료 (36.0min)
+  GRU seed7 완료 (40.7min)
+  GRU seed8 완료 (45.5min)
+  GRU seed9 완료 (50.2min)
+  ODE seed0 완료 (55.2min)
+  ODE seed1 완료 (60.1min)
+  ODE seed2 완료 (65.1min)
+  ODE seed3 완료 (70.0min)
+  ODE seed4 완료 (74.9min)
+  ODE seed5 완료 (79.9min)
+  ODE seed6 완료 (84.8min)
+  ODE seed7 완료 (89.8min)
+  ODE seed8 완료 (94.8min)
+  ODE seed9 완료 (99.7min)
+  H   seed0 완료 (103.2min)
+  H   seed1 완료 (106.7min)
+  H   seed2 완료 (110.1min)
+  H   seed3 완료 (113.6min)
+  H   seed4 완료 (117.0min)
+  H   seed5 완료 (120.4min)
+  H   seed6 완료 (123.9min)
+  H   seed7 완료 (127.3min)
+  H   seed8 완료 (130.7min)
+  H   seed9 완료 (134.2min)
+전체 학습 완료 (134.2min)
+</pre></div></section><section class="nb-cell nb-markdown-cell"><h2 id="cell-7-예측--블렌드-→-제출"><a class="anchor" href="#cell-7-예측--블렌드-→-제출" aria-hidden="true"></a>cell 7. 예측 + 블렌드 → 제출</h2><p>테스트 10,000개를 30모델로 예측해 등가중 평균.</p>
+<ul>
+<li><strong>GRU/ODE</strong> (<code>predict_resid</code>): 잔차 예측 → base 더하고 yaw 역회전으로 글로벌 좌표 복원.</li>
+<li><strong>HyperPhysics</strong> (<code>predict_h</code>): 위치를 직접 출력.</li>
+<li><strong>Y-flip TTA</strong>: 입력을 좌우대칭으로 한 번 더 예측해 평균(대칭성 활용 → 안정화).</li>
+<li>30모델 평균 → <code>submission_GOH30.csv</code>.</li>
+</ul>
+</section><section class="nb-cell nb-code-cell"><div class="nb-source nb-input" data-execution-count="11" data-prompt-number="11"><pre><code class="lang-python" data-language="python">test_paths = <span class="hljs-built_in">sorted</span>(glob.glob(<span class="hljs-string">f&#x27;<span class="hljs-subst">{TEST_DIR}</span>/*.csv&#x27;</span>))
+ids = [os.path.basename(p)[:-<span class="hljs-number">4</span>] <span class="hljs-keyword">for</span> p <span class="hljs-keyword">in</span> test_paths]   <span class="hljs-comment"># 파일명 = 제출 id</span>
+seqs, scals, rots, bases = [], [], [], []
+<span class="hljs-keyword">for</span> p <span class="hljs-keyword">in</span> test_paths:
+    X = pd.read_csv(p)[[<span class="hljs-string">&#x27;x&#x27;</span>, <span class="hljs-string">&#x27;y&#x27;</span>, <span class="hljs-string">&#x27;z&#x27;</span>]].to_numpy()
+    seq, sc22, rot, base, _ = build_features_clean(X); seq_n, sc_n = normalize(seq, sc22, STATS)   <span class="hljs-comment"># 테스트 피처+표준화</span>
+    seqs.append(seq_n); scals.append(sc_n); rots.append(rot); bases.append(base)
+seqT = torch.tensor(np.stack(seqs)); scalT = torch.tensor(np.stack(scals))
+rotT = np.stack(rots); baseT = np.stack(bases); maskT = torch.ones(<span class="hljs-built_in">len</span>(seqT), <span class="hljs-number">11</span>); flipT = torch.tensor(Y_FLIP)
+XtT = torch.tensor(np.stack([load_sample(p) <span class="hljs-keyword">for</span> p <span class="hljs-keyword">in</span> test_paths]))   <span class="hljs-comment"># raw (H용)</span>
+
+<span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">predict_resid</span>(<span class="hljs-params">fp, factory</span>):</span>     <span class="hljs-comment"># GRU/ODE: 잔차 + Y-flip TTA → 위치</span>
+    m = factory().to(DEVICE); m.load_state_dict(torch.load(fp, map_location=DEVICE, weights_only=<span class="hljs-literal">False</span>)[<span class="hljs-string">&#x27;model_state&#x27;</span>]); m.<span class="hljs-built_in">eval</span>()
+    out = []
+    <span class="hljs-keyword">with</span> torch.no_grad():
+        <span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">0</span>, <span class="hljs-built_in">len</span>(seqT), <span class="hljs-number">256</span>):
+            s = seqT[i:i+<span class="hljs-number">256</span>].to(DEVICE); c = scalT[i:i+<span class="hljs-number">256</span>].to(DEVICE); mk = maskT[i:i+<span class="hljs-number">256</span>].to(DEVICE)
+            pr = m(s, c, mk).cpu().numpy(); sf = s.clone(); sf[:, :, flipT] *= -<span class="hljs-number">1</span>   <span class="hljs-comment"># 원본 예측 + y채널 반전본</span>
+            pf = m(sf, c, mk).cpu().numpy(); pf[:, <span class="hljs-number">1</span>] *= -<span class="hljs-number">1</span>; out.append((pr + pf) / <span class="hljs-number">2</span>)   <span class="hljs-comment"># 반전 예측 되돌려 평균(TTA)</span>
+    r = np.concatenate(out)
+    <span class="hljs-keyword">return</span> baseT + np.einsum(<span class="hljs-string">&#x27;bij,bj-&gt;bi&#x27;</span>, rotT.transpose(<span class="hljs-number">0</span>, <span class="hljs-number">2</span>, <span class="hljs-number">1</span>), r)   <span class="hljs-comment"># 잔차 yaw 역회전 + base → 글로벌</span>
+
+<span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">predict_h</span>(<span class="hljs-params">fp</span>):</span>                  <span class="hljs-comment"># HyperPhysics: 위치 직접 + Y-flip TTA</span>
+    m = HyperPhysics_xy2().to(DEVICE); m.load_state_dict(torch.load(fp, map_location=DEVICE, weights_only=<span class="hljs-literal">False</span>)[<span class="hljs-string">&#x27;model_state&#x27;</span>]); m.<span class="hljs-built_in">eval</span>()
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">fwd</span>(<span class="hljs-params">Z</span>):</span>
+        o = []
+        <span class="hljs-keyword">with</span> torch.no_grad():
+            <span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">0</span>, <span class="hljs-built_in">len</span>(Z), <span class="hljs-number">256</span>):
+                b = Z[i:i+<span class="hljs-number">256</span>].to(DEVICE)
+                ft, df, pl, th, _, _, _, Rt, sp, _, _ = m.get_features(b, m.mean_stats, m.std_stats)
+                pp, _, _ = m(ft, df, pl, th, sp, Rt); o.append(pp.cpu().numpy())
+        <span class="hljs-keyword">return</span> np.concatenate(o)
+    pr = fwd(XtT); Xf = XtT.clone(); Xf[:, :, <span class="hljs-number">1</span>] *= -<span class="hljs-number">1</span>; pf = fwd(Xf); pf[:, <span class="hljs-number">1</span>] *= -<span class="hljs-number">1</span>   <span class="hljs-comment"># H도 y-flip TTA</span>
+    <span class="hljs-keyword">return</span> (pr + pf) / <span class="hljs-number">2</span>
+
+<span class="hljs-comment"># ── 30모델 예측 수집(GRU10 + ODE10 + H10) ──</span>
+preds = []
+<span class="hljs-keyword">for</span> k <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(N_EACH): preds.append(predict_resid(<span class="hljs-string">f&#x27;<span class="hljs-subst">{MODELS_DIR}</span>/phaseG_full_<span class="hljs-subst">{k}</span>.pt&#x27;</span>, AttnGRU))
+<span class="hljs-keyword">for</span> k <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(N_EACH): preds.append(predict_resid(<span class="hljs-string">f&#x27;<span class="hljs-subst">{MODELS_DIR}</span>/phaseODE_full_<span class="hljs-subst">{k}</span>.pt&#x27;</span>, ODEModel))
+<span class="hljs-keyword">for</span> k <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(N_EACH): preds.append(predict_h(<span class="hljs-string">f&#x27;<span class="hljs-subst">{MODELS_DIR}</span>/phaseH_full_<span class="hljs-subst">{k}</span>.pt&#x27;</span>))
+<span class="hljs-built_in">print</span>(<span class="hljs-string">f&#x27;블렌드 <span class="hljs-subst">{<span class="hljs-built_in">len</span>(preds)}</span>모델 (GRU<span class="hljs-subst">{N_EACH}</span>+ODE<span class="hljs-subst">{N_EACH}</span>+H<span class="hljs-subst">{N_EACH}</span>)&#x27;</span>)
+
+ens = np.mean(preds, <span class="hljs-number">0</span>)   <span class="hljs-comment"># 30모델 등가중 평균</span>
+sub = pd.DataFrame({<span class="hljs-string">&#x27;id&#x27;</span>: ids, <span class="hljs-string">&#x27;x&#x27;</span>: ens[:, <span class="hljs-number">0</span>], <span class="hljs-string">&#x27;y&#x27;</span>: ens[:, <span class="hljs-number">1</span>], <span class="hljs-string">&#x27;z&#x27;</span>: ens[:, <span class="hljs-number">2</span>]})
+sub.to_csv(<span class="hljs-string">&#x27;submission_GOH30.csv&#x27;</span>, index=<span class="hljs-literal">False</span>)   <span class="hljs-comment"># 최종 제출 파일</span>
+<span class="hljs-built_in">print</span>(<span class="hljs-string">&#x27;저장: submission_GOH30.csv&#x27;</span>, sub.shape)
+sub.head()</code></pre></div><div class="nb-output" data-execution-count="11" data-prompt-number="11"><pre class="nb-stdout">블렌드 30모델 (GRU10+ODE10+H10)
+저장: submission_GOH30.csv (10000, 4)
+</pre></div><div class="nb-output" data-execution-count="11" data-prompt-number="11"><div class="nb-html-output"><div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>id</th>
+      <th>x</th>
+      <th>y</th>
+      <th>z</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>TEST_00001</td>
+      <td>3.989078</td>
+      <td>-1.053084</td>
+      <td>0.045323</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>TEST_00002</td>
+      <td>1.931043</td>
+      <td>0.616188</td>
+      <td>0.797581</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>TEST_00003</td>
+      <td>0.806916</td>
+      <td>-0.190619</td>
+      <td>0.147150</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>TEST_00004</td>
+      <td>3.528457</td>
+      <td>-1.645692</td>
+      <td>-0.942895</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>TEST_00005</td>
+      <td>2.302689</td>
+      <td>0.015170</td>
+      <td>-0.040857</td>
+    </tr>
+  </tbody>
+</table>
+</div></div></div></section><section class="nb-cell nb-markdown-cell"><h2 id="cell-8-요약"><a class="anchor" href="#cell-8-요약" aria-hidden="true"></a>cell 8. 요약</h2><p>raw 데이터 → 전처리 → 30모델 학습 → 블렌드 → <code>submission_GOH30.csv</code> 재현 notebook</p>
+<table>
+<thead>
+<tr>
+<th>단계</th>
+<th>출력</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>cell 2–3</td>
+<td>피처 + norm_stats + 학습 캐시(5만)</td>
+</tr>
+<tr>
+<td>cell 4–5</td>
+<td>3개 아키텍처 + 손실/학습 함수</td>
+</tr>
+<tr>
+<td>cell 6</td>
+<td>30개 가중치 → <code>./models_goh30/</code></td>
+</tr>
+<tr>
+<td>cell 7</td>
+<td><code>submission_GOH30.csv</code> (R-Hit@1cm 0.7035)</td>
+</tr>
+</tbody></table>
+</section><section class="nb-cell nb-markdown-cell"></section></div>

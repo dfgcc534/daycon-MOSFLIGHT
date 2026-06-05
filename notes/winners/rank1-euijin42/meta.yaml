@@ -1,0 +1,53 @@
+handle: rank1-euijin42
+rank: 1
+score:
+  public: ~0.69          # 코드공유 본문 "Public 7위" 언급, 정확값은 LB 조회 필요
+  private: 0.7035        # 노트북 제목 + cell 1 markdown 명시
+source_url: https://dacon.io/competitions/official/236716/codeshare/14013
+fetched_at: 2026-06-05
+license: unknown          # DACON 코드공유 default — 노트북 본문에 license 명시 없음
+files:
+  - notebook: notes/winners/rank1-euijin42/md_file.html   # DACON S3 presigned HTML (notebook_dump.md 로 추출)
+  - notebook_dump: notes/winners/rank1-euijin42/notebook_dump.md
+  - extracted_script: notes/winners/rank1-euijin42/repo/GOH30_reproduce.py
+  - github: https://github.com/euijin1716/mosquito-flight-trajectory-prediction.git   # 빈 placeholder ("추후 업데이트")
+  - data_used: [train, train_labels, test]   # DACON 원본 외 사용 없음
+paradigm_tag: GRU + Neural ODE + HyperPhysics blend (30 models, equal-weight)
+reproduction_status: in_progress
+dependencies:
+  - python>=3.11
+  - torch>=2.0
+  - numpy
+  - pandas
+  - scikit-learn
+device:
+  notebook: MPS (Apple Silicon)
+  ours: CUDA (L40S)
+training_time_notebook: ~134 min on MPS (GRU 50min + ODE 50min + H 34min)
+expected_time_ours: ~30~45 min on L40S (rough)
+notes: |
+  - 자체 완결 노트북 1개로 raw → preprocess → train → submit 전 과정.
+  - cv_1step base 위 yaw회전 잔차 학습 (모든 3 arch 공통).
+  - 30 model = 3 arch × 10 seed. 등가중 평균.
+  - Soft R-Hit loss (1cm sigmoid 근사) 가 0.7 진입 공통 기법.
+  - Full-fit (no fold split). OOF 비교는 우리 split 위에 별도 wrapper 필요.
+  - Y-flip TTA 모든 모델.
+  - HyperPhysics 의 θ-가중 oversampling (급선회 최대 5x) — 우리 plan 들에 없는 lever.
+  - Neural ODE 의 RK4 nsteps=4 + damping vector = plan-d-001 NODE001 (OOF 0.6330) 와 같은 paradigm 이지만 학습 procedure 가 더 정교 (cv_1step residual + EMA + cache pretrain).
+hyperparams:
+  DT: 0.04
+  PRED_DT: 0.08
+  CLIP_THR: 1.33
+  SIGMA: 0.02
+  RHIT_TAU: 0.0015
+  RHIT_W: 2.0
+  HW: 0.5
+  GW: 0.5
+  FLIP_PROB: 0.5
+  NOISE_STD: 0.02
+  Y_FLIP: [1, 4, 7, 10]
+  INTERIOR_E: [5, 6, 7, 8]
+  N_EACH: 10
+  GRU_ODE_EPOCHS: 55
+  H_EPOCHS: 12
+  EMA_DECAY: 0.9

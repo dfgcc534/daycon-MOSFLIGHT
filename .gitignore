@@ -51,3 +51,9 @@ data/*
 !data/open.zip
 analysis/plan-a-001/noise_cache.npz
 analysis/plan-a-002/noise_cache.npz
+
+# plan-w-001 winner reproduce — 30 model weights (~60MB) + smoke models
+models_goh30/
+models_goh30_smoke/
+analysis/plan-w-001/submission_smoke.csv
+submission_GOH30.csv
