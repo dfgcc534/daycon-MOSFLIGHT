@@ -11,10 +11,10 @@ ICNNEnergy (Amos 2017 fully-input-convex variant):
   - out   = (z_L · w_out_z).sum + w_out_p · p + w_out_c · c, w_out_z ≥ 0 via softplus
 
 Usage:
-    python -m src.plan019.ebip_icnn --out-json analysis/plan-019/s2_ebip_icnn.json
+    python -m src.archive.plan019.ebip_icnn --out-json analysis/archive/plan-019/s2_ebip_icnn.json
 
 Outputs:
-    analysis/plan-019/s2_ebip_icnn.json
+    analysis/archive/plan-019/s2_ebip_icnn.json
     runs/baseline/F015_ebip-icnn/oof_predictions.npz
     runs/baseline/F015_ebip-icnn/checkpoint_fold{k}.pt
 """
@@ -34,8 +34,8 @@ import torch.nn.functional as F
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
-from src.plan019.cnn_encoder import TrajectoryCNNEncoder  # noqa: E402
-from src.plan019.common import (  # noqa: E402
+from src.archive.plan019.cnn_encoder import TrajectoryCNNEncoder  # noqa: E402
+from src.archive.plan019.common import (  # noqa: E402
     R_HIT,
     BEST_BASIS_VARS,
     build_pool,

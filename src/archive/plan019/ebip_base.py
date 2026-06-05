@@ -7,10 +7,10 @@
   - forward: unrolled gradient descent on p, T steps, create_graph=self.training (FOMAML-friendly).
 
 Usage:
-    python -m src.plan019.ebip_base --out-json analysis/plan-019/s1_ebip_base.json
+    python -m src.archive.plan019.ebip_base --out-json analysis/archive/plan-019/s1_ebip_base.json
 
 Outputs:
-    analysis/plan-019/s1_ebip_base.json
+    analysis/archive/plan-019/s1_ebip_base.json
     runs/baseline/F014_ebip-base/oof_predictions.npz
     runs/baseline/F014_ebip-base/checkpoint_fold{k}.pt
 """
@@ -29,8 +29,8 @@ import torch.nn as nn
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
-from src.plan019.cnn_encoder import TrajectoryCNNEncoder  # noqa: E402
-from src.plan019.common import (  # noqa: E402
+from src.archive.plan019.cnn_encoder import TrajectoryCNNEncoder  # noqa: E402
+from src.archive.plan019.common import (  # noqa: E402
     R_HIT,
     BEST_BASIS_VARS,
     build_pool,

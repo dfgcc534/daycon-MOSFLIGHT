@@ -2,9 +2,9 @@
 
 plan-007 §6.3.1 / §7.1 / §7.2 spec 재구현. plan-018 §3.1 / §5.0 carry.
 trainable module 의 import 없음. 외부 lookup = JSON 만:
-  - analysis/plan-007/basis_ablation.json  (best_basis_vars, best_basis_params)
-  - analysis/plan-007/cma_es_step2.json    (global_mean_speed)
-  - analysis/plan-007/sliding_validity.json (aug_usable)
+  - analysis/archive/plan-007/basis_ablation.json  (best_basis_vars, best_basis_params)
+  - analysis/archive/plan-007/cma_es_step2.json    (global_mean_speed)
+  - analysis/archive/plan-007/sliding_validity.json (aug_usable)
   - data/train_labels.csv + data/{train,test}/*.csv (load_all_samples, load_labels)
 
 stable_fold_id 만 `src/pb_0_6822/selector.py` 의 lock-in helper 를 import.
@@ -278,9 +278,9 @@ def compute_pred_from_anchor(basis_terms: torch.Tensor, coeffs: torch.Tensor,
 def load_artifacts(repo_root: Path | None = None) -> dict:
     """plan-007 JSON 파일에서 best_basis / global_mean_speed / aug_usable 등을 load."""
     root = repo_root if repo_root is not None else REPO_ROOT
-    sliding = json.loads((root / "analysis/plan-007/sliding_validity.json").read_text())
-    stage2 = json.loads((root / "analysis/plan-007/cma_es_step2.json").read_text())
-    stage3 = json.loads((root / "analysis/plan-007/basis_ablation.json").read_text())
+    sliding = json.loads((root / "analysis/archive/plan-007/sliding_validity.json").read_text())
+    stage2 = json.loads((root / "analysis/archive/plan-007/cma_es_step2.json").read_text())
+    stage3 = json.loads((root / "analysis/archive/plan-007/basis_ablation.json").read_text())
     return {
         "aug_usable": bool(sliding["aug_usable"]),
         "global_mean_speed": float(stage2["global_mean_speed"]),

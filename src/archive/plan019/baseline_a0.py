@@ -2,13 +2,13 @@
 
 plan-007 step 4 MLP (13-d stats → 8 coefficient) 의 직접 재구현 (§4.2 spec carry).
 import X (§10 정책). soft_hit_loss / hit_rate / compute_basis_terms 는 모두
-`src.plan019.common` 재구현 사용.
+`src.archive.plan019.common` 재구현 사용.
 
 Usage:
-    python -m src.plan019.baseline_a0 --out-json analysis/plan-019/a0_baseline.json
+    python -m src.archive.plan019.baseline_a0 --out-json analysis/archive/plan-019/a0_baseline.json
 
 Outputs:
-    analysis/plan-019/a0_baseline.json
+    analysis/archive/plan-019/a0_baseline.json
     runs/baseline/F013_a0/oof_predictions.npz
     runs/baseline/F013_a0/checkpoint_fold{k}.pt
 """
@@ -27,7 +27,7 @@ import torch.nn as nn
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
-from src.plan019.common import (  # noqa: E402
+from src.archive.plan019.common import (  # noqa: E402
     R_HIT,
     BEST_BASIS_VARS,
     build_pool,

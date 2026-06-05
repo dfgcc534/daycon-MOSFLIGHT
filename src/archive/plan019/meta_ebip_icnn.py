@@ -14,10 +14,10 @@ FOMAML inner loop (Finn 2017, first-order MAML):
   pred = argmin_p [||p - p0 - c_τ · B||² + λ · g_icnn(p, c)] # unrolled GD T=3
 
 Usage:
-    python -m src.plan019.meta_ebip_icnn --out-json analysis/plan-019/s3_meta_ebip_icnn.json
+    python -m src.archive.plan019.meta_ebip_icnn --out-json analysis/archive/plan-019/s3_meta_ebip_icnn.json
 
 Outputs:
-    analysis/plan-019/s3_meta_ebip_icnn.json
+    analysis/archive/plan-019/s3_meta_ebip_icnn.json
     runs/baseline/F016_meta-ebip-icnn/oof_predictions.npz
     runs/baseline/F016_meta-ebip-icnn/checkpoint_fold{k}.pt
 """
@@ -36,8 +36,8 @@ import torch.nn as nn
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
-from src.plan019.cnn_encoder import TrajectoryCNNEncoder  # noqa: E402
-from src.plan019.common import (  # noqa: E402
+from src.archive.plan019.cnn_encoder import TrajectoryCNNEncoder  # noqa: E402
+from src.archive.plan019.common import (  # noqa: E402
     R_HIT,
     BEST_BASIS_VARS,
     build_pool,
@@ -46,7 +46,7 @@ from src.plan019.common import (  # noqa: E402
     load_data,
     soft_hit_loss,
 )
-from src.plan019.ebip_icnn import ICNNEnergy  # noqa: E402  (S2 의 ICNN 재사용 OK — 같은 plan 내)
+from src.archive.plan019.ebip_icnn import ICNNEnergy  # noqa: E402  (S2 의 ICNN 재사용 OK — 같은 plan 내)
 
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
