@@ -1,0 +1,20 @@
+handle: 노우딘            # DACON 닉네임. ASCII 불가 → 폴더는 pb0700-14012
+rank: ~                  # "수상권은 아니지만"(작성자) — 순위 미명시
+score:
+  public: 0.7022        # 노트북 제목 "Public 0.7022"
+  private: 0.700        # 노트북 제목 "Private 0.700" — 0.70+ 컷오프 경계값
+source_url: https://dacon.io/competitions/official/236716/codeshare/14012
+fetched_at: 2026-06-06
+license: unknown
+files:
+  - notebook: notes/winners/pb0700-14012/md_file.html
+  - notebook_dump: notes/winners/pb0700-14012/notebook_dump.md   # Phase B 산출
+  - data_used: [train, train_labels, test, sample_submission]   # 노트북 경로는 Kaggle Dataset 기준(/kaggle/input) — DACON 실행 시 DATA_DIR 수정
+paradigm_tag: GRU + Transformer physics-decoder (좌표 대신 운동방정식 계수 학습) + multi-phase train + Weighted LGBM 잔차 후보정 (10-fold)
+reproduction_status: pending
+notes: |
+  - 자체 완결 단일 .ipynb. 코드 셀 ~9개. seed 완전 고정.
+  - 핵심 착안: R-Hit@1cm 이진 지표 → 좌표 직접 예측 대신 운동방정식 계수를 학습해 "경계 안쪽으로 점을 밀어넣기"(작성자 desc).
+  - 파이프라인: 설정 → 데이터 로딩 → 피처 엔지니어링(속도·곡률·z + 접선/법선 가속 컨텍스트, 6-step 시퀀스) → 물리 디코더 & 손실 → 모델(GRU+Transformer) → 학습(사전학습 → 파인튜닝 → 10-Fold) → 후처리(Weighted LGBM 잔차 보정) → 제출.
+  - multi-phase 학습 + LGBM 후보정이 특징 (내 plan-031 training-procedure / plan-025 LGBM 와 비교점).
+  - 단독 lever ΔLB 미측정 (Phase B 추출만).

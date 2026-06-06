@@ -1,0 +1,21 @@
+handle: munjwc25
+rank: 2
+score:
+  public: 0.7022        # 노트북 제목 명시
+  private: 0.7031       # 노트북 제목 "Private 2위 (Private 0.7031 / Public 0.7022)"
+source_url: https://dacon.io/competitions/official/236716/codeshare/14007
+fetched_at: 2026-06-06
+license: unknown          # DACON 코드공유 default — 노트북 본문에 license 명시 없음
+files:
+  - notebook: notes/winners/rank2-munjwc25/md_file.html   # DACON 렌더 HTML (md_file.html)
+  - notebook_dump: notes/winners/rank2-munjwc25/notebook_dump.md   # Phase B 산출
+  - data_used: [train, train_labels, test, sample_submission]   # DACON 원본 외 사용 없음
+paradigm_tag: orthogonal multi-pool ensemble (Kalman-residual GRU + Neural ODE + physics + tree, blend recipe §6)
+reproduction_status: pending
+notes: |
+  - 자체 완결 단일 .ipynb (Windows 11 / py3.11 / torch 2.7.1). 코드 셀 ~17개.
+  - 설계 철학: R-Hit@1cm 이 1cm 경계 이진 지표 → 단일 모델 정확도보다 "서로 직교하는(orthogonal) 예측 메커니즘 다양성" 우선 (작성자 desc 직접 언급).
+  - 구성: §1 공통 코어(Kalman 잔차 / canonical frame / scalar features) · §2 Pool A=Kalman 잔차 GRU · §3 Pool B=Neural ODE(RK4) · §4~§5 추가 pool · §6 블렌드 레시피 · §7 최종 제출 복원.
+  - 최종 제출 = submission_v157_ens3a0.4.csv (Private 0.7031).
+  - keywords: Kalman·GRU·ODE·XGB·physics·Rodrigues·TTA·flip·fold·seed·huber·sigmoid·hit·잔차·rotation·damping.
+  - GOH30(rank1) 과 같은 "다양성 앙상블" 패러다임. 단독 lever ΔLB 미측정 (Phase B 추출만).

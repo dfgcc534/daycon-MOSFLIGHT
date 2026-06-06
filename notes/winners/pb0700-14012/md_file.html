@@ -1,0 +1,604 @@
+<link rel="stylesheet" href="https://dacon.io/codecss/notebook2.css">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@9.15.10/build/styles/zenburn.min.css" crossorigin="anonymous">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.11.1/dist/katex.min.css" crossorigin="anonymous">
+        <div class="nb-notebook"><section class="nb-cell nb-markdown-cell"><h1 id="모기-비행-궤적-예측--gru--transformer--물리-디코더"><a class="anchor" href="#모기-비행-궤적-예측--gru--transformer--물리-디코더" aria-hidden="true"></a>모기 비행 궤적 예측 — GRU + Transformer + 물리 디코더</h1><p><strong>Public 0.7022 / Private 0.700</strong></p>
+<p>평가지표 R-Hit@1cm이 1cm 경계 안에 드느냐로 갈리는 이진 지표라는 점에 착안해,
+좌표를 직접 예측하는 대신 운동 방정식의 계수를 학습하고 경계 안쪽으로 점을 밀어넣는 데 집중한 솔루션입니다.</p>
+<p><strong>구성</strong></p>
+<ol>
+<li>설정 &amp; 재현성</li>
+<li>데이터 로딩</li>
+<li>피처 엔지니어링</li>
+<li>물리 디코더 &amp; 손실</li>
+<li>모델 정의 (GRU + Transformer)</li>
+<li>Dataset &amp; 피처 생성</li>
+<li>학습 루프 (사전학습 → 파인튜닝 → 10-Fold)</li>
+<li>후처리 (Weighted LGBM 잔차 보정)</li>
+<li>제출 파일 생성</li>
+</ol>
+<blockquote>
+<p>데이터 경로가 Kaggle Dataset 기준(<code>/kaggle/input/...</code>)입니다. Dacon 데이터로 실행할 때는 1번 셀의 <code>DATA_DIR</code>를 수정하세요.</p>
+</blockquote>
+</section><section class="nb-cell nb-markdown-cell"><h2 id="1-설정--재현성"><a class="anchor" href="#1-설정--재현성" aria-hidden="true"></a>1. 설정 &amp; 재현성</h2><p>경로, 하이퍼파라미터, Transformer 설정, seed 고정(완전 재현)을 정의합니다.</p>
+</section><section class="nb-cell nb-code-cell"><div class="nb-source nb-input"><pre><code class="lang-python" data-language="python"><span class="hljs-string">&quot;&quot;&quot;
+GRU + Transformer 하이브리드 모델
+=====================================
+구조:
+  1. GRU:         시퀀스 → hidden states (모든 timestep)
+  2. Transformer: GRU hidden states → Self-Attention
+  3. Pooling:     CLS 토큰으로 집약
+  4. Head:        6 파라미터 예측
+  5. 물리공식:    운동 방정식으로 좌표 디코딩
+&quot;&quot;&quot;</span>
+
+<span class="hljs-keyword">from</span> pathlib <span class="hljs-keyword">import</span> Path
+<span class="hljs-keyword">import</span> numpy <span class="hljs-keyword">as</span> np
+<span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+<span class="hljs-keyword">import</span> torch
+<span class="hljs-keyword">import</span> torch.nn <span class="hljs-keyword">as</span> nn
+<span class="hljs-keyword">import</span> torch.nn.functional <span class="hljs-keyword">as</span> F
+<span class="hljs-keyword">from</span> torch.utils.data <span class="hljs-keyword">import</span> Dataset, DataLoader
+<span class="hljs-keyword">from</span> sklearn.model_selection <span class="hljs-keyword">import</span> KFold
+
+DATA_DIR   = Path(<span class="hljs-string">&#x27;/kaggle/input/datasets/woojinroh/mos-data&#x27;</span>)
+TRAIN_DIR  = DATA_DIR / <span class="hljs-string">&#x27;train&#x27;</span>
+TEST_DIR   = DATA_DIR / <span class="hljs-string">&#x27;test&#x27;</span>
+LABEL_PATH = DATA_DIR / <span class="hljs-string">&#x27;train_labels.csv&#x27;</span>
+SUB_PATH   = DATA_DIR / <span class="hljs-string">&#x27;sample_submission.csv&#x27;</span>
+
+HIDDEN     = <span class="hljs-number">128</span>
+N_LAYERS   = <span class="hljs-number">2</span>
+DROPOUT    = <span class="hljs-number">0.08</span>
+BATCH      = <span class="hljs-number">512</span>
+PRE_EPOCHS = <span class="hljs-number">40</span>
+FINE_EPOCHS= <span class="hljs-number">60</span>
+LR         = <span class="hljs-number">1e-3</span>
+FINE_LR    = LR * <span class="hljs-number">0.20</span>
+N_SPLITS   = <span class="hljs-number">10</span>
+R_HIT      = <span class="hljs-number">0.01</span>
+EPS        = <span class="hljs-number">1e-8</span>
+PATIENCE   = <span class="hljs-number">15</span>
+MIN_EPOCHS = <span class="hljs-number">5</span>
+
+<span class="hljs-comment"># Transformer 하이퍼파라미터</span>
+N_HEADS    = <span class="hljs-number">4</span>    <span class="hljs-comment"># Attention head 수 (HIDDEN=128, 128/4=32 per head)</span>
+N_TF_LAYERS= <span class="hljs-number">2</span>    <span class="hljs-comment"># Transformer layer 수</span>
+TF_DIM     = <span class="hljs-number">256</span>  <span class="hljs-comment"># Transformer FF dim</span>
+
+DEVICE = <span class="hljs-string">&#x27;cuda&#x27;</span> <span class="hljs-keyword">if</span> torch.cuda.is_available() <span class="hljs-keyword">else</span> <span class="hljs-string">&#x27;cpu&#x27;</span>
+<span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;Device: <span class="hljs-subst">{DEVICE}</span>&quot;</span>)
+
+<span class="hljs-comment"># 재현성 확보</span>
+<span class="hljs-keyword">import</span> random
+random.seed(<span class="hljs-number">42</span>)
+np.random.seed(<span class="hljs-number">42</span>)
+torch.manual_seed(<span class="hljs-number">42</span>)
+<span class="hljs-keyword">if</span> torch.cuda.is_available():
+    torch.cuda.manual_seed(<span class="hljs-number">42</span>)
+    torch.cuda.manual_seed_all(<span class="hljs-number">42</span>)
+torch.backends.cudnn.deterministic = <span class="hljs-literal">True</span>
+torch.backends.cudnn.benchmark = <span class="hljs-literal">False</span>
+torch.use_deterministic_algorithms(<span class="hljs-literal">True</span>, warn_only=<span class="hljs-literal">True</span>)
+<span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;시드 고정: 42 (완전 재현성)&quot;</span>)</code></pre></div></section><section class="nb-cell nb-markdown-cell"><h2 id="2-데이터-로딩"><a class="anchor" href="#2-데이터-로딩" aria-hidden="true"></a>2. 데이터 로딩</h2><p>train/test 궤적 시계열(x, y, z)과 라벨을 읽어옵니다.</p>
+</section><section class="nb-cell nb-code-cell"><div class="nb-source nb-input"><pre><code class="lang-python" data-language="python"><span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">read_xyz</span>(<span class="hljs-params">path</span>):</span>
+    df = pd.read_csv(path).sort_values(<span class="hljs-string">&#x27;timestep_ms&#x27;</span>)
+    <span class="hljs-keyword">return</span> df[[<span class="hljs-string">&#x27;x&#x27;</span>,<span class="hljs-string">&#x27;y&#x27;</span>,<span class="hljs-string">&#x27;z&#x27;</span>]].to_numpy(dtype=np.float32)
+
+<span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">load_all</span>(<span class="hljs-params">folder, pattern</span>):</span>
+    files = <span class="hljs-built_in">sorted</span>(folder.glob(pattern))
+    <span class="hljs-keyword">return</span> np.stack([read_xyz(f) <span class="hljs-keyword">for</span> f <span class="hljs-keyword">in</span> files], axis=<span class="hljs-number">0</span>), [f.stem <span class="hljs-keyword">for</span> f <span class="hljs-keyword">in</span> files]
+
+<span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;데이터 로딩...&quot;</span>)
+train_labels = pd.read_csv(LABEL_PATH)
+sample_sub   = pd.read_csv(SUB_PATH)
+X_train_raw, train_ids = load_all(TRAIN_DIR, <span class="hljs-string">&#x27;TRAIN_*.csv&#x27;</span>)
+X_test_raw,  test_ids  = load_all(TEST_DIR,  <span class="hljs-string">&#x27;TEST_*.csv&#x27;</span>)
+train_labels = train_labels.set_index(<span class="hljs-string">&#x27;id&#x27;</span>).loc[train_ids].reset_index()
+Y_train = train_labels[[<span class="hljs-string">&#x27;x&#x27;</span>,<span class="hljs-string">&#x27;y&#x27;</span>,<span class="hljs-string">&#x27;z&#x27;</span>]].to_numpy(dtype=np.float32)
+<span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;Train: <span class="hljs-subst">{X_train_raw.shape}</span>&quot;</span>)</code></pre></div></section><section class="nb-cell nb-markdown-cell"><h2 id="3-피처-엔지니어링"><a class="anchor" href="#3-피처-엔지니어링" aria-hidden="true"></a>3. 피처 엔지니어링</h2><p>속도·곡률·z축 성분 등 6-step 시퀀스 피처와, 물리 디코딩에 필요한 컨텍스트(p0, 속도, 접선/법선 가속 등)를 만듭니다.</p>
+</section><section class="nb-cell nb-code-cell"><div class="nb-source nb-input"><pre><code class="lang-python" data-language="python"><span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">make_seq_features</span>(<span class="hljs-params">x, end_idx</span>):</span>
+    feats = []
+    indices = <span class="hljs-built_in">list</span>(<span class="hljs-built_in">range</span>(<span class="hljs-built_in">max</span>(<span class="hljs-number">3</span>, end_idx-<span class="hljs-number">5</span>), end_idx+<span class="hljs-number">1</span>))
+    <span class="hljs-keyword">if</span> <span class="hljs-built_in">len</span>(indices) &lt; <span class="hljs-number">6</span>:
+        indices = [indices[<span class="hljs-number">0</span>]] * (<span class="hljs-number">6</span>-<span class="hljs-built_in">len</span>(indices)) + indices
+    <span class="hljs-keyword">for</span> idx <span class="hljs-keyword">in</span> indices:
+        d1=x[:,idx]-x[:,idx-<span class="hljs-number">1</span>]; d2=x[:,idx-<span class="hljs-number">1</span>]-x[:,idx-<span class="hljs-number">2</span>]
+        d3=x[:,idx-<span class="hljs-number">2</span>]-x[:,idx-<span class="hljs-number">3</span>] <span class="hljs-keyword">if</span> idx&gt;=<span class="hljs-number">3</span> <span class="hljs-keyword">else</span> d2
+        acc=d1-d2; prev_acc=d2-d3
+        tang=d1/(np.linalg.norm(d1,axis=<span class="hljs-number">1</span>,keepdims=<span class="hljs-literal">True</span>)+EPS)
+        spd=np.linalg.norm(d1,axis=<span class="hljs-number">1</span>,keepdims=<span class="hljs-literal">True</span>)
+        pspd=np.linalg.norm(d2,axis=<span class="hljs-number">1</span>,keepdims=<span class="hljs-literal">True</span>)
+        ap=np.<span class="hljs-built_in">sum</span>(acc*tang,axis=<span class="hljs-number">1</span>,keepdims=<span class="hljs-literal">True</span>)
+        aperp=acc-ap*tang
+        pnorm=np.linalg.norm(aperp,axis=<span class="hljs-number">1</span>,keepdims=<span class="hljs-literal">True</span>)
+        jnorm=np.linalg.norm(acc-prev_acc,axis=<span class="hljs-number">1</span>,keepdims=<span class="hljs-literal">True</span>)
+        tcos=np.<span class="hljs-built_in">sum</span>(d1*d2,axis=<span class="hljs-number">1</span>,keepdims=<span class="hljs-literal">True</span>)/(spd*pspd+EPS)
+        curv=pnorm/(spd+EPS)
+        z_spd=d1[:,<span class="hljs-number">2</span>:<span class="hljs-number">3</span>]/(spd+EPS); z_acc=acc[:,<span class="hljs-number">2</span>:<span class="hljs-number">3</span>]/(spd+EPS)
+        cross_z=(tang[:,<span class="hljs-number">0</span>:<span class="hljs-number">1</span>]*d2[:,<span class="hljs-number">1</span>:<span class="hljs-number">2</span>]-tang[:,<span class="hljs-number">1</span>:<span class="hljs-number">2</span>]*d2[:,<span class="hljs-number">0</span>:<span class="hljs-number">1</span>])/(pspd+EPS)
+        feats.append(np.concatenate([
+            spd,pspd/(spd+EPS),ap/(spd+EPS),pnorm/(spd+EPS),
+            tcos,curv,z_spd,z_acc,cross_z,
+            jnorm/(spd+EPS),np.ones((<span class="hljs-built_in">len</span>(x),<span class="hljs-number">1</span>),dtype=np.float32)],axis=<span class="hljs-number">1</span>))
+    N=<span class="hljs-built_in">len</span>(x)
+    early_end=<span class="hljs-built_in">min</span>(<span class="hljs-number">5</span>,end_idx)
+    ev=x[:,<span class="hljs-number">1</span>:early_end+<span class="hljs-number">1</span>]-x[:,<span class="hljs-number">0</span>:early_end]
+    espd=np.linalg.norm(ev,axis=<span class="hljs-number">2</span>).mean(axis=<span class="hljs-number">1</span>,keepdims=<span class="hljs-literal">True</span>) \
+         <span class="hljs-keyword">if</span> ev.shape[<span class="hljs-number">1</span>]&gt;<span class="hljs-number">0</span> <span class="hljs-keyword">else</span> np.zeros((N,<span class="hljs-number">1</span>),dtype=np.float32)
+    ls=<span class="hljs-built_in">max</span>(<span class="hljs-number">1</span>,end_idx-<span class="hljs-number">3</span>); lv=x[:,ls:end_idx]-x[:,ls-<span class="hljs-number">1</span>:end_idx-<span class="hljs-number">1</span>]
+    lspd=np.linalg.norm(lv,axis=<span class="hljs-number">2</span>).mean(axis=<span class="hljs-number">1</span>,keepdims=<span class="hljs-literal">True</span>) \
+         <span class="hljs-keyword">if</span> lv.shape[<span class="hljs-number">1</span>]&gt;<span class="hljs-number">0</span> <span class="hljs-keyword">else</span> np.zeros((N,<span class="hljs-number">1</span>),dtype=np.float32)
+    spd_trend=lspd-espd
+    rs=<span class="hljs-built_in">max</span>(<span class="hljs-number">0</span>,end_idx-<span class="hljs-number">3</span>)
+    od=x[:,end_idx]-x[:,<span class="hljs-number">0</span>]; rd=x[:,end_idx]-x[:,rs]
+    od=od/(np.linalg.norm(od,axis=<span class="hljs-number">1</span>,keepdims=<span class="hljs-literal">True</span>)+EPS)
+    rd=rd/(np.linalg.norm(rd,axis=<span class="hljs-number">1</span>,keepdims=<span class="hljs-literal">True</span>)+EPS)
+    tsig=np.<span class="hljs-built_in">sum</span>(od*rd,axis=<span class="hljs-number">1</span>,keepdims=<span class="hljs-literal">True</span>)
+    zr=<span class="hljs-built_in">max</span>(<span class="hljs-number">0</span>,end_idx-<span class="hljs-number">4</span>); zt=(x[:,end_idx,<span class="hljs-number">2</span>]-x[:,zr,<span class="hljs-number">2</span>]).reshape(-<span class="hljs-number">1</span>,<span class="hljs-number">1</span>)
+    z_lspd=np.<span class="hljs-built_in">abs</span>(lv[:,:,<span class="hljs-number">2</span>]).mean(axis=<span class="hljs-number">1</span>,keepdims=<span class="hljs-literal">True</span>) \
+           <span class="hljs-keyword">if</span> lv.shape[<span class="hljs-number">1</span>]&gt;<span class="hljs-number">0</span> <span class="hljs-keyword">else</span> np.zeros((N,<span class="hljs-number">1</span>),dtype=np.float32)
+    gf=np.concatenate([spd_trend,tsig,zt,espd,lspd,z_lspd],axis=<span class="hljs-number">1</span>).astype(np.float32)
+    base=np.stack(feats,axis=<span class="hljs-number">1</span>)
+    gf_e=np.repeat(gf[:,np.newaxis,:],<span class="hljs-number">6</span>,axis=<span class="hljs-number">1</span>)
+    <span class="hljs-keyword">return</span> np.concatenate([base,gf_e],axis=<span class="hljs-number">2</span>).astype(np.float32)
+
+<span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">extract_physics_ctx</span>(<span class="hljs-params">x, end_idx</span>):</span>
+    p0=x[:,end_idx]; d1v=x[:,end_idx]-x[:,end_idx-<span class="hljs-number">1</span>]
+    d2v=x[:,end_idx-<span class="hljs-number">1</span>]-x[:,end_idx-<span class="hljs-number">2</span>]
+    d3v=x[:,end_idx-<span class="hljs-number">2</span>]-x[:,end_idx-<span class="hljs-number">3</span>] <span class="hljs-keyword">if</span> end_idx&gt;=<span class="hljs-number">3</span> <span class="hljs-keyword">else</span> d2v
+    acc=d1v-d2v; prev_acc=d2v-d3v; jerk=acc-prev_acc
+    tang=d1v/(np.linalg.norm(d1v,axis=<span class="hljs-number">1</span>,keepdims=<span class="hljs-literal">True</span>)+EPS)
+    ap=np.<span class="hljs-built_in">sum</span>(acc*tang,axis=<span class="hljs-number">1</span>,keepdims=<span class="hljs-literal">True</span>)*tang; aperp=acc-ap
+    <span class="hljs-keyword">return</span> (p0.astype(np.float32), d1v.astype(np.float32),
+            ap.astype(np.float32), aperp.astype(np.float32),
+            d2v.astype(np.float32), jerk.astype(np.float32))
+
+<span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">make_target_params</span>(<span class="hljs-params">x, end_idx, y, horizon=<span class="hljs-number">2</span></span>):</span>
+    p0=x[:,end_idx]; d1v=x[:,end_idx]-x[:,end_idx-<span class="hljs-number">1</span>]
+    d2v=x[:,end_idx-<span class="hljs-number">1</span>]-x[:,end_idx-<span class="hljs-number">2</span>]; acc=d1v-d2v
+    tang=d1v/(np.linalg.norm(d1v,axis=<span class="hljs-number">1</span>,keepdims=<span class="hljs-literal">True</span>)+EPS)
+    ap=np.<span class="hljs-built_in">sum</span>(acc*tang,axis=<span class="hljs-number">1</span>,keepdims=<span class="hljs-literal">True</span>)*tang; aperp=acc-ap
+    spd=np.linalg.norm(d1v,axis=<span class="hljs-number">1</span>,keepdims=<span class="hljs-literal">True</span>)
+    delta=y-p0; vs=horizon/<span class="hljs-number">2.0</span>; as_=(horizon/<span class="hljs-number">2.0</span>)**<span class="hljs-number">2</span>
+    delta_par=np.<span class="hljs-built_in">sum</span>(delta*tang,axis=<span class="hljs-number">1</span>,keepdims=<span class="hljs-literal">True</span>)
+    perp_vec=delta-delta_par*tang
+    perp_mag=np.linalg.norm(perp_vec,axis=<span class="hljs-number">1</span>,keepdims=<span class="hljs-literal">True</span>)
+    cross_z=(tang[:,<span class="hljs-number">0</span>:<span class="hljs-number">1</span>]*delta[:,<span class="hljs-number">1</span>:<span class="hljs-number">2</span>]-tang[:,<span class="hljs-number">1</span>:<span class="hljs-number">2</span>]*delta[:,<span class="hljs-number">0</span>:<span class="hljs-number">1</span>])
+    perp_signed=perp_mag*np.sign(cross_z)
+    ap_mag=np.linalg.norm(ap,axis=<span class="hljs-number">1</span>,keepdims=<span class="hljs-literal">True</span>)
+    aperp_mag=np.linalg.norm(aperp,axis=<span class="hljs-number">1</span>,keepdims=<span class="hljs-literal">True</span>)
+    d1s=np.clip(delta_par/(vs*spd+EPS), <span class="hljs-number">0.0</span>, <span class="hljs-number">3.0</span>)
+    pars=np.clip((delta_par-d1s*vs*spd)/(as_*ap_mag+EPS), -<span class="hljs-number">2.0</span>, <span class="hljs-number">2.0</span>)
+    perps=np.clip(perp_signed/(as_*(aperp_mag+EPS)), -<span class="hljs-number">8.0</span>, <span class="hljs-number">8.0</span>)
+    ts=np.ones_like(d1s)
+    d2v_=x[:,end_idx-<span class="hljs-number">1</span>]-x[:,end_idx-<span class="hljs-number">2</span>]
+    d2_mag=np.linalg.norm(d2v_,axis=<span class="hljs-number">1</span>,keepdims=<span class="hljs-literal">True</span>)
+    d2s=np.clip(delta_par/(vs*d2_mag+EPS)*<span class="hljs-number">0.3</span>, -<span class="hljs-number">1.0</span>, <span class="hljs-number">1.0</span>)
+    d3v_=x[:,end_idx-<span class="hljs-number">2</span>]-x[:,end_idx-<span class="hljs-number">3</span>] <span class="hljs-keyword">if</span> end_idx&gt;=<span class="hljs-number">3</span> <span class="hljs-keyword">else</span> d2v_
+    jerk_vec=(d1v-d2v_)-(d2v_-d3v_)
+    jerk_mag=np.linalg.norm(jerk_vec,axis=<span class="hljs-number">1</span>,keepdims=<span class="hljs-literal">True</span>)
+    jerks=np.clip(delta_par/(as_*jerk_mag+EPS)*<span class="hljs-number">0.1</span>, -<span class="hljs-number">1.0</span>, <span class="hljs-number">1.0</span>)
+    <span class="hljs-keyword">return</span> np.concatenate([d1s,pars,perps,ts,d2s,jerks],axis=<span class="hljs-number">1</span>).astype(np.float32)</code></pre></div></section><section class="nb-cell nb-markdown-cell"><h2 id="4-물리-디코더--손실"><a class="anchor" href="#4-물리-디코더--손실" aria-hidden="true"></a>4. 물리 디코더 &amp; 손실</h2><p>신경망이 출력한 6개 계수를 운동 방정식에 넣어 좌표를 계산하고, 평균 거리가 아니라 <strong>Hit 여부를 직접 최적화</strong>하는 손실을 정의합니다.</p>
+</section><section class="nb-cell nb-code-cell"><div class="nb-source nb-input"><pre><code class="lang-python" data-language="python"><span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">physics_predict_torch</span>(<span class="hljs-params">p0, d1v, ap, aperp, params, horizon=<span class="hljs-number">2</span>,
+                           d2v=<span class="hljs-literal">None</span>, jerk=<span class="hljs-literal">None</span></span>):</span>
+    d1s  = params[:, <span class="hljs-number">0</span>:<span class="hljs-number">1</span>]; pars = params[:, <span class="hljs-number">1</span>:<span class="hljs-number">2</span>]
+    perps= params[:, <span class="hljs-number">2</span>:<span class="hljs-number">3</span>]; ts   = params[:, <span class="hljs-number">3</span>:<span class="hljs-number">4</span>]
+    d2s  = params[:, <span class="hljs-number">4</span>:<span class="hljs-number">5</span>] <span class="hljs-keyword">if</span> params.shape[<span class="hljs-number">1</span>] &gt; <span class="hljs-number">4</span> <span class="hljs-keyword">else</span> torch.zeros_like(d1s)
+    jerks= params[:, <span class="hljs-number">5</span>:<span class="hljs-number">6</span>] <span class="hljs-keyword">if</span> params.shape[<span class="hljs-number">1</span>] &gt; <span class="hljs-number">5</span> <span class="hljs-keyword">else</span> torch.zeros_like(d1s)
+    vs   = horizon / <span class="hljs-number">2.0</span> * ts
+    as_  = (horizon / <span class="hljs-number">2.0</span>) ** <span class="hljs-number">2</span> * ts ** <span class="hljs-number">2</span>
+    pred = p0 + d1s*vs*d1v + pars*as_*ap + perps*as_*aperp
+    <span class="hljs-keyword">if</span> d2v  <span class="hljs-keyword">is</span> <span class="hljs-keyword">not</span> <span class="hljs-literal">None</span>: pred = pred + d2s*vs*d2v
+    <span class="hljs-keyword">if</span> jerk <span class="hljs-keyword">is</span> <span class="hljs-keyword">not</span> <span class="hljs-literal">None</span>: pred = pred + jerks*as_*jerk
+    <span class="hljs-keyword">return</span> pred
+
+<span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">adaptive_loss</span>(<span class="hljs-params">pred_params, p0, d1v, ap, aperp, y_true, d2v=<span class="hljs-literal">None</span>, jerk=<span class="hljs-literal">None</span></span>):</span>
+    pred_xyz = physics_predict_torch(p0,d1v,ap,aperp,pred_params,d2v=d2v,jerk=jerk)
+    err      = torch.norm(pred_xyz-y_true, dim=<span class="hljs-number">1</span>)
+    huber    = F.huber_loss(err, torch.zeros_like(err), delta=<span class="hljs-number">0.015</span>)
+    hit_prob = torch.sigmoid(-(err-R_HIT)/<span class="hljs-number">0.003</span>)
+    hit_loss = -hit_prob.mean()
+    d1s      = pred_params[:,<span class="hljs-number">0</span>]
+    param_reg= (torch.relu(d1s-<span class="hljs-number">2.5</span>)**<span class="hljs-number">2</span>+torch.relu(<span class="hljs-number">0.3</span>-d1s)**<span class="hljs-number">2</span>).mean()
+    <span class="hljs-keyword">return</span> huber + <span class="hljs-number">0.15</span>*hit_loss + <span class="hljs-number">0.01</span>*param_reg</code></pre></div></section><section class="nb-cell nb-markdown-cell"><h2 id="5-모델-정의--gru--transformer"><a class="anchor" href="#5-모델-정의--gru--transformer" aria-hidden="true"></a>5. 모델 정의 — GRU + Transformer</h2><p>GRU가 시간 순서 의존성을 인코딩하고, CLS 토큰을 붙인 Transformer가 급회전 직전 같은 결정적 시점에 attention을 모읍니다. CLS 토큰을 궤적 요약 벡터로 써서 물리 파라미터 6개를 출력합니다.</p>
+</section><section class="nb-cell nb-code-cell"><div class="nb-source nb-input"><pre><code class="lang-python" data-language="python"><span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">GRUTransformerPhysics</span>(<span class="hljs-params">nn.Module</span>):</span>
+    <span class="hljs-string">&quot;&quot;&quot;
+    1. GRU: 시퀀스 처리 (시간 순서 의존성)
+       seq (B,6,D) → hidden states (B,6,H)
+    2. CLS 토큰 추가: [CLS, h1, ..., h6] → (B, 7, H)
+    3. Transformer Encoder: Self-Attention으로 중요 timestep 강조
+    4. CLS 토큰 추출 → 물리 파라미터 6개 예측
+    &quot;&quot;&quot;</span>
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">__init__</span>(<span class="hljs-params">self, seq_dim, hidden</span>):</span>
+        <span class="hljs-built_in">super</span>().__init__()
+        <span class="hljs-comment"># 1. GRU</span>
+        self.gru = nn.GRU(seq_dim, hidden, num_layers=N_LAYERS,
+                           batch_first=<span class="hljs-literal">True</span>, dropout=DROPOUT)
+        <span class="hljs-comment"># 2. CLS 토큰 (학습 가능)</span>
+        self.cls_token = nn.Parameter(torch.zeros(<span class="hljs-number">1</span>, <span class="hljs-number">1</span>, hidden))
+        nn.init.normal_(self.cls_token, std=<span class="hljs-number">0.02</span>)
+        <span class="hljs-comment"># 3. Transformer Encoder</span>
+        tf_layer = nn.TransformerEncoderLayer(
+            d_model=hidden, nhead=N_HEADS, dim_feedforward=TF_DIM,
+            dropout=DROPOUT, activation=<span class="hljs-string">&#x27;gelu&#x27;</span>, batch_first=<span class="hljs-literal">True</span>,
+            norm_first=<span class="hljs-literal">True</span>)   <span class="hljs-comment"># Pre-LN: 더 안정적인 학습</span>
+        self.transformer = nn.TransformerEncoder(tf_layer, num_layers=N_TF_LAYERS)
+        self.ctx_norm    = nn.LayerNorm(hidden)
+        <span class="hljs-comment"># 4. 파라미터 head</span>
+        self.shared = nn.Sequential(
+            nn.Linear(hidden, hidden), nn.SiLU(), nn.Dropout(DROPOUT),
+            nn.Linear(hidden, hidden//<span class="hljs-number">2</span>), nn.SiLU())
+        self.head_d1   = nn.Linear(hidden//<span class="hljs-number">2</span>, <span class="hljs-number">1</span>)
+        self.head_par  = nn.Linear(hidden//<span class="hljs-number">2</span>, <span class="hljs-number">1</span>)
+        self.head_perp = nn.Linear(hidden//<span class="hljs-number">2</span>, <span class="hljs-number">1</span>)
+        self.head_ts   = nn.Linear(hidden//<span class="hljs-number">2</span>, <span class="hljs-number">1</span>)
+        self.head_d2   = nn.Linear(hidden//<span class="hljs-number">2</span>, <span class="hljs-number">1</span>)
+        self.head_jerk = nn.Linear(hidden//<span class="hljs-number">2</span>, <span class="hljs-number">1</span>)
+
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">forward</span>(<span class="hljs-params">self, seq</span>):</span>
+        B = seq.size(<span class="hljs-number">0</span>)
+        gru_out, _ = self.gru(seq)                     <span class="hljs-comment"># (B,6,H)</span>
+        cls = self.cls_token.expand(B, -<span class="hljs-number">1</span>, -<span class="hljs-number">1</span>)
+        tf_in = torch.cat([cls, gru_out], dim=<span class="hljs-number">1</span>)       <span class="hljs-comment"># (B,7,H)</span>
+        tf_out = self.transformer(tf_in)               <span class="hljs-comment"># (B,7,H)</span>
+        ctx  = self.ctx_norm(tf_out[:, <span class="hljs-number">0</span>, :])          <span class="hljs-comment"># CLS 토큰</span>
+        feat = self.shared(ctx)
+        d1s  = F.softplus(self.head_d1(feat))
+        pars = torch.tanh(self.head_par(feat))  * <span class="hljs-number">2.0</span>
+        perps= torch.tanh(self.head_perp(feat)) * <span class="hljs-number">8.0</span>
+        ts   = torch.sigmoid(self.head_ts(feat)) * <span class="hljs-number">0.8</span> + <span class="hljs-number">0.6</span>
+        d2s  = torch.tanh(self.head_d2(feat))   * <span class="hljs-number">1.0</span>
+        jerks= torch.tanh(self.head_jerk(feat)) * <span class="hljs-number">1.0</span>
+        <span class="hljs-keyword">return</span> torch.cat([d1s,pars,perps,ts,d2s,jerks], dim=<span class="hljs-number">1</span>)</code></pre></div></section><section class="nb-cell nb-markdown-cell"><h2 id="6-dataset--피처-생성"><a class="anchor" href="#6-dataset--피처-생성" aria-hidden="true"></a>6. Dataset &amp; 피처 생성</h2><p>Dataset 클래스를 정의하고, 본 학습용 피처와 커리큘럼 사전학습용 데이터(궤적 중간 시점을 h=1,2로 잘라 대량 생성)를 만든 뒤 정규화합니다.</p>
+</section><section class="nb-cell nb-code-cell"><div class="nb-source nb-input"><pre><code class="lang-python" data-language="python"><span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">AdaptDS</span>(<span class="hljs-params">Dataset</span>):</span>
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">__init__</span>(<span class="hljs-params">self, seq, p0, d1v, ap, aperp, y, d2v=<span class="hljs-literal">None</span>, jerk=<span class="hljs-literal">None</span></span>):</span>
+        self.seq=torch.tensor(seq,dtype=torch.float32)
+        self.p0=torch.tensor(p0,dtype=torch.float32)
+        self.d1v=torch.tensor(d1v,dtype=torch.float32)
+        self.ap=torch.tensor(ap,dtype=torch.float32)
+        self.aperp=torch.tensor(aperp,dtype=torch.float32)
+        self.y=torch.tensor(y,dtype=torch.float32)
+        self.d2v=torch.tensor(d2v,dtype=torch.float32) <span class="hljs-keyword">if</span> d2v <span class="hljs-keyword">is</span> <span class="hljs-keyword">not</span> <span class="hljs-literal">None</span> \
+                  <span class="hljs-keyword">else</span> torch.zeros_like(self.d1v)
+        self.jerk=torch.tensor(jerk,dtype=torch.float32) <span class="hljs-keyword">if</span> jerk <span class="hljs-keyword">is</span> <span class="hljs-keyword">not</span> <span class="hljs-literal">None</span> \
+                   <span class="hljs-keyword">else</span> torch.zeros_like(self.d1v)
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">__len__</span>(<span class="hljs-params">self</span>):</span> <span class="hljs-keyword">return</span> <span class="hljs-built_in">len</span>(self.seq)
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">__getitem__</span>(<span class="hljs-params">self,i</span>):</span>
+        <span class="hljs-keyword">return</span> (self.seq[i],self.p0[i],self.d1v[i],
+                self.ap[i],self.aperp[i],self.y[i],
+                self.d2v[i],self.jerk[i])
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">TestAdaptDS</span>(<span class="hljs-params">Dataset</span>):</span>
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">__init__</span>(<span class="hljs-params">self, seq, p0, d1v, ap, aperp, d2v=<span class="hljs-literal">None</span>, jerk=<span class="hljs-literal">None</span></span>):</span>
+        self.seq=torch.tensor(seq,dtype=torch.float32)
+        self.p0=torch.tensor(p0,dtype=torch.float32)
+        self.d1v=torch.tensor(d1v,dtype=torch.float32)
+        self.ap=torch.tensor(ap,dtype=torch.float32)
+        self.aperp=torch.tensor(aperp,dtype=torch.float32)
+        self.d2v=torch.tensor(d2v,dtype=torch.float32) <span class="hljs-keyword">if</span> d2v <span class="hljs-keyword">is</span> <span class="hljs-keyword">not</span> <span class="hljs-literal">None</span> \
+                  <span class="hljs-keyword">else</span> torch.zeros_like(self.d1v)
+        self.jerk=torch.tensor(jerk,dtype=torch.float32) <span class="hljs-keyword">if</span> jerk <span class="hljs-keyword">is</span> <span class="hljs-keyword">not</span> <span class="hljs-literal">None</span> \
+                   <span class="hljs-keyword">else</span> torch.zeros_like(self.d1v)
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">__len__</span>(<span class="hljs-params">self</span>):</span> <span class="hljs-keyword">return</span> <span class="hljs-built_in">len</span>(self.seq)
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">__getitem__</span>(<span class="hljs-params">self,i</span>):</span>
+        <span class="hljs-keyword">return</span> (self.seq[i],self.p0[i],self.d1v[i],
+                self.ap[i],self.aperp[i],
+                self.d2v[i],self.jerk[i])
+
+<span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;\n피처 생성...&quot;</span>)
+end_idx = X_train_raw.shape[<span class="hljs-number">1</span>]-<span class="hljs-number">1</span>
+SEQ_TRN = make_seq_features(X_train_raw, end_idx)
+P0_TRN, D1V_TRN, AP_TRN, APERP_TRN, D2V_TRN, JERK_TRN = \
+    extract_physics_ctx(X_train_raw, end_idx)
+SEQ_TST = make_seq_features(X_test_raw, X_test_raw.shape[<span class="hljs-number">1</span>]-<span class="hljs-number">1</span>)
+P0_TST, D1V_TST, AP_TST, APERP_TST, D2V_TST, JERK_TST = \
+    extract_physics_ctx(X_test_raw, X_test_raw.shape[<span class="hljs-number">1</span>]-<span class="hljs-number">1</span>)
+
+<span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;사전학습 데이터 생성...&quot;</span>)
+pre_seqs,pre_p0s,pre_d1vs=[],[],[]
+pre_aps,pre_aperps,pre_ys=[],[],[]
+pre_d2vs,pre_jerks=[],[]
+T=X_train_raw.shape[<span class="hljs-number">1</span>]
+<span class="hljs-keyword">for</span> h <span class="hljs-keyword">in</span> [<span class="hljs-number">1</span>,<span class="hljs-number">2</span>]:
+    <span class="hljs-keyword">for</span> ei <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">3</span>,T-h):
+        pre_seqs.append(make_seq_features(X_train_raw,ei))
+        p0,d1v,ap,aperp,d2v,jerk=extract_physics_ctx(X_train_raw,ei)
+        y_h=X_train_raw[:,ei+h]
+        pre_p0s.append(p0); pre_d1vs.append(d1v)
+        pre_aps.append(ap); pre_aperps.append(aperp)
+        pre_d2vs.append(d2v); pre_jerks.append(jerk)
+        pre_ys.append(y_h)
+
+PRE_SEQ=np.vstack(pre_seqs).astype(np.float32)
+PRE_P0=np.vstack(pre_p0s).astype(np.float32)
+PRE_D1V=np.vstack(pre_d1vs).astype(np.float32)
+PRE_AP=np.vstack(pre_aps).astype(np.float32)
+PRE_APERP=np.vstack(pre_aperps).astype(np.float32)
+PRE_D2V=np.vstack(pre_d2vs).astype(np.float32)
+PRE_JERK=np.vstack(pre_jerks).astype(np.float32)
+PRE_Y=np.vstack(pre_ys).astype(np.float32)
+<span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;사전학습: <span class="hljs-subst">{PRE_SEQ.shape[<span class="hljs-number">0</span>]}</span>개&quot;</span>)
+
+seq_mean=np.vstack([PRE_SEQ,SEQ_TRN]).reshape(-<span class="hljs-number">1</span>,PRE_SEQ.shape[-<span class="hljs-number">1</span>]).mean(<span class="hljs-number">0</span>)
+seq_std=np.vstack([PRE_SEQ,SEQ_TRN]).reshape(-<span class="hljs-number">1</span>,PRE_SEQ.shape[-<span class="hljs-number">1</span>]).std(<span class="hljs-number">0</span>)+<span class="hljs-number">1e-6</span>
+<span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">ns</span>(<span class="hljs-params">x</span>):</span> <span class="hljs-keyword">return</span> ((x-seq_mean)/seq_std).astype(np.float32)
+PRE_SEQ_N=ns(PRE_SEQ); SEQ_TRN_N=ns(SEQ_TRN); SEQ_TST_N=ns(SEQ_TST)
+SEQ_DIM=PRE_SEQ_N.shape[-<span class="hljs-number">1</span>]
+<span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;피처 차원: <span class="hljs-subst">{SEQ_DIM}</span>&quot;</span>)
+
+<span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">hit_rate</span>(<span class="hljs-params">pred, true</span>):</span>
+    d=np.linalg.norm(pred-true,axis=<span class="hljs-number">1</span>)
+    <span class="hljs-keyword">return</span> <span class="hljs-built_in">float</span>(np.mean(d&lt;=R_HIT)), <span class="hljs-built_in">float</span>(d.mean())</code></pre></div></section><section class="nb-cell nb-markdown-cell"><h2 id="7-학습-루프--사전학습-→-파인튜닝-→-10-fold"><a class="anchor" href="#7-학습-루프--사전학습-→-파인튜닝-→-10-fold" aria-hidden="true"></a>7. 학습 루프 — 사전학습 → 파인튜닝 → 10-Fold</h2><p>커리큘럼 사전학습(40ep)으로 표현력을 확보하고 실제 타깃으로 파인튜닝(60ep)한 뒤, 10-Fold로 학습한 모델들의 예측을 평균합니다. OOF 예측도 함께 저장해 후처리에 사용합니다.</p>
+</section><section class="nb-cell nb-code-cell"><div class="nb-source nb-input"><pre><code class="lang-python" data-language="python">kf=KFold(n_splits=N_SPLITS, shuffle=<span class="hljs-literal">True</span>, random_state=<span class="hljs-number">42</span>)
+test_preds=[]; fold_hits=[]
+oof_preds=np.zeros((<span class="hljs-built_in">len</span>(SEQ_TRN_N),<span class="hljs-number">3</span>),dtype=np.float32)
+
+pre_ds=AdaptDS(PRE_SEQ_N,PRE_P0,PRE_D1V,PRE_AP,PRE_APERP,PRE_Y)
+pre_ld=DataLoader(pre_ds,batch_size=BATCH,shuffle=<span class="hljs-literal">True</span>,num_workers=<span class="hljs-number">0</span>)
+
+<span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;\n학습 시작!&quot;</span>)
+<span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;=&quot;</span>*<span class="hljs-number">70</span>)
+
+<span class="hljs-keyword">for</span> fold,(tr_idx,va_idx) <span class="hljs-keyword">in</span> <span class="hljs-built_in">enumerate</span>(kf.split(SEQ_TRN_N)):
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;\nFold <span class="hljs-subst">{fold+<span class="hljs-number">1</span>}</span>/<span class="hljs-subst">{N_SPLITS}</span>&quot;</span>)
+
+    va_ds=TestAdaptDS(SEQ_TRN_N[va_idx],P0_TRN[va_idx],D1V_TRN[va_idx],
+                      AP_TRN[va_idx],APERP_TRN[va_idx],D2V_TRN[va_idx],JERK_TRN[va_idx])
+    tr_ds=AdaptDS(SEQ_TRN_N[tr_idx],P0_TRN[tr_idx],D1V_TRN[tr_idx],
+                  AP_TRN[tr_idx],APERP_TRN[tr_idx],Y_train[tr_idx],
+                  D2V_TRN[tr_idx],JERK_TRN[tr_idx])
+    te_ds=TestAdaptDS(SEQ_TST_N,P0_TST,D1V_TST,AP_TST,APERP_TST,D2V_TST,JERK_TST)
+
+    va_ld=DataLoader(va_ds,batch_size=BATCH,shuffle=<span class="hljs-literal">False</span>,num_workers=<span class="hljs-number">0</span>)
+    tr_ld=DataLoader(tr_ds,batch_size=BATCH,shuffle=<span class="hljs-literal">True</span>,num_workers=<span class="hljs-number">0</span>)
+    te_ld=DataLoader(te_ds,batch_size=BATCH,shuffle=<span class="hljs-literal">False</span>,num_workers=<span class="hljs-number">0</span>)
+
+    model=GRUTransformerPhysics(SEQ_DIM,HIDDEN).to(DEVICE)
+    opt=torch.optim.AdamW(model.parameters(),lr=LR,weight_decay=<span class="hljs-number">1e-4</span>)
+    <span class="hljs-comment"># Transformer용 Warmup + CosineAnnealing</span>
+    warmup_epochs = <span class="hljs-number">5</span>
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">lr_lambda</span>(<span class="hljs-params">epoch</span>):</span>
+        <span class="hljs-keyword">if</span> epoch &lt; warmup_epochs:
+            <span class="hljs-keyword">return</span> <span class="hljs-built_in">float</span>(epoch+<span class="hljs-number">1</span>) / warmup_epochs
+        progress = (epoch - warmup_epochs) / (PRE_EPOCHS - warmup_epochs)
+        <span class="hljs-keyword">return</span> <span class="hljs-number">0.05</span> + <span class="hljs-number">0.95</span> * <span class="hljs-number">0.5</span> * (<span class="hljs-number">1</span> + np.cos(np.pi * progress))
+    sched=torch.optim.lr_scheduler.LambdaLR(opt, lr_lambda)
+    best_hit=-<span class="hljs-number">1.0</span>; best_state=<span class="hljs-literal">None</span>; no_imp=<span class="hljs-number">0</span>
+
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;  [사전학습]&quot;</span>)
+    <span class="hljs-keyword">for</span> epoch <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">1</span>,PRE_EPOCHS+<span class="hljs-number">1</span>):
+        model.train()
+        <span class="hljs-keyword">for</span> seq,p0,d1v,ap,aperp,y,d2v,jerk <span class="hljs-keyword">in</span> pre_ld:
+            seq,p0,d1v,ap,aperp,y,d2v,jerk=[t.to(DEVICE) <span class="hljs-keyword">for</span> t <span class="hljs-keyword">in</span>
+                                              [seq,p0,d1v,ap,aperp,y,d2v,jerk]]
+            opt.zero_grad()
+            adaptive_loss(model(seq),p0,d1v,ap,aperp,y).backward()
+            nn.utils.clip_grad_norm_(model.parameters(),<span class="hljs-number">2.0</span>)
+            opt.step()
+        sched.step()
+
+        model.<span class="hljs-built_in">eval</span>(); preds=[]
+        <span class="hljs-keyword">with</span> torch.no_grad():
+            <span class="hljs-keyword">for</span> seq,p0,d1v,ap,aperp,d2v,jerk <span class="hljs-keyword">in</span> va_ld:
+                seq,p0,d1v,ap,aperp,d2v,jerk=[t.to(DEVICE) <span class="hljs-keyword">for</span> t <span class="hljs-keyword">in</span>
+                                                [seq,p0,d1v,ap,aperp,d2v,jerk]]
+                preds.append(physics_predict_torch(
+                    p0,d1v,ap,aperp,model(seq),d2v=d2v,jerk=jerk).cpu().numpy())
+        h,dm=hit_rate(np.vstack(preds),Y_train[va_idx])
+        <span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;  [Pre] Ep <span class="hljs-subst">{epoch:03d}</span> | Hit:<span class="hljs-subst">{h:<span class="hljs-number">.4</span>f}</span> | Dist:<span class="hljs-subst">{dm*<span class="hljs-number">100</span>:<span class="hljs-number">.4</span>f}</span>cm&quot;</span>)
+        <span class="hljs-keyword">if</span> h&gt;best_hit:
+            best_hit=h
+            best_state={k:v.cpu().clone() <span class="hljs-keyword">for</span> k,v <span class="hljs-keyword">in</span> model.state_dict().items()}
+            no_imp=<span class="hljs-number">0</span>; <span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;    ✓ Best! (<span class="hljs-subst">{best_hit:<span class="hljs-number">.4</span>f}</span>)&quot;</span>)
+        <span class="hljs-keyword">else</span>:
+            no_imp+=<span class="hljs-number">1</span>
+            <span class="hljs-keyword">if</span> no_imp&gt;=PATIENCE <span class="hljs-keyword">and</span> epoch&gt;=MIN_EPOCHS:
+                <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;    Early stopping&quot;</span>); <span class="hljs-keyword">break</span>
+
+    pre_best={k:v.clone() <span class="hljs-keyword">for</span> k,v <span class="hljs-keyword">in</span> best_state.items()}
+
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;  [파인튜닝]&quot;</span>)
+    model.load_state_dict(best_state)
+    opt_fi=torch.optim.AdamW(model.parameters(),lr=FINE_LR,weight_decay=<span class="hljs-number">1e-4</span>)
+    sched_fi=torch.optim.lr_scheduler.ReduceLROnPlateau(
+        opt_fi,mode=<span class="hljs-string">&#x27;max&#x27;</span>,patience=<span class="hljs-number">8</span>,factor=<span class="hljs-number">0.5</span>)
+    best_hit_fi=best_hit; no_imp=<span class="hljs-number">0</span>
+
+    <span class="hljs-keyword">for</span> epoch <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">1</span>,FINE_EPOCHS+<span class="hljs-number">1</span>):
+        model.train()
+        <span class="hljs-keyword">for</span> seq,p0,d1v,ap,aperp,y,d2v,jerk <span class="hljs-keyword">in</span> tr_ld:
+            seq,p0,d1v,ap,aperp,y,d2v,jerk=[t.to(DEVICE) <span class="hljs-keyword">for</span> t <span class="hljs-keyword">in</span>
+                                              [seq,p0,d1v,ap,aperp,y,d2v,jerk]]
+            opt_fi.zero_grad()
+            adaptive_loss(model(seq),p0,d1v,ap,aperp,y,d2v,jerk).backward()
+            nn.utils.clip_grad_norm_(model.parameters(),<span class="hljs-number">2.0</span>)
+            opt_fi.step()
+
+        model.<span class="hljs-built_in">eval</span>(); preds=[]
+        <span class="hljs-keyword">with</span> torch.no_grad():
+            <span class="hljs-keyword">for</span> seq,p0,d1v,ap,aperp,d2v,jerk <span class="hljs-keyword">in</span> va_ld:
+                seq,p0,d1v,ap,aperp,d2v,jerk=[t.to(DEVICE) <span class="hljs-keyword">for</span> t <span class="hljs-keyword">in</span>
+                                                [seq,p0,d1v,ap,aperp,d2v,jerk]]
+                preds.append(physics_predict_torch(
+                    p0,d1v,ap,aperp,model(seq),d2v=d2v,jerk=jerk).cpu().numpy())
+        h,dm=hit_rate(np.vstack(preds),Y_train[va_idx]); sched_fi.step(h)
+        <span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;  [Fine] Ep <span class="hljs-subst">{epoch:03d}</span> | Hit:<span class="hljs-subst">{h:<span class="hljs-number">.4</span>f}</span> | Dist:<span class="hljs-subst">{dm*<span class="hljs-number">100</span>:<span class="hljs-number">.4</span>f}</span>cm&quot;</span>)
+        <span class="hljs-keyword">if</span> h&gt;best_hit_fi:
+            best_hit_fi=h
+            best_state={k:v.cpu().clone() <span class="hljs-keyword">for</span> k,v <span class="hljs-keyword">in</span> model.state_dict().items()}
+            no_imp=<span class="hljs-number">0</span>; <span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;    ✓ Best! (<span class="hljs-subst">{best_hit_fi:<span class="hljs-number">.4</span>f}</span>)&quot;</span>)
+        <span class="hljs-keyword">else</span>:
+            no_imp+=<span class="hljs-number">1</span>
+            <span class="hljs-keyword">if</span> no_imp&gt;=<span class="hljs-number">20</span>: <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;    Early stopping&quot;</span>); <span class="hljs-keyword">break</span>
+
+    <span class="hljs-keyword">if</span> best_hit_fi&lt;best_hit:
+        best_state=pre_best; best_hit_fi=best_hit
+
+    fold_hits.append(best_hit_fi)
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;Fold <span class="hljs-subst">{fold+<span class="hljs-number">1</span>}</span> 완료 | Best: <span class="hljs-subst">{best_hit_fi:<span class="hljs-number">.4</span>f}</span>&quot;</span>)
+
+    model.load_state_dict(best_state); model.<span class="hljs-built_in">eval</span>()
+    te_p=[]; oof_p=[]
+    <span class="hljs-keyword">with</span> torch.no_grad():
+        <span class="hljs-keyword">for</span> seq,p0,d1v,ap,aperp,d2v,jerk <span class="hljs-keyword">in</span> te_ld:
+            seq,p0,d1v,ap,aperp,d2v,jerk=[t.to(DEVICE) <span class="hljs-keyword">for</span> t <span class="hljs-keyword">in</span>
+                                            [seq,p0,d1v,ap,aperp,d2v,jerk]]
+            te_p.append(physics_predict_torch(
+                p0,d1v,ap,aperp,model(seq),d2v=d2v,jerk=jerk).cpu().numpy())
+        <span class="hljs-keyword">for</span> seq,p0,d1v,ap,aperp,d2v,jerk <span class="hljs-keyword">in</span> va_ld:
+            seq,p0,d1v,ap,aperp,d2v,jerk=[t.to(DEVICE) <span class="hljs-keyword">for</span> t <span class="hljs-keyword">in</span>
+                                            [seq,p0,d1v,ap,aperp,d2v,jerk]]
+            oof_p.append(physics_predict_torch(
+                p0,d1v,ap,aperp,model(seq),d2v=d2v,jerk=jerk).cpu().numpy())
+    test_preds.append(np.vstack(te_p))
+    oof_preds[va_idx]=np.vstack(oof_p)
+
+<span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;\n&quot;</span>+<span class="hljs-string">&quot;=&quot;</span>*<span class="hljs-number">70</span>)
+<span class="hljs-keyword">for</span> i,h <span class="hljs-keyword">in</span> <span class="hljs-built_in">enumerate</span>(fold_hits): <span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;  Fold <span class="hljs-subst">{i+<span class="hljs-number">1</span>}</span>: <span class="hljs-subst">{h:<span class="hljs-number">.4</span>f}</span>&quot;</span>)
+<span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;  평균: <span class="hljs-subst">{np.mean(fold_hits):<span class="hljs-number">.4</span>f}</span>&quot;</span>)
+
+oof_h,oof_d=hit_rate(oof_preds,Y_train)
+<span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;OOF: <span class="hljs-subst">{oof_h:<span class="hljs-number">.4</span>f}</span> | 거리: <span class="hljs-subst">{oof_d*<span class="hljs-number">100</span>:<span class="hljs-number">.4</span>f}</span>cm&quot;</span>)</code></pre></div></section><section class="nb-cell nb-markdown-cell"><h2 id="8-후처리--weighted-lgbm-잔차-보정"><a class="anchor" href="#8-후처리--weighted-lgbm-잔차-보정" aria-hidden="true"></a>8. 후처리 — Weighted LGBM 잔차 보정</h2><p>딥러닝 구조는 그대로 두고, OOF 잔차를 LGBM이 학습하되 0.01 경계 주변 샘플에 더 큰 가중치를 줘서 경계 밖 점을 안쪽으로 밉니다. 과보정 방지를 위해 보정폭은 축당 ±0.0035로 제한합니다.</p>
+<blockquote>
+<p><strong>참고:</strong> alpha 후보(0.00~0.30)를 모두 제출 파일로 만들어 두고, 최종 제출은 OOF가 아닌 Public LB를 보고 0.14를 선택했습니다. 결과적으로 Public 0.7022 → Private 0.700으로 하락했는데, OOF 기준을 믿고 더 보수적인 alpha를 골랐어야 했습니다.</p>
+</blockquote>
+</section><section class="nb-cell nb-code-cell"><div class="nb-source nb-input"><pre><code class="lang-python" data-language="python"><span class="hljs-comment"># 최종 제출: 원본 10-fold 전체 평균(all) + LightGBM Residual</span>
+final_all = np.mean(test_preds, axis=<span class="hljs-number">0</span>)
+
+<span class="hljs-comment"># 참고용: good selection도 함께 저장</span>
+thr = np.mean(fold_hits) - <span class="hljs-number">0.005</span>
+good = [i <span class="hljs-keyword">for</span> i, h <span class="hljs-keyword">in</span> <span class="hljs-built_in">enumerate</span>(fold_hits) <span class="hljs-keyword">if</span> h &gt;= thr]
+final_good = np.mean([test_preds[i] <span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> good], axis=<span class="hljs-number">0</span>)
+<span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;All folds 사용:&quot;</span>, <span class="hljs-built_in">list</span>(<span class="hljs-built_in">range</span>(<span class="hljs-number">1</span>, <span class="hljs-built_in">len</span>(test_preds)+<span class="hljs-number">1</span>)))
+<span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;Good folds 사용:&quot;</span>, [i+<span class="hljs-number">1</span> <span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> good])
+
+<span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">make_submission</span>(<span class="hljs-params">pred, fn</span>):</span>
+    df = pd.DataFrame({<span class="hljs-string">&#x27;id&#x27;</span>: test_ids, <span class="hljs-string">&#x27;x&#x27;</span>: pred[:,<span class="hljs-number">0</span>], <span class="hljs-string">&#x27;y&#x27;</span>: pred[:,<span class="hljs-number">1</span>], <span class="hljs-string">&#x27;z&#x27;</span>: pred[:,<span class="hljs-number">2</span>]})
+    sample_sub[[<span class="hljs-string">&#x27;id&#x27;</span>]].merge(df, on=<span class="hljs-string">&#x27;id&#x27;</span>, how=<span class="hljs-string">&#x27;left&#x27;</span>).to_csv(fn, index=<span class="hljs-literal">False</span>)
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;✓ <span class="hljs-subst">{fn}</span>&quot;</span>)
+
+make_submission(final_all,  <span class="hljs-string">&#x27;/kaggle/working/submission_transformer_ep60_all.csv&#x27;</span>)
+make_submission(final_good, <span class="hljs-string">&#x27;/kaggle/working/submission_transformer_ep60_good.csv&#x27;</span>)
+
+<span class="hljs-comment"># ── Weighted LGBM residual boosting ──</span>
+<span class="hljs-comment"># 목적: 평균거리 감소가 아니라 hit boundary(0.01) 근처 샘플을 안쪽으로 밀기</span>
+USE_WEIGHTED_LGBM_RESIDUAL = <span class="hljs-literal">True</span>
+ALPHA_CANDIDATES = [<span class="hljs-built_in">round</span>(x, <span class="hljs-number">3</span>) <span class="hljs-keyword">for</span> x <span class="hljs-keyword">in</span> np.arange(<span class="hljs-number">0.00</span>, <span class="hljs-number">0.301</span>, <span class="hljs-number">0.01</span>)]
+RESIDUAL_CLIP = <span class="hljs-number">0.0035</span>       <span class="hljs-comment"># 한 축당 최대 보정폭 제한</span>
+LGBM_META_SPLITS = <span class="hljs-number">5</span>
+
+<span class="hljs-comment"># hit boundary 가중치</span>
+HARD_WEIGHT = <span class="hljs-number">1.5</span>            <span class="hljs-comment"># err &gt; 0.010</span>
+BOUNDARY_WEIGHT = <span class="hljs-number">2.0</span>        <span class="hljs-comment"># 0.010 &lt; err &lt; 0.013</span>
+NEAR_BOUNDARY_WEIGHT = <span class="hljs-number">1.3</span>   <span class="hljs-comment"># 0.008 &lt; err &lt;= 0.010</span>
+
+<span class="hljs-keyword">if</span> USE_WEIGHTED_LGBM_RESIDUAL:
+    <span class="hljs-keyword">try</span>:
+        <span class="hljs-keyword">import</span> lightgbm <span class="hljs-keyword">as</span> lgb
+    <span class="hljs-keyword">except</span> Exception:
+        <span class="hljs-keyword">import</span> sys, subprocess
+        subprocess.check_call([sys.executable, <span class="hljs-string">&#x27;-m&#x27;</span>, <span class="hljs-string">&#x27;pip&#x27;</span>, <span class="hljs-string">&#x27;install&#x27;</span>, <span class="hljs-string">&#x27;-q&#x27;</span>, <span class="hljs-string">&#x27;lightgbm&#x27;</span>])
+        <span class="hljs-keyword">import</span> lightgbm <span class="hljs-keyword">as</span> lgb
+
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">build_lgbm_features</span>(<span class="hljs-params">seq_n, p0, d1v, ap, aperp, d2v, jerk, base_pred</span>):</span>
+        <span class="hljs-string">&quot;&quot;&quot;딥러닝 구조는 건드리지 않고, base prediction 주변 정보만 사용.&quot;&quot;&quot;</span>
+        move = base_pred - p0
+        speed = np.linalg.norm(d1v, axis=<span class="hljs-number">1</span>, keepdims=<span class="hljs-literal">True</span>)
+        acc = ap + aperp
+        acc_norm = np.linalg.norm(acc, axis=<span class="hljs-number">1</span>, keepdims=<span class="hljs-literal">True</span>)
+        aperp_norm = np.linalg.norm(aperp, axis=<span class="hljs-number">1</span>, keepdims=<span class="hljs-literal">True</span>)
+        d2_norm = np.linalg.norm(d2v, axis=<span class="hljs-number">1</span>, keepdims=<span class="hljs-literal">True</span>)
+        jerk_norm = np.linalg.norm(jerk, axis=<span class="hljs-number">1</span>, keepdims=<span class="hljs-literal">True</span>)
+        move_norm = np.linalg.norm(move, axis=<span class="hljs-number">1</span>, keepdims=<span class="hljs-literal">True</span>)
+        d1_norm = np.linalg.norm(d1v, axis=<span class="hljs-number">1</span>, keepdims=<span class="hljs-literal">True</span>) + EPS
+        move_norm_safe = move_norm + EPS
+        cos_move_d1 = np.<span class="hljs-built_in">sum</span>(move * d1v, axis=<span class="hljs-number">1</span>, keepdims=<span class="hljs-literal">True</span>) / (move_norm_safe * d1_norm)
+        cos_move_acc = np.<span class="hljs-built_in">sum</span>(move * acc, axis=<span class="hljs-number">1</span>, keepdims=<span class="hljs-literal">True</span>) / (move_norm_safe * (acc_norm + EPS))
+        seq_flat = seq_n.reshape(seq_n.shape[<span class="hljs-number">0</span>], -<span class="hljs-number">1</span>)
+        feats = np.concatenate([
+            seq_flat, p0, d1v, ap, aperp, d2v, jerk,
+            base_pred, move,
+            speed, acc_norm, aperp_norm, d2_norm, jerk_norm, move_norm,
+            cos_move_d1, cos_move_acc,
+        ], axis=<span class="hljs-number">1</span>).astype(np.float32)
+        <span class="hljs-keyword">return</span> feats
+
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;\n[Weighted LGBM residual] feature 생성...&quot;</span>)
+    X_meta = build_lgbm_features(
+        SEQ_TRN_N, P0_TRN, D1V_TRN, AP_TRN, APERP_TRN, D2V_TRN, JERK_TRN, oof_preds)
+    X_meta_test = build_lgbm_features(
+        SEQ_TST_N, P0_TST, D1V_TST, AP_TST, APERP_TST, D2V_TST, JERK_TST, final_all)
+    y_res = (Y_train - oof_preds).astype(np.float32)
+
+    <span class="hljs-comment"># OOF error 기준 sample weight</span>
+    oof_err = np.linalg.norm(oof_preds - Y_train, axis=<span class="hljs-number">1</span>)
+    sample_weight = np.ones(<span class="hljs-built_in">len</span>(oof_err), dtype=np.float32)
+    near_boundary = (oof_err &gt; <span class="hljs-number">0.008</span>) &amp; (oof_err &lt;= R_HIT)
+    hard = oof_err &gt; R_HIT
+    boundary = (oof_err &gt; R_HIT) &amp; (oof_err &lt; <span class="hljs-number">0.013</span>)
+    sample_weight[near_boundary] = NEAR_BOUNDARY_WEIGHT
+    sample_weight[hard] = HARD_WEIGHT
+    sample_weight[boundary] = BOUNDARY_WEIGHT
+
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;[LGBM] X_meta: <span class="hljs-subst">{X_meta.shape}</span>, residual: <span class="hljs-subst">{y_res.shape}</span>&quot;</span>)
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;[LGBM] base OOF err &gt; 0.010: <span class="hljs-subst">{hard.mean():<span class="hljs-number">.4</span>f}</span>&quot;</span>)
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;[LGBM] sample_weight mean: <span class="hljs-subst">{sample_weight.mean():<span class="hljs-number">.4</span>f}</span>&quot;</span>)
+
+    <span class="hljs-comment"># 얕고 규제 강한 LGBM (residual noise 암기 방지)</span>
+    lgb_params = <span class="hljs-built_in">dict</span>(
+        n_estimators=<span class="hljs-number">600</span>, learning_rate=<span class="hljs-number">0.02</span>, num_leaves=<span class="hljs-number">24</span>, max_depth=<span class="hljs-number">3</span>,
+        min_child_samples=<span class="hljs-number">120</span>, subsample=<span class="hljs-number">0.80</span>, subsample_freq=<span class="hljs-number">1</span>,
+        colsample_bytree=<span class="hljs-number">0.80</span>, reg_alpha=<span class="hljs-number">0.3</span>, reg_lambda=<span class="hljs-number">2.0</span>,
+        objective=<span class="hljs-string">&#x27;regression&#x27;</span>, random_state=<span class="hljs-number">42</span>, n_jobs=-<span class="hljs-number">1</span>, verbose=-<span class="hljs-number">1</span>)
+
+    <span class="hljs-comment"># Residual 모델도 OOF로 검증</span>
+    meta_kf = KFold(n_splits=LGBM_META_SPLITS, shuffle=<span class="hljs-literal">True</span>, random_state=<span class="hljs-number">42</span>)
+    res_oof = np.zeros_like(y_res, dtype=np.float32)
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;[LGBM] OOF residual 학습...&quot;</span>)
+    <span class="hljs-keyword">for</span> mfold, (mtr, mva) <span class="hljs-keyword">in</span> <span class="hljs-built_in">enumerate</span>(meta_kf.split(X_meta), <span class="hljs-number">1</span>):
+        <span class="hljs-keyword">for</span> axis <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">3</span>):
+            model_lgb = lgb.LGBMRegressor(**lgb_params)
+            model_lgb.fit(X_meta[mtr], y_res[mtr, axis], sample_weight=sample_weight[mtr])
+            res_oof[mva, axis] = model_lgb.predict(X_meta[mva]).astype(np.float32)
+        res_tmp = np.clip(res_oof[mva], -RESIDUAL_CLIP, RESIDUAL_CLIP)
+        h_tmp, d_tmp = hit_rate(oof_preds[mva] + <span class="hljs-number">0.05</span> * res_tmp, Y_train[mva])
+        <span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;  MetaFold <span class="hljs-subst">{mfold}</span>/<span class="hljs-subst">{LGBM_META_SPLITS}</span> | alpha=0.05 OOF Hit:<span class="hljs-subst">{h_tmp:<span class="hljs-number">.5</span>f}</span>&quot;</span>)
+    res_oof = np.clip(res_oof, -RESIDUAL_CLIP, RESIDUAL_CLIP)
+
+    <span class="hljs-comment"># alpha 후보별 OOF hit 계산</span>
+    rows = []
+    base_h, base_d = hit_rate(oof_preds, Y_train)
+    best_alpha = <span class="hljs-number">0.0</span>; best_hit = base_h; best_dist = base_d
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;\n[LGBM] alpha별 OOF 예상 성능&quot;</span>)
+    <span class="hljs-keyword">for</span> a <span class="hljs-keyword">in</span> ALPHA_CANDIDATES:
+        h, d = hit_rate(oof_preds + a * res_oof, Y_train)
+        rows.append({<span class="hljs-string">&#x27;alpha&#x27;</span>: a, <span class="hljs-string">&#x27;oof_hit&#x27;</span>: h, <span class="hljs-string">&#x27;oof_dist_cm&#x27;</span>: d * <span class="hljs-number">100</span>})
+        <span class="hljs-keyword">if</span> (h &gt; best_hit) <span class="hljs-keyword">or</span> (h == best_hit <span class="hljs-keyword">and</span> d &lt; best_dist):
+            best_alpha, best_hit, best_dist = a, h, d
+    pd.DataFrame(rows).to_csv(<span class="hljs-string">&#x27;/kaggle/working/weighted_lgbm_residual_alpha_oof_results.csv&#x27;</span>, index=<span class="hljs-literal">False</span>)
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;[LGBM] OOF 최적 alpha: <span class="hljs-subst">{best_alpha:<span class="hljs-number">.3</span>f}</span> | OOF Hit:<span class="hljs-subst">{best_hit:<span class="hljs-number">.5</span>f}</span>&quot;</span>)
+
+    <span class="hljs-comment"># 전체 residual 데이터로 최종 LGBM 학습 후 test residual 예측</span>
+    <span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;[LGBM] full residual 모델 학습 및 test 보정...&quot;</span>)
+    res_test = np.zeros_like(final_all, dtype=np.float32)
+    <span class="hljs-keyword">for</span> axis <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">3</span>):
+        model_lgb = lgb.LGBMRegressor(**lgb_params)
+        model_lgb.fit(X_meta, y_res[:, axis], sample_weight=sample_weight)
+        res_test[:, axis] = model_lgb.predict(X_meta_test).astype(np.float32)
+    res_test = np.clip(res_test, -RESIDUAL_CLIP, RESIDUAL_CLIP)</code></pre></div></section><section class="nb-cell nb-markdown-cell"><h2 id="9-제출-파일-생성"><a class="anchor" href="#9-제출-파일-생성" aria-hidden="true"></a>9. 제출 파일 생성</h2><p>alpha 후보별 제출 파일을 모두 만들고, OOF 최적 alpha와 실제 최종 제출(alpha=0.14)을 각각 저장합니다.</p>
+</section><section class="nb-cell nb-code-cell"><div class="nb-source nb-input"><pre><code class="lang-python" data-language="python"><span class="hljs-keyword">if</span> USE_WEIGHTED_LGBM_RESIDUAL:
+    <span class="hljs-comment"># 후보 alpha별 제출 파일 생성</span>
+    <span class="hljs-keyword">for</span> a <span class="hljs-keyword">in</span> ALPHA_CANDIDATES:
+        pred_lgb = final_all + a * res_test
+        alpha_tag = <span class="hljs-string">f&#x27;<span class="hljs-subst">{a:<span class="hljs-number">.3</span>f}</span>&#x27;</span>.replace(<span class="hljs-string">&#x27;.&#x27;</span>, <span class="hljs-string">&#x27;p&#x27;</span>)
+        make_submission(pred_lgb, <span class="hljs-string">f&#x27;/kaggle/working/submission_weighted_lgbm_residual_alpha_<span class="hljs-subst">{alpha_tag}</span>.csv&#x27;</span>)
+
+    <span class="hljs-comment"># OOF 기준 best alpha 제출</span>
+    pred_best = final_all + best_alpha * res_test
+    make_submission(pred_best, <span class="hljs-string">&#x27;/kaggle/working/submission_weighted_lgbm_residual_best_oof.csv&#x27;</span>)
+
+    <span class="hljs-comment"># 최종 제출: alpha=0.14 (Public LB 기준 선택)</span>
+    pred_final = final_all + <span class="hljs-number">0.14</span> * res_test
+    make_submission(pred_final, <span class="hljs-string">&#x27;/kaggle/working/submission_FINAL_alpha_0p140.csv&#x27;</span>)
+
+<span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;\n완료!&quot;</span>)</code></pre></div></section></div>

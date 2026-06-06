@@ -1,0 +1,20 @@
+handle: 남뻐글이          # DACON 닉네임 (team: 평창감자). ASCII 불가 → 폴더는 pb07011-14011
+rank: ~                  # private 순위 미명시 (제목 "PB 0.7011")
+score:
+  public: ~
+  private: 0.7011        # 노트북 제목 "[PB 0.7011]"
+source_url: https://dacon.io/competitions/official/236716/codeshare/14011
+fetched_at: 2026-06-06
+license: unknown
+files:
+  - notebook: notes/winners/pb07011-14011/md_file.html
+  - notebook_dump: notes/winners/pb07011-14011/notebook_dump.md   # Phase B 산출
+  - data_used: [train, train_labels, test, sample_submission]
+paradigm_tag: physics-core + GRU residual (TrajGRU-Physics; CV·rotation·damping dynamics + temporal encoder residual branch, 3seed×5fold=15 K-fold ensemble)
+reproduction_status: pending
+notes: |
+  - 자체 완결 단일 .ipynb (Windows 11 / py3.14 / torch 2.11). 코드 셀 ~7개. seeds=(42,1337,2023) 고정.
+  - "TrajGRU-Physics": 원본 물리모델(LB 0.699 베이스, 등속·회전·감쇠 동역학 코어)을 충실히 유지 + 실데이터 배선·K-fold 앙상블·early stopping·시계열 인코더 잔차분기 추가.
+  - 앙상블: 3 seed × 5 fold = 15 모델, sliding-window 증강, early stopping, 1cm hit-rate 최적화, test 예측 평균.
+  - 단일 arch(physics+GRU residual)를 K-fold 다중화로 안정화 — GOH30 의 multi-arch 와 대비되는 "단일 arch 심화" 노선.
+  - 출력: submissions_nn/submission_trajgru_physics.csv. 단독 lever ΔLB 미측정 (Phase B 추출만).

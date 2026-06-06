@@ -1,0 +1,593 @@
+<link rel="stylesheet" href="https://dacon.io/codecss/notebook2.css">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@9.15.10/build/styles/zenburn.min.css" crossorigin="anonymous">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.11.1/dist/katex.min.css" crossorigin="anonymous">
+        <div class="nb-notebook"><section class="nb-cell nb-markdown-cell"><h1 id="🦟-trajgru-physics--물리구조-신경망-lb-0699-베이스--구조-개선"><a class="anchor" href="#🦟-trajgru-physics--물리구조-신경망-lb-0699-베이스--구조-개선" aria-hidden="true"></a>🦟 TrajGRU-Physics — 물리구조 신경망 (LB 0.699 베이스 + 구조 개선)</h1><p>원본 물리모델을 충실히 유지하면서 실데이터 배선·K-fold 앙상블·early stopping·시계열 인코더 잔차분기를 추가.</p>
+</section><section class="nb-cell nb-markdown-cell"><h2 id="실행-환경-및-라이브러리-버전"><a class="anchor" href="#실행-환경-및-라이브러리-버전" aria-hidden="true"></a>실행 환경 및 라이브러리 버전</h2><ul>
+<li><strong>OS</strong>: Windows 11 (10.0.26200)</li>
+<li><strong>Python</strong>: 3.14.5</li>
+<li><strong>numpy</strong>: 2.4.4</li>
+<li><strong>pandas</strong>: 3.0.3</li>
+<li><strong>scikit-learn</strong>: 1.8.0</li>
+<li><strong>tqdm</strong>: 4.67.3</li>
+<li><strong>PyTorch (torch)</strong>: 2.11.0+cu128</li>
+</ul>
+<p><strong>데이터 경로</strong>: 모든 입/출력 경로는 상대 경로로 지정되어 있습니다.
+이 노트북과 <strong>같은 폴더</strong>에 아래 데이터가 위치해야 합니다.</p>
+<pre><code>TrajGRU_Physics.ipynb   ← 이 노트북
+train/                  ← TRAIN_*.csv
+test/                   ← TEST_*.csv
+train_labels.csv
+sample_submission.csv
+</code></pre>
+<p>출력(제출 파일)은 <code>submissions_nn/submission_trajgru_physics.csv</code> 로 저장됩니다.</p>
+<p><strong>재현성</strong>: 시드(42, 1337, 2023)가 고정되어 있어 동일 환경에서 Private Score 복원이 가능합니다.</p>
+</section><section class="nb-cell nb-code-cell"><div class="nb-source nb-input"><pre><code class="lang-python" data-language="python"><span class="hljs-comment"># ============================================================</span>
+<span class="hljs-comment"># TrajGRU-Physics — 물리구조 신경망 회귀</span>
+<span class="hljs-comment">#</span>
+<span class="hljs-comment"># 물리학 기반 추론 모델 대비 개선:</span>
+<span class="hljs-comment">#   1. 실제 대회 데이터 배선 (train_labels.csv + TRAIN_*.csv)  </span>
+<span class="hljs-comment">#   2. K-fold 앙상블 — fold 모델 test 평균 + OOF honest hit</span>
+<span class="hljs-comment">#   3. val hit-rate 기준 early stopping + 충분한 epochs (최대 40, patience 6)</span>
+<span class="hljs-comment">#   4. 시계열 인코더(GRU) 잔차 분기:</span>
+<span class="hljs-comment">#        물리 코어 예측 + 학습된 시퀀스-모양 보정 (zero-init → 물리모델서 출발, 안전)</span>
+<span class="hljs-comment"># ============================================================</span>
+<span class="hljs-keyword">import</span> os, random
+<span class="hljs-keyword">from</span> pathlib <span class="hljs-keyword">import</span> Path
+<span class="hljs-keyword">import</span> numpy <span class="hljs-keyword">as</span> np
+<span class="hljs-keyword">import</span> pandas <span class="hljs-keyword">as</span> pd
+<span class="hljs-keyword">import</span> torch
+<span class="hljs-keyword">import</span> torch.nn <span class="hljs-keyword">as</span> nn
+<span class="hljs-keyword">import</span> torch.nn.functional <span class="hljs-keyword">as</span> F
+<span class="hljs-keyword">from</span> torch.utils.data <span class="hljs-keyword">import</span> Dataset, DataLoader, WeightedRandomSampler
+<span class="hljs-keyword">from</span> sklearn.model_selection <span class="hljs-keyword">import</span> KFold
+<span class="hljs-keyword">from</span> tqdm.auto <span class="hljs-keyword">import</span> tqdm
+
+
+<span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">set_seed</span>(<span class="hljs-params">seed=<span class="hljs-number">42</span></span>):</span>
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    <span class="hljs-keyword">if</span> torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+
+
+<span class="hljs-keyword">if</span> torch.cuda.is_available():
+    device = torch.device(<span class="hljs-string">&quot;cuda&quot;</span>)
+<span class="hljs-keyword">elif</span> torch.backends.mps.is_available():
+    device = torch.device(<span class="hljs-string">&quot;mps&quot;</span>)
+<span class="hljs-keyword">else</span>:
+    device = torch.device(<span class="hljs-string">&quot;cpu&quot;</span>)
+<span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;device:&quot;</span>, device)
+
+<span class="hljs-comment"># ── 경로 (대회 포맷, 상대 경로) ──</span>
+<span class="hljs-comment"># 이 노트북과 같은 폴더에 train/, test/, train_labels.csv, sample_submission.csv 가 있어야 함</span>
+ROOT       = Path(<span class="hljs-string">&quot;.&quot;</span>)
+TRAIN_DIR  = ROOT / <span class="hljs-string">&quot;train&quot;</span>
+TEST_DIR   = ROOT / <span class="hljs-string">&quot;test&quot;</span>
+TRAIN_LABELS_PATH      = ROOT / <span class="hljs-string">&quot;train_labels.csv&quot;</span>
+SAMPLE_SUBMISSION_PATH = ROOT / <span class="hljs-string">&quot;sample_submission.csv&quot;</span>
+OUTPUT_DIR = Path(<span class="hljs-string">&quot;submissions_nn&quot;</span>)
+OUTPUT_DIR.mkdir(exist_ok=<span class="hljs-literal">True</span>)
+
+<span class="hljs-comment"># ── 설정 ──</span>
+R_HIT           = <span class="hljs-number">0.01</span>          <span class="hljs-comment"># 평가 기준 (1cm)</span>
+N_FOLDS         = <span class="hljs-number">5</span>
+SEEDS           = [<span class="hljs-number">42</span>, <span class="hljs-number">1337</span>, <span class="hljs-number">2023</span>]          <span class="hljs-comment"># 더 큰 앙상블 원하면 [42, 1337] 등</span>
+MAX_EPOCHS      = <span class="hljs-number">40</span>
+PATIENCE        = <span class="hljs-number">6</span>
+BATCH           = <span class="hljs-number">512</span>
+MIN_WIN         = <span class="hljs-number">3</span>
+AUG_MODE        = <span class="hljs-string">&quot;extended&quot;</span>    <span class="hljs-comment"># 다중타겟 + 슬라이딩윈도우 증강</span>
+USE_SEQ_ENCODER = <span class="hljs-literal">True</span>          <span class="hljs-comment"># 시계열 인코더 잔차 분기</span>
+<span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;N_FOLDS=<span class="hljs-subst">{N_FOLDS}</span> SEEDS=<span class="hljs-subst">{SEEDS}</span> MAX_EPOCHS=<span class="hljs-subst">{MAX_EPOCHS}</span> &quot;</span>
+      <span class="hljs-string">f&quot;USE_SEQ_ENCODER=<span class="hljs-subst">{USE_SEQ_ENCODER}</span>&quot;</span>)
+</code></pre></div></section><section class="nb-cell nb-markdown-cell"><h2 id="1-데이터-로드-실제-대회-포맷"><a class="anchor" href="#1-데이터-로드-실제-대회-포맷" aria-hidden="true"></a>1. 데이터 로드 (실제 대회 포맷)</h2></section><section class="nb-cell nb-code-cell"><div class="nb-source nb-input"><pre><code class="lang-python" data-language="python"><span class="hljs-comment"># ============================================================</span>
+<span class="hljs-comment"># 1. 데이터 로드 (실제 대회 포맷)</span>
+<span class="hljs-comment"># ============================================================</span>
+train_labels      = pd.read_csv(TRAIN_LABELS_PATH)
+sample_submission = pd.read_csv(SAMPLE_SUBMISSION_PATH)
+
+label_ids      = <span class="hljs-built_in">set</span>(train_labels[<span class="hljs-string">&quot;id&quot;</span>].astype(<span class="hljs-built_in">str</span>))
+submission_ids = <span class="hljs-built_in">set</span>(sample_submission[<span class="hljs-string">&quot;id&quot;</span>].astype(<span class="hljs-built_in">str</span>))
+
+train_files = <span class="hljs-built_in">sorted</span>([p <span class="hljs-keyword">for</span> p <span class="hljs-keyword">in</span> TRAIN_DIR.glob(<span class="hljs-string">&quot;TRAIN_*.csv&quot;</span>) <span class="hljs-keyword">if</span> p.stem <span class="hljs-keyword">in</span> label_ids])
+test_files  = <span class="hljs-built_in">sorted</span>([p <span class="hljs-keyword">for</span> p <span class="hljs-keyword">in</span> TEST_DIR.glob(<span class="hljs-string">&quot;TEST_*.csv&quot;</span>)   <span class="hljs-keyword">if</span> p.stem <span class="hljs-keyword">in</span> submission_ids])
+<span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;train files: <span class="hljs-subst">{<span class="hljs-built_in">len</span>(train_files)}</span>  |  test files: <span class="hljs-subst">{<span class="hljs-built_in">len</span>(test_files)}</span>&quot;</span>)
+
+
+<span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">read_xyz</span>(<span class="hljs-params">path</span>):</span>
+    df = pd.read_csv(path)
+    <span class="hljs-keyword">if</span> <span class="hljs-string">&quot;timestep_ms&quot;</span> <span class="hljs-keyword">in</span> df.columns:
+        df = df.sort_values(<span class="hljs-string">&quot;timestep_ms&quot;</span>)
+    xyz = df[[<span class="hljs-string">&quot;x&quot;</span>, <span class="hljs-string">&quot;y&quot;</span>, <span class="hljs-string">&quot;z&quot;</span>]].to_numpy(dtype=np.float32)
+    <span class="hljs-keyword">if</span> xyz.shape != (<span class="hljs-number">11</span>, <span class="hljs-number">3</span>):
+        <span class="hljs-keyword">raise</span> ValueError(<span class="hljs-string">f&quot;<span class="hljs-subst">{path}</span> shape <span class="hljs-subst">{xyz.shape}</span> != (11, 3)&quot;</span>)
+    <span class="hljs-keyword">return</span> xyz
+
+
+<span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">load_stack</span>(<span class="hljs-params">files</span>):</span>
+    <span class="hljs-keyword">return</span> np.stack([read_xyz(p) <span class="hljs-keyword">for</span> p <span class="hljs-keyword">in</span> tqdm(files, desc=<span class="hljs-string">&quot;loading&quot;</span>)], axis=<span class="hljs-number">0</span>).astype(np.float32)
+
+
+<span class="hljs-built_in">print</span>(<span class="hljs-string">&quot;Loading train/test xyz...&quot;</span>)
+X_train   = load_stack(train_files)
+X_test    = load_stack(test_files)
+train_ids = [p.stem <span class="hljs-keyword">for</span> p <span class="hljs-keyword">in</span> train_files]
+test_ids  = [p.stem <span class="hljs-keyword">for</span> p <span class="hljs-keyword">in</span> test_files]
+y_train   = train_labels.set_index(<span class="hljs-string">&quot;id&quot;</span>).loc[train_ids][[<span class="hljs-string">&quot;x&quot;</span>, <span class="hljs-string">&quot;y&quot;</span>, <span class="hljs-string">&quot;z&quot;</span>]].to_numpy(dtype=np.float32)
+<span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;X_train <span class="hljs-subst">{X_train.shape}</span>  X_test <span class="hljs-subst">{X_test.shape}</span>  y_train <span class="hljs-subst">{y_train.shape}</span>&quot;</span>)
+</code></pre></div></section><section class="nb-cell nb-markdown-cell"><h2 id="2-슬라이딩-윈도우-데이터셋-증강"><a class="anchor" href="#2-슬라이딩-윈도우-데이터셋-증강" aria-hidden="true"></a>2. 슬라이딩 윈도우 데이터셋 (증강)</h2></section><section class="nb-cell nb-code-cell"><div class="nb-source nb-input"><pre><code class="lang-python" data-language="python"><span class="hljs-comment"># ============================================================</span>
+<span class="hljs-comment"># 2. 슬라이딩 윈도우 데이터셋 (등속 외삽 패딩 + 회전 오버샘플)</span>
+<span class="hljs-comment"># ============================================================</span>
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">SlidingWindowDataset</span>(<span class="hljs-params">Dataset</span>):</span>
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">__init__</span>(<span class="hljs-params">self, X, y, min_win=<span class="hljs-number">3</span>, mode=<span class="hljs-string">&quot;extended&quot;</span>, device=<span class="hljs-string">&quot;cpu&quot;</span></span>):</span>
+        X_tensor = torch.tensor(X, dtype=torch.float32)
+        y_tensor = torch.tensor(y, dtype=torch.float32)
+
+        windows = []
+        <span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-built_in">len</span>(X)):
+            targets = [<span class="hljs-number">4</span>, <span class="hljs-number">5</span>, <span class="hljs-number">6</span>, <span class="hljs-number">7</span>, <span class="hljs-number">8</span>, <span class="hljs-number">9</span>, <span class="hljs-number">10</span>, <span class="hljs-number">12</span>] <span class="hljs-keyword">if</span> mode == <span class="hljs-string">&quot;extended&quot;</span> <span class="hljs-keyword">else</span> [<span class="hljs-number">12</span>, <span class="hljs-number">10</span>]
+            <span class="hljs-keyword">for</span> target_idx <span class="hljs-keyword">in</span> targets:
+                end_idx = target_idx - <span class="hljs-number">2</span>
+                max_w = end_idx + <span class="hljs-number">2</span> <span class="hljs-keyword">if</span> mode == <span class="hljs-string">&quot;extended&quot;</span> <span class="hljs-keyword">else</span> (<span class="hljs-number">12</span> <span class="hljs-keyword">if</span> target_idx == <span class="hljs-number">12</span> <span class="hljs-keyword">else</span> <span class="hljs-number">10</span>)
+                <span class="hljs-keyword">for</span> w <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(min_win, max_w):
+                    windows.append((i, w, target_idx))
+
+        X_list, y_list = [], []
+        <span class="hljs-keyword">for</span> i, w, target_idx <span class="hljs-keyword">in</span> windows:
+            X_orig = X_tensor[i]
+            end_idx = target_idx - <span class="hljs-number">2</span>
+            pts = X_orig[end_idx - w + <span class="hljs-number">1</span> : end_idx + <span class="hljs-number">1</span>]   <span class="hljs-comment"># 실제 조각 (길이 w)</span>
+
+            <span class="hljs-keyword">if</span> target_idx == <span class="hljs-number">12</span>:
+                target = y_tensor[i]
+            <span class="hljs-keyword">else</span>:
+                target = X_orig[target_idx]
+
+            <span class="hljs-keyword">if</span> w &lt; <span class="hljs-number">11</span>:
+                <span class="hljs-comment"># 등속 외삽 패딩 (과거 방향 역투영)</span>
+                v0 = pts[<span class="hljs-number">1</span>] - pts[<span class="hljs-number">0</span>]
+                n_pad = <span class="hljs-number">11</span> - w
+                js = torch.arange(n_pad, <span class="hljs-number">0</span>, -<span class="hljs-number">1</span>, dtype=torch.float32)
+                pad = pts[<span class="hljs-number">0</span>:<span class="hljs-number">1</span>] - js.unsqueeze(<span class="hljs-number">1</span>) * v0.unsqueeze(<span class="hljs-number">0</span>)
+                X_padded = torch.cat([pad, pts], dim=<span class="hljs-number">0</span>)
+            <span class="hljs-keyword">else</span>:
+                X_padded = pts.clone()
+
+            X_list.append(X_padded)
+            y_list.append(target)
+
+        self.X_all = torch.stack(X_list).to(device)
+        self.y_all = torch.stack(y_list).to(device)
+
+        <span class="hljs-comment"># 급회전 궤적 오버샘플용 회전각 가중치</span>
+        diffs = self.X_all[:, <span class="hljs-number">1</span>:] - self.X_all[:, :-<span class="hljs-number">1</span>]
+        n1 = diffs[:, <span class="hljs-number">1</span>:].norm(dim=<span class="hljs-number">2</span>).clamp(<span class="hljs-built_in">min</span>=<span class="hljs-number">1e-8</span>)
+        n2 = diffs[:, :-<span class="hljs-number">1</span>].norm(dim=<span class="hljs-number">2</span>).clamp(<span class="hljs-built_in">min</span>=<span class="hljs-number">1e-8</span>)
+        cos_t = ((diffs[:, <span class="hljs-number">1</span>:] * diffs[:, :-<span class="hljs-number">1</span>]).<span class="hljs-built_in">sum</span>(dim=<span class="hljs-number">2</span>) / (n1 * n2)).clamp(-<span class="hljs-number">1</span>, <span class="hljs-number">1</span>)
+        theta_last = torch.acos(cos_t[:, -<span class="hljs-number">1</span>])
+        self.theta_weights = (<span class="hljs-number">1.0</span> + <span class="hljs-number">4.0</span> * (theta_last / <span class="hljs-number">1.0</span>).clamp(<span class="hljs-number">0</span>, <span class="hljs-number">1</span>)).cpu().numpy()
+
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">__len__</span>(<span class="hljs-params">self</span>):</span>
+        <span class="hljs-keyword">return</span> <span class="hljs-built_in">len</span>(self.X_all)
+
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">__getitem__</span>(<span class="hljs-params">self, idx</span>):</span>
+        <span class="hljs-keyword">return</span> self.X_all[idx], self.y_all[idx]
+</code></pre></div></section><section class="nb-cell nb-markdown-cell"><h2 id="3-피처-추출--신경망-컴포넌트"><a class="anchor" href="#3-피처-추출--신경망-컴포넌트" aria-hidden="true"></a>3. 피처 추출 + 신경망 컴포넌트</h2></section><section class="nb-cell nb-code-cell"><div class="nb-source nb-input"><pre><code class="lang-python" data-language="python"><span class="hljs-comment"># ============================================================</span>
+<span class="hljs-comment"># 3. 피처 추출 + 로컬 좌표계 + 신경망 컴포넌트</span>
+<span class="hljs-comment"># ============================================================</span>
+<span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">_ema_va_local</span>(<span class="hljs-params">diffs_local, alpha, beta</span>):</span>
+    B, T, _ = diffs_local.shape
+    one_m_a = <span class="hljs-number">1.0</span> - alpha
+    one_m_b = <span class="hljs-number">1.0</span> - beta
+
+    vs = diffs_local.new_empty(B, T, <span class="hljs-number">3</span>)
+    v = diffs_local[:, <span class="hljs-number">0</span>]
+    vs[:, <span class="hljs-number">0</span>] = v
+    <span class="hljs-keyword">for</span> t <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">1</span>, T):
+        v = alpha * diffs_local[:, t] + one_m_a * v
+        vs[:, t] = v
+    vl = vs[:, -<span class="hljs-number">1</span>]
+
+    ad = vs[:, <span class="hljs-number">1</span>:] - vs[:, :-<span class="hljs-number">1</span>]
+    a = ad[:, <span class="hljs-number">0</span>]
+    <span class="hljs-keyword">for</span> t <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">1</span>, T - <span class="hljs-number">1</span>):
+        a = beta * ad[:, t] + one_m_b * a
+
+    <span class="hljs-keyword">return</span> vl, a
+
+
+<span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">_soft_hit_loss</span>(<span class="hljs-params">pred, target, thr=<span class="hljs-number">0.013012</span>, k=<span class="hljs-number">408.348</span></span>):</span>
+    <span class="hljs-keyword">return</span> (<span class="hljs-number">1</span> - torch.sigmoid(-(torch.norm(pred - target, dim=<span class="hljs-number">1</span>) - thr) * k)).mean()
+
+
+<span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">extract_features</span>(<span class="hljs-params">X, mean_stats=<span class="hljs-literal">None</span>, std_stats=<span class="hljs-literal">None</span>, dir_net=<span class="hljs-literal">None</span>, heading_mode=<span class="hljs-string">&quot;3step&quot;</span></span>):</span>
+    device = X.device
+    p_last = X[:, <span class="hljs-number">10</span>]
+    diffs  = X[:, <span class="hljs-number">1</span>:] - X[:, :-<span class="hljs-number">1</span>]
+
+    n1 = diffs[:, <span class="hljs-number">1</span>:].norm(dim=<span class="hljs-number">2</span>, keepdim=<span class="hljs-literal">True</span>) + <span class="hljs-number">1e-8</span>
+    n2 = diffs[:, :-<span class="hljs-number">1</span>].norm(dim=<span class="hljs-number">2</span>, keepdim=<span class="hljs-literal">True</span>) + <span class="hljs-number">1e-8</span>
+    cos_t     = ((diffs[:, <span class="hljs-number">1</span>:] * diffs[:, :-<span class="hljs-number">1</span>]).<span class="hljs-built_in">sum</span>(dim=<span class="hljs-number">2</span>, keepdim=<span class="hljs-literal">True</span>) / (n1 * n2)).clamp(-<span class="hljs-number">1</span>, <span class="hljs-number">1</span>)
+    theta_seq = torch.acos(cos_t).squeeze(<span class="hljs-number">2</span>)
+
+    theta       = theta_seq[:, -<span class="hljs-number">1</span>:]
+    theta_mean  = theta_seq.mean(<span class="hljs-number">1</span>, keepdim=<span class="hljs-literal">True</span>)
+    theta_std   = theta_seq.std(<span class="hljs-number">1</span>, keepdim=<span class="hljs-literal">True</span>)
+    theta_vel   = theta_seq[:, -<span class="hljs-number">1</span>:] - theta_seq[:, -<span class="hljs-number">2</span>:-<span class="hljs-number">1</span>]
+    theta_acc   = theta_seq[:, -<span class="hljs-number">1</span>:] - <span class="hljs-number">2</span> * theta_seq[:, -<span class="hljs-number">2</span>:-<span class="hljs-number">1</span>] + theta_seq[:, -<span class="hljs-number">3</span>:-<span class="hljs-number">2</span>]
+    theta_trend = theta_seq[:, -<span class="hljs-number">1</span>:] - theta_seq[:, -<span class="hljs-number">3</span>:].mean(<span class="hljs-number">1</span>, keepdim=<span class="hljs-literal">True</span>)
+
+    <span class="hljs-keyword">if</span> dir_net <span class="hljs-keyword">is</span> <span class="hljs-keyword">not</span> <span class="hljs-literal">None</span>:
+        speed_seq = diffs.norm(dim=<span class="hljs-number">2</span>)
+        state = torch.cat([speed_seq, theta_seq], dim=<span class="hljs-number">1</span>)
+        <span class="hljs-keyword">if</span> dir_net[<span class="hljs-number">0</span>].in_features == <span class="hljs-number">29</span>:
+            z_speed_seq = diffs[:, :, <span class="hljs-number">2</span>].<span class="hljs-built_in">abs</span>()
+            state = torch.cat([state, z_speed_seq], dim=<span class="hljs-number">1</span>)
+        weights = F.softmax(dir_net(state), dim=<span class="hljs-number">1</span>)
+        v_sm = (diffs * weights.unsqueeze(<span class="hljs-number">2</span>)).<span class="hljs-built_in">sum</span>(dim=<span class="hljs-number">1</span>)
+    <span class="hljs-keyword">else</span>:
+        <span class="hljs-keyword">if</span> heading_mode == <span class="hljs-string">&quot;3step&quot;</span>:
+            v_sm = (<span class="hljs-number">3</span> * diffs[:, -<span class="hljs-number">1</span>] + <span class="hljs-number">2</span> * diffs[:, -<span class="hljs-number">2</span>] + diffs[:, -<span class="hljs-number">3</span>]) / <span class="hljs-number">6.0</span>
+        <span class="hljs-keyword">else</span>:
+            v_sm = diffs[:, -<span class="hljs-number">1</span>]
+
+    fwd   = v_sm / (v_sm.norm(dim=<span class="hljs-number">1</span>, keepdim=<span class="hljs-literal">True</span>) + <span class="hljs-number">1e-8</span>)
+    up_w  = torch.zeros_like(fwd); up_w[:, <span class="hljs-number">2</span>] = <span class="hljs-number">1.0</span>
+    up_w[fwd[:, <span class="hljs-number">2</span>].<span class="hljs-built_in">abs</span>() &gt; <span class="hljs-number">0.99</span>] = torch.tensor([<span class="hljs-number">0.</span>, <span class="hljs-number">1.</span>, <span class="hljs-number">0.</span>], device=device)
+    right = torch.cross(fwd, up_w, dim=<span class="hljs-number">1</span>)
+    right = right / (right.norm(dim=<span class="hljs-number">1</span>, keepdim=<span class="hljs-literal">True</span>) + <span class="hljs-number">1e-8</span>)
+    up    = torch.cross(right, fwd, dim=<span class="hljs-number">1</span>)
+    up    = up / (up.norm(dim=<span class="hljs-number">1</span>, keepdim=<span class="hljs-literal">True</span>) + <span class="hljs-number">1e-8</span>)
+    R     = torch.stack([fwd, right, up], dim=<span class="hljs-number">2</span>)
+
+    v_last  = diffs[:, -<span class="hljs-number">1</span>]
+    v_prev1 = diffs[:, -<span class="hljs-number">2</span>]
+    speed   = v_last.norm(dim=<span class="hljs-number">1</span>, keepdim=<span class="hljs-literal">True</span>)
+    a_last  = v_last - v_prev1
+    acc_mag = a_last.norm(dim=<span class="hljs-number">1</span>, keepdim=<span class="hljs-literal">True</span>)
+    v_local = torch.matmul(v_last.unsqueeze(<span class="hljs-number">1</span>), R).squeeze(<span class="hljs-number">1</span>)
+    a_local = torch.matmul(a_last.unsqueeze(<span class="hljs-number">1</span>), R).squeeze(<span class="hljs-number">1</span>)
+
+    X_local     = torch.matmul(X - p_last.unsqueeze(<span class="hljs-number">1</span>), R)
+    p_std_local = X_local.std(<span class="hljs-number">1</span>)
+    v_local_abs = v_local.<span class="hljs-built_in">abs</span>()
+    jerk_g      = diffs[:, -<span class="hljs-number">1</span>] - <span class="hljs-number">2</span> * diffs[:, -<span class="hljs-number">2</span>] + diffs[:, -<span class="hljs-number">3</span>]
+    jerk_l      = torch.matmul(jerk_g.unsqueeze(<span class="hljs-number">1</span>), R).squeeze(<span class="hljs-number">1</span>)
+    jerk_mag    = jerk_g.norm(dim=<span class="hljs-number">1</span>, keepdim=<span class="hljs-literal">True</span>)
+
+    features = torch.cat([
+        v_local, a_local, speed, acc_mag,
+        theta, theta_mean, theta_std, theta_trend, theta_vel, theta_acc,
+        p_std_local, v_local_abs, jerk_l, jerk_mag
+    ], dim=<span class="hljs-number">1</span>)
+
+    <span class="hljs-keyword">if</span> mean_stats <span class="hljs-keyword">is</span> <span class="hljs-literal">None</span> <span class="hljs-keyword">or</span> std_stats <span class="hljs-keyword">is</span> <span class="hljs-literal">None</span>:
+        mean_stats = features.mean(<span class="hljs-number">0</span>, keepdim=<span class="hljs-literal">True</span>)
+        std_stats  = features.std(<span class="hljs-number">0</span>, keepdim=<span class="hljs-literal">True</span>) + <span class="hljs-number">1e-8</span>
+    features_scaled = (features - mean_stats) / std_stats
+
+    <span class="hljs-keyword">return</span> features_scaled, diffs, p_last, theta, theta_mean, theta_std, theta_seq, R, speed, mean_stats, std_stats
+
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">ResBlock</span>(<span class="hljs-params">nn.Module</span>):</span>
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">__init__</span>(<span class="hljs-params">self, dim</span>):</span>
+        <span class="hljs-built_in">super</span>().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(dim, dim), nn.LayerNorm(dim), nn.GELU(),
+            nn.Dropout(<span class="hljs-number">0.15</span>), nn.Linear(dim, dim)
+        )
+        self.ln = nn.LayerNorm(dim)
+
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">forward</span>(<span class="hljs-params">self, x</span>):</span>
+        <span class="hljs-keyword">return</span> self.ln(x + self.net(x))
+
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">PriorBiasedLinear</span>(<span class="hljs-params">nn.Module</span>):</span>
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">__init__</span>(<span class="hljs-params">self, in_features, out_features, prior_bias</span>):</span>
+        <span class="hljs-built_in">super</span>().__init__()
+        self.linear = nn.Linear(in_features, out_features)
+        self.register_buffer(<span class="hljs-string">&#x27;prior_bias&#x27;</span>, prior_bias.clone().detach())
+        <span class="hljs-keyword">with</span> torch.no_grad():
+            nn.init.zeros_(self.linear.weight)
+            nn.init.zeros_(self.linear.bias)
+
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">forward</span>(<span class="hljs-params">self, x</span>):</span>
+        <span class="hljs-keyword">return</span> self.linear(x) + self.prior_bias
+
+
+<span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">rodrigues_rotate</span>(<span class="hljs-params">v, w</span>):</span>
+    theta = w.norm(dim=<span class="hljs-number">1</span>, keepdim=<span class="hljs-literal">True</span>)
+    k = w / (theta + <span class="hljs-number">1e-8</span>)
+    cos_t = torch.cos(theta)
+    sin_t = torch.sin(theta)
+    dot = (v * k).<span class="hljs-built_in">sum</span>(dim=<span class="hljs-number">1</span>, keepdim=<span class="hljs-literal">True</span>)
+    cross = torch.cross(k, v, dim=<span class="hljs-number">1</span>)
+    <span class="hljs-keyword">return</span> v * cos_t + cross * sin_t + k * dot * (<span class="hljs-number">1.0</span> - cos_t)
+
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">SeqEncoder</span>(<span class="hljs-params">nn.Module</span>):</span>
+    <span class="hljs-string">&quot;&quot;&quot;로컬-프레임 스텝 변위 시퀀스를 GRU 로 인코딩 → 로컬 잔차 보정(3D).
+    마지막 Linear zero-init → 학습 시작 시 보정=0 (물리모델에서 출발, 안전).&quot;&quot;&quot;</span>
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">__init__</span>(<span class="hljs-params">self, hidden=<span class="hljs-number">32</span></span>):</span>
+        <span class="hljs-built_in">super</span>().__init__()
+        self.gru = nn.GRU(input_size=<span class="hljs-number">3</span>, hidden_size=hidden, num_layers=<span class="hljs-number">1</span>, batch_first=<span class="hljs-literal">True</span>)
+        self.head = nn.Sequential(nn.LayerNorm(hidden), nn.GELU(), nn.Linear(hidden, <span class="hljs-number">3</span>))
+        <span class="hljs-keyword">with</span> torch.no_grad():
+            nn.init.zeros_(self.head[-<span class="hljs-number">1</span>].weight)
+            nn.init.zeros_(self.head[-<span class="hljs-number">1</span>].bias)
+
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">forward</span>(<span class="hljs-params">self, seq_local</span>):</span>           <span class="hljs-comment"># (B, T, 3)</span>
+        _, h = self.gru(seq_local)
+        <span class="hljs-keyword">return</span> self.head(h[-<span class="hljs-number">1</span>])             <span class="hljs-comment"># (B, 3)</span>
+</code></pre></div></section><section class="nb-cell nb-markdown-cell"><h2 id="4-trajphysicsnet-모델--seqencoder"><a class="anchor" href="#4-trajphysicsnet-모델--seqencoder" aria-hidden="true"></a>4. TrajPhysicsNet 모델 (+ SeqEncoder)</h2></section><section class="nb-cell nb-code-cell"><div class="nb-source nb-input"><pre><code class="lang-python" data-language="python"><span class="hljs-comment"># ============================================================</span>
+<span class="hljs-comment"># 4. TrajPhysicsNet 모델</span>
+<span class="hljs-comment"># ============================================================</span>
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">TrajPhysicsNet</span>(<span class="hljs-params">nn.Module</span>):</span>
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">__init__</span>(<span class="hljs-params">self, input_dim=<span class="hljs-number">24</span>, **kwargs</span>):</span>
+        <span class="hljs-built_in">super</span>().__init__()
+        self.sh_thr    = kwargs.pop(<span class="hljs-string">&#x27;sh_thr&#x27;</span>,    <span class="hljs-number">0.013012</span>)
+        self.sh_k      = kwargs.pop(<span class="hljs-string">&#x27;sh_k&#x27;</span>,      <span class="hljs-number">408.348044</span>)
+        self.mse_w     = kwargs.pop(<span class="hljs-string">&#x27;mse_w&#x27;</span>,     <span class="hljs-number">129.172037</span>)
+        self.local_w   = kwargs.pop(<span class="hljs-string">&#x27;local_w&#x27;</span>,   <span class="hljs-number">0.050941</span>)
+        self.theta_thr = kwargs.pop(<span class="hljs-string">&#x27;theta_thr&#x27;</span>, <span class="hljs-number">1.087618</span>)
+        self.speed_thr = kwargs.pop(<span class="hljs-string">&#x27;speed_thr&#x27;</span>, <span class="hljs-number">0.034583</span>)
+        use_seq_encoder = kwargs.pop(<span class="hljs-string">&#x27;use_seq_encoder&#x27;</span>, <span class="hljs-literal">False</span>)
+        self.lr        = <span class="hljs-number">0.005400</span>
+        self.wd        = <span class="hljs-number">0.005659</span>
+
+        self.register_buffer(<span class="hljs-string">&quot;mean_stats&quot;</span>, torch.zeros(<span class="hljs-number">1</span>, input_dim))
+        self.register_buffer(<span class="hljs-string">&quot;std_stats&quot;</span>, torch.ones(<span class="hljs-number">1</span>, input_dim))
+
+        prior_dir = torch.tensor([-<span class="hljs-number">10.</span>, -<span class="hljs-number">10.</span>, -<span class="hljs-number">10.</span>, -<span class="hljs-number">10.</span>, -<span class="hljs-number">10.</span>, -<span class="hljs-number">10.</span>, -<span class="hljs-number">10.</span>, <span class="hljs-number">0.</span>, <span class="hljs-number">0.693</span>, <span class="hljs-number">1.098</span>])
+        self.dir_net = nn.Sequential(
+            nn.Linear(<span class="hljs-number">29</span>, <span class="hljs-number">24</span>), nn.LayerNorm(<span class="hljs-number">24</span>), nn.GELU(),
+            PriorBiasedLinear(<span class="hljs-number">24</span>, <span class="hljs-number">10</span>, prior_dir)
+        )
+
+        prior_ema = torch.zeros(<span class="hljs-number">6</span>)
+        self.temporal_net = nn.Sequential(
+            nn.Linear(<span class="hljs-number">9</span>, <span class="hljs-number">32</span>), nn.LayerNorm(<span class="hljs-number">32</span>), nn.GELU(),
+            PriorBiasedLinear(<span class="hljs-number">32</span>, <span class="hljs-number">6</span>, prior_ema)
+        )
+
+        prior_dyn = torch.tensor([
+            <span class="hljs-number">0.</span>, <span class="hljs-number">0.</span>, <span class="hljs-number">0.</span>, <span class="hljs-number">0.</span>, <span class="hljs-number">0.</span>, <span class="hljs-number">0.</span>,
+           -<span class="hljs-number">4.</span>, -<span class="hljs-number">4.</span>, -<span class="hljs-number">4.</span>, -<span class="hljs-number">4.</span>, -<span class="hljs-number">4.</span>, -<span class="hljs-number">4.</span>, -<span class="hljs-number">4.</span>, -<span class="hljs-number">4.</span>, -<span class="hljs-number">4.</span>, -<span class="hljs-number">4.</span>, -<span class="hljs-number">4.</span>, -<span class="hljs-number">4.</span>,
+           -<span class="hljs-number">4.</span>, -<span class="hljs-number">4.</span>, -<span class="hljs-number">4.</span>, -<span class="hljs-number">4.</span>, -<span class="hljs-number">4.</span>, -<span class="hljs-number">4.</span>, -<span class="hljs-number">4.</span>, -<span class="hljs-number">4.</span>, -<span class="hljs-number">4.</span>, -<span class="hljs-number">4.</span>, -<span class="hljs-number">4.</span>, -<span class="hljs-number">4.</span>,
+        ])
+        self.dynamics_net = nn.Sequential(
+            nn.Linear(input_dim, <span class="hljs-number">96</span>), nn.LayerNorm(<span class="hljs-number">96</span>), nn.GELU(),
+            ResBlock(<span class="hljs-number">96</span>),
+            PriorBiasedLinear(<span class="hljs-number">96</span>, <span class="hljs-number">30</span>, prior_dyn)
+        )
+
+        self.omega_w = nn.Parameter(torch.tensor([<span class="hljs-number">0.0</span>, -<span class="hljs-number">0.5</span>, -<span class="hljs-number">1.0</span>]))
+        self.omega_net = nn.Sequential(
+            nn.LayerNorm(input_dim),
+            nn.Linear(input_dim, <span class="hljs-number">48</span>),
+            nn.GELU(),
+            nn.Linear(<span class="hljs-number">48</span>, <span class="hljs-number">3</span>),
+        )
+        <span class="hljs-keyword">with</span> torch.no_grad():
+            nn.init.normal_(self.omega_net[-<span class="hljs-number">1</span>].weight, std=<span class="hljs-number">0.01</span>)
+            nn.init.zeros_(self.omega_net[-<span class="hljs-number">1</span>].bias)
+
+        self.diffusion_net = nn.Sequential(
+            nn.Linear(input_dim, <span class="hljs-number">32</span>), nn.LayerNorm(<span class="hljs-number">32</span>), nn.GELU(),
+            nn.Linear(<span class="hljs-number">32</span>, <span class="hljs-number">3</span>)
+        )
+
+        <span class="hljs-comment"># 시계열 인코더 잔차 분기 (zero-init)</span>
+        self.seq_encoder = SeqEncoder() <span class="hljs-keyword">if</span> use_seq_encoder <span class="hljs-keyword">else</span> <span class="hljs-literal">None</span>
+
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">get_features</span>(<span class="hljs-params">self, X, mean_stats=<span class="hljs-literal">None</span>, std_stats=<span class="hljs-literal">None</span></span>):</span>
+        <span class="hljs-keyword">return</span> extract_features(X, mean_stats, std_stats, self.dir_net, heading_mode=<span class="hljs-string">&quot;3step&quot;</span>)
+
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">_ema_va_local</span>(<span class="hljs-params">self, diffs_local, alpha, beta</span>):</span>
+        <span class="hljs-keyword">return</span> _ema_va_local(diffs_local, alpha, beta)
+
+<span class="hljs-meta">    @staticmethod</span>
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">_rotation_vector</span>(<span class="hljs-params">d_prev, d_curr</span>):</span>
+        n_prev = d_prev.norm(dim=<span class="hljs-number">1</span>, keepdim=<span class="hljs-literal">True</span>).clamp(<span class="hljs-built_in">min</span>=<span class="hljs-number">1e-8</span>)
+        n_curr = d_curr.norm(dim=<span class="hljs-number">1</span>, keepdim=<span class="hljs-literal">True</span>).clamp(<span class="hljs-built_in">min</span>=<span class="hljs-number">1e-8</span>)
+        d_hat_prev = d_prev / n_prev
+        d_hat_curr = d_curr / n_curr
+        cross  = torch.linalg.cross(d_hat_prev, d_hat_curr, dim=<span class="hljs-number">1</span>)
+        sin_t  = cross.norm(dim=<span class="hljs-number">1</span>, keepdim=<span class="hljs-literal">True</span>).clamp(<span class="hljs-built_in">min</span>=<span class="hljs-number">1e-8</span>)
+        cos_t  = (d_hat_prev * d_hat_curr).<span class="hljs-built_in">sum</span>(<span class="hljs-number">1</span>, keepdim=<span class="hljs-literal">True</span>).clamp(-<span class="hljs-number">0.9999</span>, <span class="hljs-number">0.9999</span>)
+        theta  = torch.atan2(sin_t, cos_t)
+        speed_gate = torch.sigmoid((n_prev + n_curr) * <span class="hljs-number">500</span> - <span class="hljs-number">5</span>)
+        <span class="hljs-keyword">return</span> cross / sin_t * theta * speed_gate
+
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">forward</span>(<span class="hljs-params">self, features, diffs, p_last, theta, speed, R</span>):</span>
+        B = diffs.shape[<span class="hljs-number">0</span>]
+
+        ema_raw = self.temporal_net(features[:, <span class="hljs-number">8</span>:<span class="hljs-number">17</span>])
+        alpha = torch.sigmoid(ema_raw[:, <span class="hljs-number">0</span>:<span class="hljs-number">3</span>]) * <span class="hljs-number">0.8</span> + <span class="hljs-number">0.1</span>
+        beta  = torch.sigmoid(ema_raw[:, <span class="hljs-number">3</span>:<span class="hljs-number">6</span>]) * <span class="hljs-number">0.199</span> + <span class="hljs-number">0.8</span>
+
+        dyn_raw = self.dynamics_net(features)
+        w_v = <span class="hljs-number">2.0</span> + dyn_raw[:, <span class="hljs-number">0</span>:<span class="hljs-number">3</span>]
+        w_a = <span class="hljs-number">1.0</span> + dyn_raw[:, <span class="hljs-number">3</span>:<span class="hljs-number">6</span>]
+        v_local_abs  = features[:, <span class="hljs-number">17</span>:<span class="hljs-number">20</span>]
+        v_local_abs2 = v_local_abs * v_local_abs
+        theta2 = theta * theta
+
+        exp_v = (F.softplus(dyn_raw[:,  <span class="hljs-number">6</span>: <span class="hljs-number">9</span>]) * v_local_abs  +
+                 F.softplus(dyn_raw[:,  <span class="hljs-number">9</span>:<span class="hljs-number">12</span>]) * v_local_abs2 +
+                 F.softplus(dyn_raw[:, <span class="hljs-number">12</span>:<span class="hljs-number">15</span>]) * theta        +
+                 F.softplus(dyn_raw[:, <span class="hljs-number">15</span>:<span class="hljs-number">18</span>]) * theta2)
+        exp_a = (F.softplus(dyn_raw[:, <span class="hljs-number">18</span>:<span class="hljs-number">21</span>]) * v_local_abs  +
+                 F.softplus(dyn_raw[:, <span class="hljs-number">21</span>:<span class="hljs-number">24</span>]) * v_local_abs2 +
+                 F.softplus(dyn_raw[:, <span class="hljs-number">24</span>:<span class="hljs-number">27</span>]) * theta        +
+                 F.softplus(dyn_raw[:, <span class="hljs-number">27</span>:<span class="hljs-number">30</span>]) * theta2)
+
+        diffs_local = torch.matmul(diffs, R)
+        vl, al = self._ema_va_local(diffs_local, alpha, beta)
+
+        diff_speed = diffs_local.norm(dim=<span class="hljs-number">2</span>)
+
+        <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">rv_masked</span>(<span class="hljs-params">ka, kb</span>):</span>
+            rv    = self._rotation_vector(diffs_local[:, ka], diffs_local[:, kb])
+            valid = ((diff_speed[:, ka] &gt; <span class="hljs-number">1e-5</span>) &amp; (diff_speed[:, kb] &gt; <span class="hljs-number">1e-5</span>)).<span class="hljs-built_in">float</span>()
+            <span class="hljs-keyword">return</span> rv * valid.unsqueeze(<span class="hljs-number">1</span>), valid
+
+        ov1, vm1 = rv_masked(-<span class="hljs-number">2</span>, -<span class="hljs-number">1</span>)
+        ov2, vm2 = rv_masked(-<span class="hljs-number">3</span>, -<span class="hljs-number">2</span>)
+        ov3, vm3 = rv_masked(-<span class="hljs-number">4</span>, -<span class="hljs-number">3</span>)
+
+        w_logits = self.omega_w.view(<span class="hljs-number">1</span>, <span class="hljs-number">3</span>).expand(B, -<span class="hljs-number">1</span>)
+        masks = torch.stack([vm1, vm2, vm3], dim=<span class="hljs-number">1</span>)
+        w_logits_masked = w_logits.masked_fill(masks == <span class="hljs-number">0</span>, -<span class="hljs-number">1e9</span>)
+        w_attn = F.softmax(w_logits_masked, dim=<span class="hljs-number">1</span>)
+
+        omega_hist = (w_attn[:, <span class="hljs-number">0</span>].unsqueeze(<span class="hljs-number">1</span>) * ov1 +
+                      w_attn[:, <span class="hljs-number">1</span>].unsqueeze(<span class="hljs-number">1</span>) * ov2 +
+                      w_attn[:, <span class="hljs-number">2</span>].unsqueeze(<span class="hljs-number">1</span>) * ov3)
+
+        current_speed = speed.view(B, <span class="hljs-number">1</span>) <span class="hljs-keyword">if</span> speed <span class="hljs-keyword">is</span> <span class="hljs-keyword">not</span> <span class="hljs-literal">None</span> <span class="hljs-keyword">else</span> diff_speed[:, -<span class="hljs-number">1</span>].unsqueeze(<span class="hljs-number">1</span>)
+        omega_speed_gate = torch.sigmoid(current_speed * <span class="hljs-number">500</span> - <span class="hljs-number">5</span>)
+        omega_delta = self.omega_net(features) * omega_speed_gate
+
+        theta_scalar = theta.view(B, <span class="hljs-number">1</span>)
+        theta_gate = torch.sigmoid((theta_scalar - self.theta_thr) * <span class="hljs-number">10</span>)
+        speed_gate_strong = torch.sigmoid((current_speed - self.speed_thr) * <span class="hljs-number">200</span>)
+        rotation_gate = theta_gate * speed_gate_strong
+        omega = (omega_hist + omega_delta) * rotation_gate
+
+        v_rotated = rodrigues_rotate(vl, omega)
+
+        pred_local = (w_v * torch.exp(-exp_v)) * v_rotated + (w_a * torch.exp(-exp_a)) * al
+
+        <span class="hljs-comment"># 시계열 인코더 잔차 보정 (zero-init → 초기엔 0)</span>
+        <span class="hljs-keyword">if</span> self.seq_encoder <span class="hljs-keyword">is</span> <span class="hljs-keyword">not</span> <span class="hljs-literal">None</span>:
+            pred_local = pred_local + self.seq_encoder(diffs_local)
+
+        log_var = self.diffusion_net(features).clamp(<span class="hljs-built_in">min</span>=-<span class="hljs-number">5.0</span>, <span class="hljs-built_in">max</span>=<span class="hljs-number">5.0</span>)
+
+        pred_global = p_last + torch.einsum(<span class="hljs-string">&#x27;nij,nj-&gt;ni&#x27;</span>, R, pred_local)
+        <span class="hljs-keyword">return</span> pred_global, pred_local, log_var
+
+    <span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">compute_loss</span>(<span class="hljs-params">self, pp, yr, pred_local=<span class="hljs-literal">None</span>, yr_local=<span class="hljs-literal">None</span>, log_var=<span class="hljs-literal">None</span>, p_last=<span class="hljs-literal">None</span>, theta=<span class="hljs-literal">None</span>, **kwargs</span>):</span>
+        sh = _soft_hit_loss(pp, yr, thr=self.sh_thr, k=self.sh_k)
+        loss = sh + self.mse_w * F.mse_loss(pp, yr)
+
+        <span class="hljs-keyword">if</span> pred_local <span class="hljs-keyword">is</span> <span class="hljs-keyword">not</span> <span class="hljs-literal">None</span> <span class="hljs-keyword">and</span> yr_local <span class="hljs-keyword">is</span> <span class="hljs-keyword">not</span> <span class="hljs-literal">None</span> <span class="hljs-keyword">and</span> log_var <span class="hljs-keyword">is</span> <span class="hljs-keyword">not</span> <span class="hljs-literal">None</span>:
+            squared_error = (pred_local - yr_local) ** <span class="hljs-number">2</span>
+            nll_loss = <span class="hljs-number">0.5</span> * (torch.exp(-log_var) * squared_error + log_var)
+            loss = loss + self.local_w * nll_loss.mean()
+        <span class="hljs-keyword">elif</span> pred_local <span class="hljs-keyword">is</span> <span class="hljs-keyword">not</span> <span class="hljs-literal">None</span> <span class="hljs-keyword">and</span> yr_local <span class="hljs-keyword">is</span> <span class="hljs-keyword">not</span> <span class="hljs-literal">None</span>:
+            loss = loss + self.local_w * F.mse_loss(pred_local, yr_local)
+        <span class="hljs-keyword">return</span> loss
+</code></pre></div></section><section class="nb-cell nb-markdown-cell"><h2 id="5-k-fold-학습--앙상블"><a class="anchor" href="#5-k-fold-학습--앙상블" aria-hidden="true"></a>5. K-fold 학습 + 앙상블</h2></section><section class="nb-cell nb-code-cell"><div class="nb-source nb-input"><pre><code class="lang-python" data-language="python"><span class="hljs-comment"># ============================================================</span>
+<span class="hljs-comment"># 5. K-fold 학습 + 앙상블 (early stopping) + OOF 예측</span>
+<span class="hljs-comment"># ============================================================</span>
+<span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">train_one</span>(<span class="hljs-params">Xtr, ytr, Xval, yval, seed</span>):</span>
+    set_seed(seed)
+    tr_ds = SlidingWindowDataset(Xtr, ytr, min_win=MIN_WIN, mode=AUG_MODE, device=device)
+    va_ds = SlidingWindowDataset(Xval, yval, min_win=<span class="hljs-number">11</span>, mode=<span class="hljs-string">&quot;standard&quot;</span>, device=device)
+    sampler = WeightedRandomSampler(tr_ds.theta_weights, <span class="hljs-built_in">len</span>(tr_ds), replacement=<span class="hljs-literal">True</span>)
+    tr_loader = DataLoader(tr_ds, batch_size=BATCH, sampler=sampler)
+    va_loader = DataLoader(va_ds, batch_size=BATCH, shuffle=<span class="hljs-literal">False</span>)
+
+    model = TrajPhysicsNet(use_seq_encoder=USE_SEQ_ENCODER).to(device)
+    <span class="hljs-keyword">with</span> torch.no_grad():
+        _, _, _, _, _, _, _, _, _, mn, st = model.get_features(
+            torch.tensor(Xtr, dtype=torch.float32, device=device))
+        model.mean_stats.copy_(mn)
+        model.std_stats.copy_(st)
+
+    opt = torch.optim.AdamW(model.parameters(), lr=model.lr, weight_decay=model.wd)
+    sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=MAX_EPOCHS)
+
+    best_hit, best_state, bad = -<span class="hljs-number">1.0</span>, <span class="hljs-literal">None</span>, <span class="hljs-number">0</span>
+    <span class="hljs-keyword">for</span> epoch <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">1</span>, MAX_EPOCHS + <span class="hljs-number">1</span>):
+        model.train()
+        <span class="hljs-keyword">for</span> Xb, yb <span class="hljs-keyword">in</span> tr_loader:
+            opt.zero_grad(set_to_none=<span class="hljs-literal">True</span>)
+            ft, df, pl, th, _, _, _, Rt, sp, _, _ = model.get_features(Xb, model.mean_stats, model.std_stats)
+            pp, pred_local, log_var = model(ft, df, pl, th, sp, Rt)
+            yr_local = torch.matmul((yb - pl).unsqueeze(<span class="hljs-number">1</span>), Rt).squeeze(<span class="hljs-number">1</span>)
+            loss = model.compute_loss(pp, yb, pred_local, yr_local, log_var, p_last=pl, theta=th)
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=<span class="hljs-number">1.0</span>)
+            opt.step()
+        sched.step()
+
+        model.<span class="hljs-built_in">eval</span>()
+        hits, n = <span class="hljs-number">0</span>, <span class="hljs-number">0</span>
+        <span class="hljs-keyword">with</span> torch.no_grad():
+            <span class="hljs-keyword">for</span> Xv, yv <span class="hljs-keyword">in</span> va_loader:
+                ft, df, pl, th, _, _, _, Rt, sp, _, _ = model.get_features(Xv, model.mean_stats, model.std_stats)
+                pp, _, _ = model(ft, df, pl, th, sp, Rt)
+                hits += (torch.norm(pp - yv, dim=<span class="hljs-number">1</span>) &lt;= R_HIT).<span class="hljs-built_in">sum</span>().item()
+                n += <span class="hljs-built_in">len</span>(Xv)
+        hit = hits / <span class="hljs-built_in">max</span>(n, <span class="hljs-number">1</span>)
+        <span class="hljs-keyword">if</span> hit &gt; best_hit:
+            best_hit, bad = hit, <span class="hljs-number">0</span>
+            best_state = {k: v.detach().cpu().clone() <span class="hljs-keyword">for</span> k, v <span class="hljs-keyword">in</span> model.state_dict().items()}
+        <span class="hljs-keyword">else</span>:
+            bad += <span class="hljs-number">1</span>
+        <span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;  epoch <span class="hljs-subst">{epoch:02d}</span>  val hit=<span class="hljs-subst">{hit:<span class="hljs-number">.4</span>f}</span>  best=<span class="hljs-subst">{best_hit:<span class="hljs-number">.4</span>f}</span>  bad=<span class="hljs-subst">{bad}</span>&quot;</span>)
+        <span class="hljs-keyword">if</span> bad &gt;= PATIENCE:
+            <span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;  early stop @ epoch <span class="hljs-subst">{epoch}</span>&quot;</span>)
+            <span class="hljs-keyword">break</span>
+
+    model.load_state_dict(best_state)
+    <span class="hljs-keyword">return</span> model, best_hit
+
+
+<span class="hljs-meta">@torch.no_grad()</span>
+<span class="hljs-function"><span class="hljs-keyword">def</span> <span class="hljs-title">predict</span>(<span class="hljs-params">model, X</span>):</span>
+    model.<span class="hljs-built_in">eval</span>()
+    Xt = torch.tensor(X, dtype=torch.float32, device=device)
+    out = []
+    <span class="hljs-keyword">for</span> i <span class="hljs-keyword">in</span> <span class="hljs-built_in">range</span>(<span class="hljs-number">0</span>, <span class="hljs-built_in">len</span>(Xt), <span class="hljs-number">1024</span>):
+        b = Xt[i:i + <span class="hljs-number">1024</span>]
+        ft, df, pl, th, _, _, _, Rt, sp, _, _ = model.get_features(b, model.mean_stats, model.std_stats)
+        pp, _, _ = model(ft, df, pl, th, sp, Rt)
+        out.append(pp.cpu().numpy())
+    <span class="hljs-keyword">return</span> np.concatenate(out, <span class="hljs-number">0</span>)
+
+
+test_pred_sum = np.zeros((<span class="hljs-built_in">len</span>(X_test), <span class="hljs-number">3</span>), dtype=np.float64)
+oof_pred = np.zeros((<span class="hljs-built_in">len</span>(X_train), <span class="hljs-number">3</span>), dtype=np.float32)
+fold_hits, n_models = [], <span class="hljs-number">0</span>
+last_model = <span class="hljs-literal">None</span>
+
+<span class="hljs-keyword">for</span> seed <span class="hljs-keyword">in</span> SEEDS:
+    kf = KFold(n_splits=N_FOLDS, shuffle=<span class="hljs-literal">True</span>, random_state=seed)
+    <span class="hljs-keyword">for</span> fold, (tr_idx, va_idx) <span class="hljs-keyword">in</span> <span class="hljs-built_in">enumerate</span>(kf.split(X_train)):
+        <span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;\n[seed <span class="hljs-subst">{seed}</span> | fold <span class="hljs-subst">{fold + <span class="hljs-number">1</span>}</span>/<span class="hljs-subst">{N_FOLDS}</span>]  train=<span class="hljs-subst">{<span class="hljs-built_in">len</span>(tr_idx)}</span>  val=<span class="hljs-subst">{<span class="hljs-built_in">len</span>(va_idx)}</span>&quot;</span>)
+        model, best_hit = train_one(X_train[tr_idx], y_train[tr_idx],
+                                    X_train[va_idx], y_train[va_idx], seed)
+        fold_hits.append(best_hit)
+        oof_pred[va_idx] = predict(model, X_train[va_idx])   <span class="hljs-comment"># 단일 시드 기준 honest OOF</span>
+        test_pred_sum += predict(model, X_test)
+        n_models += <span class="hljs-number">1</span>
+        last_model = model
+
+test_pred = (test_pred_sum / n_models).astype(np.float32)
+oof_hit = <span class="hljs-built_in">float</span>(np.mean(np.linalg.norm(oof_pred - y_train, axis=<span class="hljs-number">1</span>) &lt;= R_HIT))
+<span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;\n=== K-fold 완료: <span class="hljs-subst">{n_models}</span> 모델 ===&quot;</span>)
+<span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;  fold best val hits: <span class="hljs-subst">{[<span class="hljs-built_in">round</span>(h, <span class="hljs-number">4</span>) <span class="hljs-keyword">for</span> h <span class="hljs-keyword">in</span> fold_hits]}</span>&quot;</span>)
+<span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;  OOF hit (LB 추정): <span class="hljs-subst">{oof_hit:<span class="hljs-number">.4</span>f}</span>&quot;</span>)
+</code></pre></div></section><section class="nb-cell nb-markdown-cell"><h2 id="6-제출-파일"><a class="anchor" href="#6-제출-파일" aria-hidden="true"></a>6. 제출 파일</h2></section><section class="nb-cell nb-code-cell"><div class="nb-source nb-input"><pre><code class="lang-python" data-language="python"><span class="hljs-comment"># ============================================================</span>
+<span class="hljs-comment"># 6. 제출 파일 작성 (sample_submission 순서에 정렬)</span>
+<span class="hljs-comment"># ============================================================</span>
+sub_df = pd.DataFrame({
+    <span class="hljs-string">&quot;id&quot;</span>: test_ids,
+    <span class="hljs-string">&quot;x&quot;</span>:  test_pred[:, <span class="hljs-number">0</span>],
+    <span class="hljs-string">&quot;y&quot;</span>:  test_pred[:, <span class="hljs-number">1</span>],
+    <span class="hljs-string">&quot;z&quot;</span>:  test_pred[:, <span class="hljs-number">2</span>],
+})
+sub = sample_submission[[<span class="hljs-string">&quot;id&quot;</span>]].merge(sub_df, on=<span class="hljs-string">&quot;id&quot;</span>, how=<span class="hljs-string">&quot;left&quot;</span>)
+<span class="hljs-keyword">if</span> sub.isna().<span class="hljs-built_in">sum</span>().<span class="hljs-built_in">sum</span>() &gt; <span class="hljs-number">0</span>:
+    <span class="hljs-keyword">raise</span> ValueError(<span class="hljs-string">&quot;submission 누락 존재 (test_ids 와 sample_submission id 불일치)&quot;</span>)
+
+out_path = OUTPUT_DIR / <span class="hljs-string">&quot;submission_trajgru_physics.csv&quot;</span>
+sub.to_csv(out_path, index=<span class="hljs-literal">False</span>)
+<span class="hljs-built_in">print</span>(<span class="hljs-string">f&quot;saved: <span class="hljs-subst">{out_path}</span>  (rows=<span class="hljs-subst">{<span class="hljs-built_in">len</span>(sub)}</span>)  | OOF hit=<span class="hljs-subst">{oof_hit:<span class="hljs-number">.4</span>f}</span>&quot;</span>)
+<span class="hljs-built_in">print</span>(sub.head())
+</code></pre></div></section></div>

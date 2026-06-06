@@ -1,0 +1,21 @@
+handle: wlstn52
+rank: 3
+score:
+  public: ~              # 미명시 (제목 "PB 0.7019")
+  private: 0.7019       # 노트북 제목 "[private 3rd] PB 0.7019"
+source_url: https://dacon.io/competitions/official/236716/codeshare/14009
+fetched_at: 2026-06-06
+license: unknown
+files:
+  - notebook: notes/winners/rank3-wlstn52/md_file.html
+  - notebook_dump: notes/winners/rank3-wlstn52/notebook_dump.md   # Phase B 산출
+  - data_used: [train, train_labels, test, sample_submission]
+paradigm_tag: 2-model weighted-average ensemble (HyperPhysics_xy2 5-fold + Kalman-residual BiGRU+Attn 5-fold, OOF grid-search blend)
+reproduction_status: pending
+notes: |
+  - 자체 완결 단일 .ipynb. 코드 셀 ~13개. "대회 막바지 급하게" 제작(작성자 desc).
+  - 전략: 메인 = HyperPhysics_xy2 (CREE 공개 "[LB_0.699+] 물리학 기반 추론 모델.ipynb" 인용 — 원본 코드 내려감) 5-fold → OOF + test. 보조 = Kalman 잔차 BiGRU+Attn 5-fold (다양성 확보).
+  - 블렌드: OOF 기반 (w1·Phys + w2·Kalman) 최적 가중치 grid search → 최적 가중치로 test 결합.
+  - 단일 모델 LB 0.696 → 5-fold 평균 + 2-모델 blend 로 0.7019.
+  - **HyperPhysics 계보 핵심 단서**: CREE 의 물리모델이 상위권 공통 ancestor (GOH30·rank9 CREE·rank3 모두 사용). cross-winner lineage.
+  - 단독 lever ΔLB 미측정 (Phase B 추출만).
