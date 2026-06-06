@@ -59,3 +59,13 @@
 }{\end{tcolorbox}}
 % 표가 페이지를 넘어가도 깨지지 않게
 \usepackage{longtable}
+% 가독성: 양끝맞춤(justify) 대신 왼쪽맞춤 → 글자간 간격 들쭉날쭉 제거
+\usepackage{ragged2e}
+\AtBeginDocument{\RaggedRight}
+% 표는 작은 글씨 + 좁은 칸 간격 + 셀 내 왼쪽맞춤 → 칸 넘침/겹침 방지
+\usepackage{etoolbox}
+\AtBeginEnvironment{longtable}{\footnotesize\setlength{\tabcolsep}{4pt}\RaggedRight}
+\AtBeginEnvironment{tabular}{\footnotesize\setlength{\tabcolsep}{4pt}}
+\setlength{\emergencystretch}{3em}
+% 긴 코드(texttt)도 줄바꿈 허용 (표 셀 넘침 최후 방어)
+\usepackage[htt]{hyphenat}
