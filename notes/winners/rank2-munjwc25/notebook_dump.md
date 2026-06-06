@@ -1,0 +1,27 @@
+## munjwc25 (Private 0.7031 / Public 0.7022) notebook_dump
+
+- **Cell 0 [MD]**: 제목 — Private 2위, 지표 R-Hit@1cm, 입력 11시점 3D→+80ms 예측. Run All→§7 이 submission_v157_ens3a0.4.csv 생성. 환경 Win11/py3.11.2/torch2.7.1. 구성 §1 코어·§2~§5 멤버 대표구현·§6 블렌드·§7 복원.
+- **Cell 1 [MD]**: §1 환경·데이터·공통코어(Kalman 잔차 / canonical frame / scalar features).
+- **Cell 2 [CODE]**: import(numpy/pandas/scipy CubicSpline·savgol/sklearn KFold·StandardScaler/torch). `seed_everything(0)`, `find_root`(data/ 탐색), device cpu, CACHE_DIR.
+- **Cell 3 [CODE]**: 상수 `DT=0.040, T_PRED=0.080, T_OBS=arange(-400,1,40)/1000`. `load_data()` — train/test 10000개 csv (11×3D), train_labels (x,y,z), ThreadPool 8워커, npz 캐시, assert N==10000.
+- **Cell 4 [CODE]**: `kalman_predict(X, sigma_obs=0.30e-3, sigma_proc=1.0)` 등속 칼만 +80ms 외삽(축별). `get_kalman` — main(0.30e-3)+alt(1.0e-3) 캐시. → 잔차 baseline.
+- **Cell 5 [CODE]**: 노이즈 `noise_poly2`(2차 다항 잔차), `noise_savgol`(w5 p2), `noise_loo_subset`(LOO CubicSpline RMSE). `build_scalar_feats`(speed/acc/jerk/straightness/turn_cos/noise 3종/이진 hard_turn,high_speed,high_acc/log_max_acc ≈40차원). `get_scalar_feats`(15컬럼 log1p).
+- **Cell 6 [CODE]**: `yaw_angle/rotate_xy/inverse_rotate_xy`(canonical yaw frame). `build_tier3`(rolling 속도8+cumsum9). `build_seq`→(N,T,9)=[rel,v,a]. `normalize_seq`(StandardScaler).
+- **Cell 7 [MD]**: §2 Pool A — Kalman 잔차 GRU(baseline).
+- **Cell 8 [CODE]**: `loss_euclid`, `loss_softhit(beta=0.002)`, `loss_combo=euclid+0.3*softhit`. `GRUModelMultiAux`(GRU 9→64 L1, fc 128→64 GELU dropout0.2, head_main tanh*2cm, aux_heads 2개(3,3)).
+- **Cell 9 [CODE]**: `run_kfold` — KFold(rs=0) seed앙상블, AdamW+CosineAnnealing, grad clip1.0, **R-Hit best early-stop**, 잔차→inverse_rotate→+kalman. lambda_F=lambda_W=0.3 aux loss. OOF R-Hit 계산.
+- **Cell 10 [MD]**: §3 Pool B — Neural ODE(RK4 적분).
+- **Cell 11 [CODE]**: `rotate_xy_seq`, **`mirror_seq/mirror_target`(y-flip 증강, v90/v104 패턴)** — seq[...,1/4/7]*=-1.
+- **Cell 12 [CODE]**: `ResBlock`(LayerNorm+residual MLP). `AccelField`(pos3,vel3,latent,speed→3). `NeuralODEModel`(backbone Linear→ResBlock×2, RK4 single-step dt80ms, dv/dt=-learned_damping*v+a, local/global_bias).
+- **Cell 13 [CODE]**: `loss_huber(delta=0.001)`, `loss_softhit(k=300,c=0.01)`, `loss_combined`=w_hit*hit+w_huber*huber(100)+w_reg*accel_reg(1e-4).
+- **Cell 14 [MD]**: §4 Pool C — Frenet 3D 프레임 + control-head.
+- **Cell 15 [CODE]**: `yaw_frame`, `frenet_frame`(t=last vel,n=GS(accel),b=t×n, degenerate→yaw fallback). `apply_R_seq/vec`, `mirror_seq`(Frenet=axis2 binormal, yaw=axis1).
+- **Cell 16 [CODE]**: `GRUODEModel`(GRU 9→64 L2 dropout0.1 + scal_proj + fuse ResBlock → AccelField RK4 ODE).
+- **Cell 17 [CODE]**: `ControlHead`(backbone→accel[+jerk] head, analytic disp=v_scale*v*T+0.5*a*T²[+j*T³/6], v_scale learned).
+- **Cell 18 [MD]**: §5 회전물리(HyperPhysics) — 공유 게시판 baseline 참고, 가중치 차용 없음.
+- **Cell 19 [CODE]**: `SlidingWindowDataset`(multi-target [4..12] 가변 윈도, 짧은건 등속 pad, **theta_weights=1+4*clamp(theta) oversample**). `_ema_va_local`, `_soft_hit_loss(thr=0.013012,k=408.348)`, `extract_features`(로컬프레임 v/a/theta/jerk, dir_net softmax heading).
+- **Cell 20 [CODE]**: `PriorBiasedLinear`(weight0+prior_bias), `rodrigues_rotate`, **`HyperPhysics_xy2`**(input24: dir_net/temporal EMA/dynamics softplus exp-decay/omega attention masked-softmax/Rodrigues/diffusion log_var, rotation_gate). `compute_loss`=softhit+mse_w*MSE(129.17)+local_w*NLL.
+- **Cell 21 [CODE]**: `predict_full`(batch512), `hit`(R-Hit@1cm), `train_fold`(WeightedRandomSampler, AdamW lr0.0054 wd0.0057, StepLR step2 gamma0.5, epochs14, min_win5).
+- **Cell 22 [MD]**: §6 블렌드 — **base=§2~§5 ~40멤버 DE conservative 블렌드(OOF 0.6831)**, phys_ens3=회전물리 3멤버 평균, **final=0.60*base+0.40*phys_ens3**. base 재학습 15~20h라 test 예측 압축 내장.
+- **Cell 23 [MD]**: §7 최종 복원 — 내장 base·phys 0.60:0.40 블렌드. RETRAIN_PHYS=True 면 §5 로 회전물리 5-fold 재학습.
+- **Cell 24 [CODE]**: §7 — `_BASE_B64/_PHYS_B64`(zlib+base64 압축 내장 예측, **멤버별 학습/DE블렌드 코드 비공개**). ALPHA_FINAL=0.40, RETRAIN_PHYS=False. `_decode`(zlib decompress float32 (10000,3)). `phys_member`(5-fold OOF, SPECS=[("xy2",42,dirnet),("xy2s1",1,dirnet),("xy2h3",42,3step)]). `final=0.6*base+0.4*phys_ens3` → submission_v157_ens3a0.4.csv (rows=10000, Private 0.7031).

@@ -1,0 +1,60 @@
+% 한글 PDF 빌드 header (pandoc -H). tectonic(XeTeX) + xeCJK + tcolorbox.
+% 💡 등 컬러 이모지는 라틴/CJK 폰트에 글리프가 없어 newunicodechar 로 단색 대체.
+\usepackage{newunicodechar}
+\usepackage{fontawesome5}
+\usepackage{amssymb}
+% --- 이모지/기호 → 렌더 가능한 단색 글리프 매핑 ---
+\newunicodechar{💡}{\textcolor[rgb]{0.85,0.5,0}{\faLightbulb}}
+\newunicodechar{🦟}{\textbf{*}}
+\newunicodechar{✅}{\textcolor[rgb]{0.1,0.6,0.1}{\checkmark}}
+\newunicodechar{❌}{\textcolor[rgb]{0.8,0.1,0.1}{\texttimes}}
+\newunicodechar{⚠}{\textbf{!}}
+\newunicodechar{⚡}{\faBolt}
+\newunicodechar{★}{\textbf{*}}
+\newunicodechar{☆}{\textbf{*}}
+\newunicodechar{✓}{\checkmark}
+\newunicodechar{✔}{\checkmark}
+\newunicodechar{✗}{\texttimes}
+\newunicodechar{✘}{\texttimes}
+\newunicodechar{→}{$\rightarrow$}
+\newunicodechar{←}{$\leftarrow$}
+\newunicodechar{⇒}{$\Rightarrow$}
+\newunicodechar{≈}{$\approx$}
+\newunicodechar{≤}{$\leq$}
+\newunicodechar{≥}{$\geq$}
+\newunicodechar{×}{$\times$}
+\newunicodechar{±}{$\pm$}
+\newunicodechar{•}{\textbullet}
+\newunicodechar{◆}{\textbf{*}}
+\newunicodechar{▶}{\textbf{>}}
+\newunicodechar{−}{\ensuremath{-}}
+\newunicodechar{∈}{\ensuremath{\in}}
+\newunicodechar{⊙}{\ensuremath{\odot}}
+\newunicodechar{≠}{\ensuremath{\neq}}
+\newunicodechar{≪}{\ensuremath{\ll}}
+\newunicodechar{≫}{\ensuremath{\gg}}
+\newunicodechar{↔}{\ensuremath{\leftrightarrow}}
+\newunicodechar{↑}{\ensuremath{\uparrow}}
+\newunicodechar{↓}{\ensuremath{\downarrow}}
+\newunicodechar{※}{\textasteriskcentered}
+\newunicodechar{○}{\ensuremath{\circ}}
+\newunicodechar{◎}{\ensuremath{\circledcirc}}
+\newunicodechar{△}{\ensuremath{\triangle}}
+\newunicodechar{①}{(1)}
+\newunicodechar{②}{(2)}
+\newunicodechar{③}{(3)}
+\newunicodechar{④}{(4)}
+\newunicodechar{⑤}{(5)}
+\newunicodechar{☐}{$\square$}
+\newunicodechar{☑}{\textbf{[v]}}
+\newunicodechar{️}{}
+% 누락 글리프는 경고만 내고 진행 (빌드 중단 방지)
+\tracinglostchars=1
+% --- blockquote 를 콜아웃 박스로 (💡 블록 강조) ---
+\usepackage[most]{tcolorbox}
+\tcbuselibrary{breakable}
+\renewenvironment{quote}{%
+  \begin{tcolorbox}[breakable,colback=orange!6,colframe=orange!55,boxrule=0.5pt,arc=2pt,left=5pt,right=5pt,top=3pt,bottom=3pt]%
+}{\end{tcolorbox}}
+% 표가 페이지를 넘어가도 깨지지 않게
+\usepackage{longtable}
