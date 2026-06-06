@@ -53,8 +53,9 @@
 % --- blockquote 를 콜아웃 박스로 (💡 블록 강조) ---
 \usepackage[most]{tcolorbox}
 \tcbuselibrary{breakable}
+% 프린트 적합: 배경은 흰색, 좌측 굵은 막대 + 얇은 테두리로만 구분 (잉크 최소)
 \renewenvironment{quote}{%
-  \begin{tcolorbox}[breakable,colback=orange!6,colframe=orange!55,boxrule=0.5pt,arc=2pt,left=5pt,right=5pt,top=3pt,bottom=3pt]%
+  \begin{tcolorbox}[breakable,colback=white,colframe=black!45,boxrule=0.4pt,arc=1pt,leftrule=2.2pt,left=6pt,right=5pt,top=3pt,bottom=3pt]%
 }{\end{tcolorbox}}
 % 표가 페이지를 넘어가도 깨지지 않게
 \usepackage{longtable}

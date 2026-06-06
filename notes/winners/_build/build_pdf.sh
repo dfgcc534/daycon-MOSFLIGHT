@@ -11,6 +11,7 @@ FONTDIR="/System/Library/Fonts/"
 
 pandoc "$SRC" -o "$OUT" --pdf-engine=tectonic \
   -H "$HERE/header.tex" \
+  --no-highlight \
   --toc --toc-depth=2 \
   -V documentclass=article \
   -V geometry:margin=2.2cm \
